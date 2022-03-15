@@ -43,7 +43,7 @@ import torch
 print_config()
 
 directory = '/media/mbcneuro/HDD1/DWI_Training_Data_INSP/'
-directory = 'D:/ctp_project_data/DWI_Training_Data_INSP/'
+# directory = 'D:/ctp_project_data/DWI_Training_Data_INSP/'
 root_dir = tempfile.mkdtemp() if directory is None else directory
 print(root_dir)
 
@@ -125,11 +125,7 @@ train_ds = Dataset(
 train_loader = DataLoader(train_ds, batch_size=2, shuffle=True, num_workers=4)
 
 val_ds = Dataset(
-    root_dir=root_dir,
-    transform=val_transform,
-    section="validation",
-    download=False,
-    cache_rate=0.0,
-    num_workers=4,
-)
+    data=val_files,
+    transform=val_transforms)
+
 val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=4)
