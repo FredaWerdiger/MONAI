@@ -198,7 +198,7 @@ loss_function = DiceLoss(to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4)
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
-max_epochs = 300
+max_epochs = 400
 val_interval = 4
 best_metric = -1
 best_metric_epoch = -1
@@ -226,9 +226,10 @@ for epoch in range(max_epochs):
         loss.backward()
         optimizer.step()
         epoch_loss += loss.item()
-        print(
-            f"{step}/{len(train_ds) // train_loader.batch_size}, "
-            f"train_loss: {loss.item():.4f}")
+        # print less, save time
+        # print(
+        #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
+        #     f"train_loss: {loss.item():.4f}")
     epoch_loss /= step
     epoch_loss_values.append(epoch_loss)
     print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
