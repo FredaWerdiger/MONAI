@@ -1,6 +1,7 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
 import os
+import math
 import shutil
 import tempfile
 import time
@@ -14,6 +15,7 @@ from monai.losses import DiceLoss
 from monai.apps import download_and_extract
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
+from sklearn.metrics import f1_score
 from monai.networks.nets import SegResNet, UNet
 from monai.networks.layers import Norm
 from monai.transforms import (
@@ -43,7 +45,12 @@ from monai.transforms import (
 )
 from monai.utils import first, set_determinism
 
+import pandas as pd
 import torch
+from jinja2 import Environment, FileSystemLoader
+import os
+import sys
+from termcolor import colored
 
 from GPUtil import showUtilization as gpu_usage
 from numba import cuda
@@ -65,10 +72,99 @@ free_gpu_cache()
 
 print_config()
 
-directory = '/media/mbcneuro/HDD1/DWI_Training_Data_INSP/'
-#directory = 'D:/ctp_project_data/DWI_Training_Data_INSP/'
-root_dir = tempfile.mkdtemp() if directory is None else directory
-print(root_dir)
+
+# for creating images
+def define_dvalues(dwi_img):
+    steps = int(dwi_img.shape[2]/18)
+    rem = int(dwi_img.shape[2]/steps)-18
+
+    if rem % 2 == 0:
+        d_min = 0 + int(rem/2*steps) + 1
+        d_max = dwi_img.shape[2] - int(rem/2*steps) + 1
+
+    elif rem % 2 != 0:
+        d_min = 0 + math.ceil(rem*steps/2)
+        d_max = dwi_img.shape[2] - math.ceil(rem/2*steps) + 1
+
+    d = range(d_min, d_max, steps)
+
+    if len(d) == 19:
+
+        d = d[1:]
+    return d
+
+
+def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250):
+    dwi_lesion_img = np.rot90(dwi_lesion_img)
+    dwi_img = np.rot90(dwi_img)
+    mask = dwi_lesion_img < 1
+    masked_im = np.ma.array(dwi_img, mask=~mask)
+
+    fig, axs = plt.subplots(3, 6, facecolor='k')
+    fig.subplots_adjust(hspace=-0.4, wspace=0)
+
+    axs = axs.ravel()
+
+    for i in range(len(d)):
+        axs[i].imshow(dwi_lesion_img[:, :,d[i]], cmap='Wistia', vmin=0.5, vmax=1)
+        axs[i].imshow(masked_im[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=0.15)
+        axs[i].axis('off')
+
+    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
+    plt.close()
+
+
+def create_mr_img(dwi_img, savefile, d, ext='png', dpi=250):
+    dwi_img = np.rot90(dwi_img)
+    fig, axs = plt.subplots(3, 6, facecolor='k')
+    fig.subplots_adjust(hspace=-0.4, wspace=0)
+    axs = axs.ravel()
+    for i in range(len(d)):
+        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=0.15)
+        axs[i].axis('off')
+    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
+    plt.close()
+
+
+def create_adc_img(dwi_img, savefile, d, ext='png', dpi=250):
+    dwi_img = np.rot90(dwi_img)
+    fig, axs = plt.subplots(3, 6, facecolor='k')
+    fig.subplots_adjust(hspace=-0.4, wspace=0)
+    axs = axs.ravel()
+    for i in range(len(d)):
+        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=0.7)
+        axs[i].axis('off')
+    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
+    plt.close()
+
+
+def create_overviewhtml(subject_id, df, outdir):
+    '''
+    Function that creates a HTML file with clinical information and imaging.
+    '''
+    templateLoader = FileSystemLoader(
+        searchpath='./')
+    templateEnv = Environment(loader=templateLoader)
+    TEMPLATE_FILE = "template.html"
+    template = templateEnv.get_template(TEMPLATE_FILE)
+
+    savefolder = outdir + 'htmls'
+    if not os.path.exists(savefolder):
+        os.makedirs(savefolder)
+
+    ptData = df.set_index('id').loc[subject_id, :]
+
+    output = template.render(subject_id=subject_id,
+                             inspire_id=ptData['subject'],
+                             dice=round(ptData['dice'], 2),
+                             folder=outdir + 'images'
+                             )
+    # populate template
+
+    # save html file
+
+    with open(os.path.join(savefolder, subject_id + '.html'), 'w') as f:
+        f.write(output)
 
 
 def make_dict(root, string):
@@ -84,7 +180,28 @@ def make_dict(root, string):
     ]
 
 
-train_files, val_files = [make_dict(root_dir, string) for string in ['train', 'validation']]
+if os.path.exists('/media/'):
+    directory = '/media/mbcneuro/HDD1/DWI_Training_Data_INSP/'
+    ctp_df = pd.read_csv(
+        '/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+        index_col='dl_id'
+    )
+
+
+elif os.path.exists('D:'):
+    directory = 'D:/ctp_project_data/DWI_Training_Data_INSP/'
+    ctp_df = pd.read_csv(
+        'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+        index_col='dl_id')
+
+
+
+root_dir = tempfile.mkdtemp() if directory is None else directory
+print(root_dir)
+
+
+train_files, val_files, test_files = [
+    make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
 
 set_determinism(seed=42)
 
@@ -156,35 +273,27 @@ val_ds = CacheDataset(
 
 val_loader = DataLoader(val_ds, batch_size=2, shuffle=False, num_workers=4)
 
-import random
-m = random.randint(0, 45)
-s = random.randint(20, 100)
-val_data_example = val_ds[m]
-print(f"image shape: {val_data_example['image'].shape}")
-plt.figure("image", (18, 6))
-for i in range(2):
-    plt.subplot(1, 3, i + 1)
-    plt.title(f"image channel {i}")
-    plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
-# also visualize the 3 channels label corresponding to this image
-print(f"label shape: {val_data_example['label'].shape}")
-plt.subplot(1, 3, 3)
-plt.title("label")
-plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
-plt.show()
-plt.close()
+# Uncomment to display data
+
+# import random
+# m = random.randint(0, 45)
+# s = random.randint(20, 100)
+# val_data_example = val_ds[m]
+# print(f"image shape: {val_data_example['image'].shape}")
+# plt.figure("image", (18, 6))
+# for i in range(2):
+#     plt.subplot(1, 3, i + 1)
+#     plt.title(f"image channel {i}")
+#     plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
+# # also visualize the 3 channels label corresponding to this image
+# print(f"label shape: {val_data_example['label'].shape}")
+# plt.subplot(1, 3, 3)
+# plt.title("label")
+# plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
+# plt.show()
+# plt.close()
 
 device = torch.device("cuda:0")
-# model = UNet(in_channels=2,
-#              out_channels=2,
-#              n_blocks=4,
-#              start_filters=32,
-#              activation='relu',
-#              normalization='batch',
-#              conv_mode='same',
-#              dim=3).to(device)
-# Building a model now
-
 model = UNet(
     spatial_dims=3,
     in_channels=2,
@@ -199,7 +308,7 @@ optimizer = torch.optim.Adam(model.parameters(), 1e-4)
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
 max_epochs = 300
-val_interval = 4
+val_interval = 1
 best_metric = -1
 best_metric_epoch = -1
 epoch_loss_values = []
@@ -241,6 +350,7 @@ for epoch in range(max_epochs):
                     val_data["image"].to(device),
                     val_data["label"].to(device),
                 )
+                # unsure how to optimize this
                 roi_size = (160, 160, 160)
                 sw_batch_size = 4
                 val_outputs = sliding_window_inference(
@@ -270,6 +380,8 @@ for epoch in range(max_epochs):
 end = time.time()
 time_taken = end - start
 print(f"Time taken: {round(time_taken, 0)} seconds")
+
+# generate loss plot
 plt.figure("train", (12, 6))
 plt.subplot(1, 2, 1)
 plt.title("Epoch Average Loss")
@@ -286,41 +398,17 @@ plt.plot(x, y)
 plt.show()
 plt.savefig(os.path.join(root_dir, model_name.split('.')[0] + 'plot_loss.png'))
 
-model.load_state_dict(torch.load(
-    os.path.join(root_dir, model_name)))
-model.eval()
+# test on external data
 
-with torch.no_grad():
-    for i, val_data in enumerate(val_loader):
-        i = str(i).zfill(3)
+# test_images = sorted(
+#     glob.glob(os.path.join(root_dir, "test", "images", "*.nii.gz")))
+# test_labels = sorted(
+#     glob.glob(os.path.join(root_dir, "test", "masks", "*.nii.gz")))
 
-        roi_size = (160, 160, 160)
-        sw_batch_size = 4
-        val_outputs = sliding_window_inference(
-            val_data["image"].to(device), roi_size, sw_batch_size, model
-        )
-        # plot the slice [:, :, 80]
-        plt.figure("check", (18, 6))
-        plt.subplot(1, 3, 1)
-        plt.title(f"image {i}")
-        plt.imshow(val_data["image"][0, 0, :, :, 80], cmap="gray")
-        plt.subplot(1, 3, 2)
-        plt.title(f"label {i}")
-        plt.imshow(val_data["label"][0, 0, :, :, 80])
-        plt.subplot(1, 3, 3)
-        plt.title(f"output {i}")
-        plt.imshow(torch.argmax(
-            val_outputs, dim=1).detach().cpu()[0, :, :, 80])
-        plt.show()
-        if i ==10:
-            break
-
-test_images = sorted(
-    glob.glob(os.path.join(root_dir, "test", "images", "*.nii.gz")))
 
 test_transforms = Compose(
     [
-        LoadImaged(keys="image"),
+        LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys="image"),
         Resized(keys="image",
                 mode='trilinear',
@@ -333,13 +421,13 @@ test_transforms = Compose(
                                         b_max=1.0,
                                         channel_wise=True,
                                         clip=True),
-        EnsureTyped(keys="image"),
+        EnsureTyped(keys=["image", "label"]),
     ]
 )
 
-test_data = [{"image": image} for image in test_images]
+
 test_ds = Dataset(
-    data=test_data, transform=test_transforms)
+    data=test_files, transform=test_transforms)
 
 test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
 
@@ -355,22 +443,33 @@ post_transforms = Compose([
         nearest_interp=False,
         to_tensor=True,
     ),
-    AsDiscreted(keys="pred", argmax=True),
+    AsDiscreted(keys="pred", argmax=True, to_onehot=2),
     SaveImaged(keys="pred", meta_keys="pred_meta_dict", output_dir=root_dir + "out", output_postfix="seg", resample=False),
 ])
-# uncomment the following lines to visualize the predicted results
-from monai.transforms import LoadImage
+
+from monai.transforms import LoadImage, ScaleIntensityRangePercentiles, EnsureType
 loader = LoadImage()
+normalize = ScaleIntensityRangePercentiles(
+                                        lower=1,
+                                        upper=99,
+                                        b_min=0.0,
+                                        b_max=1.0,
+                                        channel_wise=True,
+                                        clip=True)
 
 model.load_state_dict(torch.load(
     os.path.join(root_dir, model_name)))
 
 model.eval()
 
+results = pd.DataFrame(columns=['id', 'dice', 'size'])
+results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
+
 with torch.no_grad():
     for i, test_data in enumerate(test_loader):
+        print(i)
         test_inputs = test_data["image"].to(device)
-        roi_size = (160, 160, 160)
+        roi_size = (64, 64, 64)
         sw_batch_size = 4
         test_data["pred"] = sliding_window_inference(
             test_inputs, roi_size, sw_batch_size, model)
@@ -378,15 +477,72 @@ with torch.no_grad():
         test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
         # uncomment the following lines to visualize the predicted results
-        test_output = from_engine(["pred"])(test_data)
+        test_output, test_label, test_image = from_engine(["pred", "label", "image"])(test_data)
 
-        original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])[0]
+        # get original image, and normalize it so we can see the normalized image
+        # this is both channels
+        original_image = normalize(loader(test_data[0]["image_meta_dict"]["filename_or_obj"])[0])
+        dice_score = round(
+            f1_score(y_true=test_label[0].flatten(),
+                     y_pred=test_output[0][1].flatten()),
+            4)
 
-        plt.figure("check", (18, 6))
-        plt.subplot(1, 2, 1)
-        plt.imshow(original_image[:, :, 10, 0], cmap="gray")
-        plt.title(f"image {i}")
-        plt.subplot(1, 2, 2)
-        plt.imshow(test_output[0].detach().cpu()[0, :, :, 10])
-        plt.title(f"prediction {i}")
+        original_adc = original_image[:, :, :, 1]
+        original_image = original_image[:, :, :, 0]
+        ground_truth = test_label[0].detach().numpy()
+        prediction = test_output[0][1].detach().numpy()
+        size = prediction.sum()
+        name = "test_" + os.path.basename(
+            test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
+        results.loc[results.id == name, 'size'] = size
+        results.loc[results.id == name, 'dice'] = dice_score
+        save_loc = root_dir + "out" + "/images/" + name + "_"
+
+        if not os.path.exists(root_dir + "out" + "/images/"):
+            os.makedirs(root_dir + "out" + "/images/")
+        create_mr_img(
+            original_image,
+            save_loc + "dwi.png",
+            define_dvalues(original_image),
+            'png',
+            dpi=300)
+        create_adc_img(
+            original_adc,
+            save_loc + "adc.png",
+            define_dvalues(original_image),
+            'png',
+            dpi=300)
+
+        [create_mrlesion_img(
+            original_image,
+            im,
+            save_loc + name + '.png',
+            define_dvalues(original_image),
+            'png',
+            dpi=300) for im, name in zip([prediction, ground_truth], ["pred", "truth"])]
+
+        # uncomment below to visualise results.
+        plt.figure("check", (24, 6))
+        plt.subplot(1, 4, 1)
+        plt.imshow(original_image[:, :, 12], cmap="gray")
+        plt.title(f"image {name}")
+        plt.subplot(1, 4, 2)
+        plt.imshow(test_image[0].detach().cpu()[0, :, :, 12], cmap="gray")
+        plt.title(f"transformed image {name}")
+        plt.subplot(1, 4, 3)
+        plt.imshow(test_label[0].detach().cpu()[:, :, 12])
+        plt.title(f"label {name}")
+        plt.subplot(1, 4, 4)
+        plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
+        plt.title(f"Dice score {dice_score}")
         plt.show()
+
+
+results_join = results.join(
+    ctp_df[~ctp_df.index.duplicated(keep='first')],
+    on='id',
+    how='left')
+results_join.to_csv(root_dir + 'out/results.csv', index=True)
+
+for sub in results_join['id']:
+    create_overviewhtml(sub, results_join, root_dir + 'out')
