@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <meta charset="UTF-8">
+    <style type="text/css">
+
+      h1 { padding-top: 45px; color:deeppink}
+      h2 { padding-top: 30px; color:cadetblue}
+      h3 { padding-top: 20px; color:darkblue}
+	  h4 { padding-top: 15px; color:darkblue}
+
+      body {padding: 10px 10px 10px;}
+
+    </style>
+
+
+<head>
+    <title>Subject ID{{ subject_id }}</title>
+</head>
+
+<body>
+<div>
+    <h1>{{inspire_id}}</h1>
+</div>
+    <h2 class="sub-report-title">Summary</h2>
+    <ul class="elem-desc">
+    <li>Dice Similarity Coefficient: {{dice}}</li>
+        <li> Dataset id: {{subject_id}}</li>
+    </ul>
+
+<h3>
+	<i> move mouse over image to see ground truth </i>
+</h3>
+
+<img onmouseover = "changePic2()"onmouseout= "changePic1()" id="MLImg" src="{{folder}}\\{{ subject_id }}_pred.png", width="900">
+
+<script>
+function changePic1() {
+  document.getElementById("MLImg").src = "{{folder}}\\{{ subject_id }}_pred.png";
+}
+function changePic2(){
+  document.getElementById("MLImg").src = "{{folder}}\\{{ subject_id }}_truth.png";
+}
+
+ </script>
+
+<h3>
+	<i> move mouse over image to see lesion over dwi</i>
+</h3>
+
+<img onmouseover = "changePic4()"onmouseout= "changePic3()" id="MLImg2" src="{{folder}}\\{{ subject_id }}_dwi.png", width="900">
+
+<script>
+function changePic3() {
+  document.getElementById("MLImg2").src = "{{folder}}\\{{ subject_id }}_dwi.png";
+}
+function changePic4(){
+  document.getElementById("MLImg2").src = "{{folder}}\\{{ subject_id }}_pred.png";
+}
+</script>
+
+<div id="ADC">
+	<h3 class="run-title">ADC</h3>
+</div>
+
+<img  id="ADCimg" src="{{folder}}\\{{ subject_id }}_adc.png", width="900">
