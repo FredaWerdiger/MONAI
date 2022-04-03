@@ -541,7 +541,7 @@ results_join = results.join(
     ctp_df[~ctp_df.index.duplicated(keep='first')],
     on='id',
     how='left')
-results_join.to_csv(root_dir + 'out/results.csv', index=True)
+results_join.to_csv(root_dir + 'out/results.csv', index=False)
 
 for sub in results_join['id']:
     create_overviewhtml(sub, results_join, root_dir + 'out/')
