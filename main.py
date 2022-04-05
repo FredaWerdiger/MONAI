@@ -94,6 +94,26 @@ def define_dvalues(dwi_img):
     return d
 
 
+def define_dvalues_big(dwi_img):
+    dwi_img_small = dwi_img[10:120]
+    steps = int(dwi_img_small.shape[0]/18)
+    rem = int(dwi_img_small.shape[0]/steps)-18
+
+    if rem % 2 == 0:
+        d_min = 0 + int(rem/2*steps) + 1
+        d_max = dwi_img_small.shape[0] - int(rem/2*steps)
+
+    elif rem % 2 != 0:
+        d_min = 0 + math.ceil(rem*steps/2)
+        d_max = dwi_img_small.shape[0] - math.ceil(rem/2*steps)
+
+    d = range(d_min + 10, d_max + 10, steps)
+
+    if len(d) == 19:
+        d = range(d_min + steps + 10, d_max + 10, steps)
+    return d
+
+
 def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250):
     dwi_lesion_img = np.rot90(dwi_lesion_img)
     dwi_img = np.rot90(dwi_img)
@@ -107,9 +127,9 @@ def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250
 
     for i in range(len(d)):
         axs[i].imshow(dwi_lesion_img[:, :,d[i]], cmap='Wistia', vmin=0.5, vmax=1)
-        axs[i].imshow(masked_im[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=0.15)
+        axs[i].imshow(masked_im[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
         axs[i].axis('off')
-
+    # plt.show()
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
     plt.close()
 
@@ -120,8 +140,22 @@ def create_mr_img(dwi_img, savefile, d, ext='png', dpi=250):
     fig.subplots_adjust(hspace=-0.4, wspace=0)
     axs = axs.ravel()
     for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=0.15)
+        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
         axs[i].axis('off')
+    # plt.show()
+    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
+    plt.close()
+
+
+def create_mr_big_img(dwi_img, savefile, d, ext='png', dpi=250):
+    dwi_img = np.rot90(dwi_img)
+    fig, axs = plt.subplots(3, 6, facecolor='k')
+    fig.subplots_adjust(hspace=-0.4, wspace=0)
+    axs = axs.ravel()
+    for i in range(len(d)):
+        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray')
+        axs[i].axis('off')
+    # plt.show()
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
     plt.close()
 
@@ -132,8 +166,9 @@ def create_adc_img(dwi_img, savefile, d, ext='png', dpi=250):
     fig.subplots_adjust(hspace=-0.4, wspace=0)
     axs = axs.ravel()
     for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=0.7)
+        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=1500)
         axs[i].axis('off')
+    #plt.show()
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
     plt.close()
 
@@ -153,11 +188,33 @@ def create_overviewhtml(subject_id, df, outdir):
         os.makedirs(savefolder)
 
     ptData = df.set_index('id').loc[subject_id, :]
+    treat = ptData['Treatment type(0=no treatment,1=iv only, 2=IA only, 3= Both ia +iv, 4=iv only IA planned but not delivery,5=no information)']
+    if treat == 0:
+        treat = "No treatment"
+    elif treat == 1:
+        treat = "IV only"
+    elif treat == 2:
+        treat = "IA only"
+    elif treat == 3:
+        treat = "IV and IA"
+
+    small = ptData['small lesion']
+    small = 'yes' if small == 1 else 'no'
+    thickness = ptData['dwi_slice_thickness']
+    make = str(ptData['dwi_Manufacturer']) + ' ' + str(ptData['dwi_Model'])
+    day = ptData['day']
+    cause = ptData['Stroke Mechanism']
 
     output = template.render(subject_id=subject_id,
                              inspire_id=ptData['subject'],
-                             dice=round(ptData['dice'], 2),
-                             folder=outdir + 'images'
+                             dice=round(ptData['dice'], 4),
+                             folder=outdir + 'images',
+                             treatment=treat,
+                             make=make,
+                             thickness=thickness,
+                             small=small,
+                             day=day,
+                             cause=cause
                              )
     # populate template
 
@@ -292,21 +349,33 @@ val_loader = DataLoader(val_ds, batch_size=2, shuffle=False, num_workers=4)
 # plt.show()
 # plt.close()
 
+max_epochs = 50
+
 device = torch.device("cuda:0")
-model = UNet(
-    spatial_dims=3,
+# model = UNet(
+#     spatial_dims=3,
+#     in_channels=2,
+#     out_channels=2,
+#     channels=(32, 64, 128, 256),
+#     strides=(2, 2, 2),
+#     num_res_units=2,
+#     norm=Norm.BATCH,
+# ).to(device)
+model = SegResNet(
+    blocks_down=[1, 2, 2, 4],
+    blocks_up=[1, 1, 1],
+    init_filters=16,
     in_channels=2,
     out_channels=2,
-    channels=(32, 64, 128, 256),
-    strides=(2, 2, 2),
-    num_res_units=2,
-    norm=Norm.BATCH,
+    dropout_prob=0.2,
 ).to(device)
 loss_function = DiceLoss(to_onehot_y=True, softmax=True)
-optimizer = torch.optim.Adam(model.parameters(), 1e-4)
+
+optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
+lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
-max_epochs = 500
+
 val_interval = 2
 best_metric = -1
 best_metric_epoch = -1
@@ -380,7 +449,10 @@ for epoch in range(max_epochs):
 end = time.time()
 time_taken = end - start
 print(f"Time taken: {round(time_taken, 0)} seconds")
+# create outdir
 
+if not os.path.exists(root_dir + 'out'):
+    os.makedirs(root_dir + 'out')
 # generate loss plot
 plt.figure("train", (12, 6))
 plt.subplot(1, 2, 1)
@@ -422,6 +494,7 @@ test_transforms = Compose(
                                         channel_wise=True,
                                         clip=True),
         EnsureTyped(keys=["image", "label"]),
+        SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
     ]
 )
 
@@ -480,7 +553,7 @@ with torch.no_grad():
 
         # get original image, and normalize it so we can see the normalized image
         # this is both channels
-        original_image = normalize(loader(test_data[0]["image_meta_dict"]["filename_or_obj"])[0])
+        original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])[0]
         dice_score = round(
             f1_score(y_true=test_label[0].flatten(),
                      y_pred=test_output[0][1].flatten()),
@@ -490,6 +563,7 @@ with torch.no_grad():
         original_image = original_image[:, :, :, 0]
         ground_truth = test_label[0].detach().numpy()
         prediction = test_output[0][1].detach().numpy()
+        transformed_image = test_inputs[0][0].detach().cpu().numpy()
         size = prediction.sum()
         name = "test_" + os.path.basename(
             test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
@@ -520,21 +594,29 @@ with torch.no_grad():
             'png',
             dpi=300) for im, name in zip([prediction, ground_truth], ["pred", "truth"])]
 
+        create_mr_big_img(transformed_image,
+                          save_loc + "dwi_tran.png",
+                          define_dvalues_big(transformed_image),
+                          'png',
+                          dpi=300)
+        if i > 2:
+            break
+
         # uncomment below to visualise results.
-        plt.figure("check", (24, 6))
-        plt.subplot(1, 4, 1)
-        plt.imshow(original_image[:, :, 12], cmap="gray")
-        plt.title(f"image {name}")
-        plt.subplot(1, 4, 2)
-        plt.imshow(test_image[0].detach().cpu()[0, :, :, 12], cmap="gray")
-        plt.title(f"transformed image {name}")
-        plt.subplot(1, 4, 3)
-        plt.imshow(test_label[0].detach().cpu()[:, :, 12])
-        plt.title(f"label {name}")
-        plt.subplot(1, 4, 4)
-        plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
-        plt.title(f"Dice score {dice_score}")
-        plt.show()
+        # plt.figure("check", (24, 6))
+        # plt.subplot(1, 4, 1)
+        # plt.imshow(original_image[:, :, 12], cmap="gray")
+        # plt.title(f"image {name}")
+        # plt.subplot(1, 4, 2)
+        # plt.imshow(test_image[0].detach().cpu()[0, :, :, 12], cmap="gray")
+        # plt.title(f"transformed image {name}")
+        # plt.subplot(1, 4, 3)
+        # plt.imshow(test_label[0].detach().cpu()[:, :, 12])
+        # plt.title(f"label {name}")
+        # plt.subplot(1, 4, 4)
+        # plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
+        # plt.title(f"Dice score {dice_score}")
+        # plt.show()
 
 
 results_join = results.join(
