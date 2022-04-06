@@ -349,7 +349,7 @@ val_loader = DataLoader(val_ds, batch_size=2, shuffle=False, num_workers=4)
 # plt.show()
 # plt.close()
 
-max_epochs = 50
+max_epochs = 3
 
 device = torch.device("cuda:0")
 # model = UNet(
@@ -366,17 +366,17 @@ model = SegResNet(
     blocks_up=[1, 1, 1],
     init_filters=16,
     in_channels=2,
-    out_channels=2,
+    out_channels=1,
     dropout_prob=0.2,
 ).to(device)
-loss_function = DiceLoss(to_onehot_y=True, softmax=True)
-
+loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, squared_pred=True, to_onehot_y=False, sigmoid=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
 
-val_interval = 2
+val_interval = 1
 best_metric = -1
 best_metric_epoch = -1
 epoch_loss_values = []
