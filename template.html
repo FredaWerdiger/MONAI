@@ -26,6 +26,12 @@
     <ul class="elem-desc">
     <li>Dice Similarity Coefficient: {{dice}}</li>
         <li> Dataset id: {{subject_id}}</li>
+        <li> Treatment: {{treatment}}</li>
+        <li> Make and Model: {{make}}</li>
+        <li> DWI slice thickness: {{thickness}}</li>
+        <li> Small lesion: {{small}}</li>
+        <li> Stroke Mechanism: {{cause}}</li>
+        <li> Day: {{day}}</li>
     </ul>
 
 <h3>
@@ -64,3 +70,9 @@ function changePic4(){
 </div>
 
 <img  id="ADCimg" src="{{folder}}\\{{ subject_id }}_adc.png", width="900">
+
+<div id="trans">
+	<h3 class="run-title">Transformed DWI (normalised and resized)</h3>
+</div>
+
+<img  id="transimg" src="{{folder}}\\{{ subject_id }}_dwi_tran.png", width="900">
