@@ -1,6 +1,7 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
 import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import math
 import shutil
 import tempfile
@@ -68,7 +69,7 @@ def free_gpu_cache():
     print("GPU Usage after emptying the cache")
     gpu_usage()
 
-#free_gpu_cache()
+# free_gpu_cache()
 
 print_config()
 
@@ -317,7 +318,7 @@ train_ds = CacheDataset(
 
 train_loader = DataLoader(
     train_ds,
-    batch_size=2,
+    batch_size=1,
     shuffle=True,
     num_workers=4)
 
@@ -364,12 +365,12 @@ device = torch.device("cuda:0")
 model = SegResNet(
     blocks_down=[1, 2, 2, 4],
     blocks_up=[1, 1, 1],
-    init_filters=16,
+    init_filters=8,
     in_channels=2,
-    out_channels=1,
+    out_channels=2,
     dropout_prob=0.2,
 ).to(device)
-loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, squared_pred=True, to_onehot_y=False, sigmoid=True)
+loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
