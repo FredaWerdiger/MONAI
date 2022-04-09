@@ -350,7 +350,7 @@ val_loader = DataLoader(val_ds, batch_size=2, shuffle=False, num_workers=4)
 # plt.show()
 # plt.close()
 
-max_epochs = 3
+max_epochs = 600
 
 device = torch.device("cuda:0")
 # model = UNet(
@@ -571,7 +571,7 @@ with torch.no_grad():
         results.loc[results.id == name, 'size'] = size
         results.loc[results.id == name, 'dice'] = dice_score
         save_loc = root_dir + "out" + "/images/" + name + "_"
-
+        dice_metric(y_pred=test_output[0][1].to(device), y=test_label.to(device))
         if not os.path.exists(root_dir + "out" + "/images/"):
             os.makedirs(root_dir + "out" + "/images/")
         create_mr_img(
@@ -600,8 +600,7 @@ with torch.no_grad():
                           define_dvalues_big(transformed_image),
                           'png',
                           dpi=300)
-        if i > 2:
-            break
+
 
         # uncomment below to visualise results.
         # plt.figure("check", (24, 6))
@@ -618,7 +617,10 @@ with torch.no_grad():
         # plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
         # plt.title(f"Dice score {dice_score}")
         # plt.show()
+    metric = dice_metric.aggregate().item()
+    dice_metric.reset()
 
+print(f"Mean dice for test set: {metric}")
 
 results_join = results.join(
     ctp_df[~ctp_df.index.duplicated(keep='first')],
