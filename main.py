@@ -275,9 +275,10 @@ train_transforms = Compose(
                                         lower=1,
                                         upper=99,
                                         b_min=0.0,
-                                        b_max=1.0,
+                                        b_max=10.0,
                                         channel_wise=True,
                                         clip=True),
+        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
@@ -300,9 +301,10 @@ val_transforms = Compose(
                                         lower=1,
                                         upper=99,
                                         b_min=0.0,
-                                        b_max=1.0,
+                                        b_max=10.0,
                                         channel_wise=True,
                                         clip=True),
+        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         EnsureTyped(keys=["image", "label"]),
     ]
 )
@@ -318,7 +320,7 @@ train_ds = CacheDataset(
 
 train_loader = DataLoader(
     train_ds,
-    batch_size=1,
+    batch_size=2,
     shuffle=True,
     num_workers=4)
 
@@ -350,26 +352,26 @@ val_loader = DataLoader(val_ds, batch_size=2, shuffle=False, num_workers=4)
 # plt.show()
 # plt.close()
 
-max_epochs = 600
+max_epochs = 100
 
 device = torch.device("cuda:0")
-# model = UNet(
-#     spatial_dims=3,
-#     in_channels=2,
-#     out_channels=2,
-#     channels=(32, 64, 128, 256),
-#     strides=(2, 2, 2),
-#     num_res_units=2,
-#     norm=Norm.BATCH,
-# ).to(device)
-model = SegResNet(
-    blocks_down=[1, 2, 2, 4],
-    blocks_up=[1, 1, 1],
-    init_filters=8,
+model = UNet(
+    spatial_dims=3,
     in_channels=2,
     out_channels=2,
-    dropout_prob=0.2,
+    channels=(32, 64, 128, 256),
+    strides=(2, 2, 2),
+    num_res_units=2,
+    norm=Norm.BATCH,
 ).to(device)
+# model = SegResNet(
+#     blocks_down=[1, 2, 2, 4],
+#     blocks_up=[1, 1, 1],
+#     init_filters=8,
+#     in_channels=2,
+#     out_channels=2,
+#     dropout_prob=0.2,
+# ).to(device)
 loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
@@ -491,9 +493,10 @@ test_transforms = Compose(
                                         lower=1,
                                         upper=99,
                                         b_min=0.0,
-                                        b_max=1.0,
+                                        b_max=10.0,
                                         channel_wise=True,
                                         clip=True),
+        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         EnsureTyped(keys=["image", "label"]),
         SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
     ]
