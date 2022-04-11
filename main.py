@@ -380,8 +380,8 @@ model = UNet(
     spatial_dims=3,
     in_channels=2,
     out_channels=2,
-    channels=(16, 32, 64, 128, 256),
-    strides=(2, 2, 2, 2),
+    channels=(32, 64, 128, 256),
+    strides=(2, 2, 2),
     num_res_units=2,
     norm=Norm.BATCH,
 ).to(device)
@@ -555,7 +555,8 @@ test_ds = Dataset(
 test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
 
 post_transforms = Compose([
-    EnsureTyped(keys="pred"),
+    EnsureTyped(keys=["pred", "label"]),
+    EnsureChannelFirstd(keys="label"),
     Invertd(
         keys="pred",
         transform=test_transforms,
@@ -567,6 +568,7 @@ post_transforms = Compose([
         to_tensor=True,
     ),
     AsDiscreted(keys="pred", argmax=True, to_onehot=2),
+    AsDiscreted(keys="label", to_onehot=2),
     SaveImaged(keys="pred",
                meta_keys="pred_meta_dict",
                output_dir=root_dir + "out_" + out_tag,
@@ -599,21 +601,14 @@ with torch.no_grad():
         # get original image, and normalize it so we can see the normalized image
         # this is both channels
         original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])[0]
-        dice_score = round(
-            f1_score(y_true=test_label[0].flatten(),
-                     y_pred=test_output[0][1].flatten()),
-            4)
-
         original_adc = original_image[:, :, :, 1]
         original_image = original_image[:, :, :, 0]
-        ground_truth = test_label[0].detach().numpy()
+        ground_truth = test_label[0][1].detach().numpy()
         prediction = test_output[0][1].detach().numpy()
         transformed_image = test_inputs[0][0].detach().cpu().numpy()
         size = prediction.sum()
         name = "test_" + os.path.basename(
             test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
-        results.loc[results.id == name, 'size'] = size
-        results.loc[results.id == name, 'dice'] = dice_score
         save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
 
         if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
@@ -661,15 +656,20 @@ with torch.no_grad():
         # plt.title(f"Dice score {dice_score}")
         # plt.show()
 
-        # compute metric for current iteration
-        #MISTAKE
-        dice_metric(y_pred=test_output[0][1], y=test_label[0])
+        a = dice_metric(y_pred=test_output, y=test_label)
+        dice_score = round(a.item(), 4)
+        print(dice_score)
+        results.loc[results.id == name, 'size'] = size
+        results.loc[results.id == name, 'dice'] = dice_score
 
     # aggregate the final mean dice result
     metric = dice_metric.aggregate().item()
     # reset the status for next validation round
     dice_metric.reset()
 
+print(f"Mean dice on test set: {metric}")
+
+results['mean_dice'] = metric
 results_join = results.join(
     ctp_df[~ctp_df.index.duplicated(keep='first')],
     on='id',
@@ -679,4 +679,3 @@ results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
 for sub in results_join['id']:
     create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
 
-print(f"Mean dice on test set: {metric}")
