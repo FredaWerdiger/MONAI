@@ -1,6 +1,7 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
 import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import math
 import shutil
 import tempfile
@@ -26,13 +27,14 @@ from monai.transforms import (
     Compose,
     Invertd,
     LoadImaged,
+    CropForegroundd,
+    RandAffined,
     ScaleIntensityRanged,
     MapTransform,
     NormalizeIntensityd,
     ScaleIntensityRangePercentilesd,
     Orientationd,
     RandFlipd,
-    RandAffined,
     AddChanneld,
     RandAdjustContrastd,
     RandScaleIntensityd,
@@ -40,7 +42,6 @@ from monai.transforms import (
     RandSpatialCropd,
     Spacingd,
     EnsureChannelFirstd,
-    CropForegroundd,
     EnsureTyped,
     EnsureType,
     Resized,
@@ -279,7 +280,7 @@ train_transforms = Compose(
         # load 4 Nifti images and stack them together
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
-        # CropForegroundd(keys=["image", "label"], source_key="image"),
+        CropForegroundd(keys=["image", "label"], source_key="image"),
         Resized(keys=["image", "label"],
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
@@ -287,13 +288,11 @@ train_transforms = Compose(
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
                                         upper=99,
-                                        b_min=0,
-                                        b_max=1,
+                                        b_min=0.0,
+                                        b_max=10.0,
                                         channel_wise=True,
                                         clip=True),
-        # NormalizeIntensityd(keys="image",
-        #                     nonzero=False,
-        #                     channel_wise=True),
+        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
@@ -310,11 +309,12 @@ train_transforms = Compose(
     ]
 )
 
+
 val_transforms = Compose(
     [
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
-        # CropForegroundd(keys=["image", "label"], source_key="image"),
+        CropForegroundd(keys=["image", "label"], source_key="image"),
         Resized(keys=["image", "label"],
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
@@ -322,13 +322,11 @@ val_transforms = Compose(
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
                                         upper=99,
-                                        b_min=0,
-                                        b_max=1,
+                                        b_min=0.0,
+                                        b_max=10.0,
                                         channel_wise=True,
                                         clip=True),
-        # NormalizeIntensityd(keys="image",
-        #                     nonzero=False,
-        #                     channel_wise=True),
+        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         EnsureTyped(keys=["image", "label"]),
     ]
 )
@@ -340,6 +338,7 @@ train_ds = CacheDataset(
     cache_rate=1.0,
     num_workers=4
 )
+
 
 train_loader = DataLoader(
     train_ds,
@@ -388,24 +387,18 @@ model = UNet(
 # model = SegResNet(
 #     blocks_down=[1, 2, 2, 4],
 #     blocks_up=[1, 1, 1],
-#     init_filters=16,
+#     init_filters=8,
 #     in_channels=2,
 #     out_channels=2,
 #     dropout_prob=0.2,
 # ).to(device)
-loss_function = DiceLoss(to_onehot_y=True, softmax=True)#, smooth_nr=0, smooth_dr=1e-5)
-optimizer = torch.optim.Adam(model.parameters(), 1e-4)#, weight_decay=1e-5)
-#lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
+optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
+lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
-# use amp to accelerate training
-# scaler = torch.cuda.amp.GradScaler()
-# enable cuDNN benchmark
-# torch.backends.cudnn.benchmark = True
-# torch.autograd.set_detect_anomaly(True)
-
-val_interval = 2
+val_interval = 1
 best_metric = -1
 best_metric_epoch = -1
 epoch_loss_values = []
@@ -427,7 +420,6 @@ for epoch in range(max_epochs):
             batch_data["label"].to(device),
         )
         optimizer.zero_grad()
-        # with torch.cuda.amp.autocast():
         outputs = model(inputs)
         loss = loss_function(outputs, labels)
         loss.backward()
@@ -529,7 +521,7 @@ test_transforms = Compose(
     [
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys="image"),
-        # CropForegroundd(keys="image", source_key="image"),
+        CropForegroundd(keys=["image", "label"], source_key="image"),
         Resized(keys="image",
                 mode='trilinear',
                 align_corners=True,
@@ -537,17 +529,16 @@ test_transforms = Compose(
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
                                         upper=99,
-                                        b_min=0,
-                                        b_max=1,
+                                        b_min=0.0,
+                                        b_max=10.0,
                                         channel_wise=True,
                                         clip=True),
-        # NormalizeIntensityd(keys="image",
-        #                     nonzero=False,
-        #                     channel_wise=True),
-        EnsureTyped(keys="image"),
-        # SaveImaged(keys="image", output_dir=root_dir + 'out_' + out_tag, output_postfix="transform", resample=False)
+        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+        EnsureTyped(keys=["image", "label"]),
+        SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
     ]
 )
+
 
 test_ds = Dataset(
     data=test_files, transform=test_transforms)
