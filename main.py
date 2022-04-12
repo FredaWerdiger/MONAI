@@ -270,7 +270,7 @@ set_determinism(seed=42)
 
 
 out_tag = "scale_1_99"
-max_epochs = 300
+max_epochs = 1
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
     os.makedirs(root_dir + 'out_' + out_tag)
@@ -521,7 +521,7 @@ test_transforms = Compose(
     [
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys="image"),
-        CropForegroundd(keys=["image", "label"], source_key="image"),
+        CropForegroundd(keys="image", source_key="image"),
         Resized(keys="image",
                 mode='trilinear',
                 align_corners=True,
