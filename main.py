@@ -36,6 +36,7 @@ from monai.transforms import (
     Orientationd,
     RandFlipd,
     AddChanneld,
+    RandAdjustContrastd,
     RandScaleIntensityd,
     RandShiftIntensityd,
     RandSpatialCropd,
@@ -58,6 +59,7 @@ from termcolor import colored
 from GPUtil import showUtilization as gpu_usage
 from numba import cuda
 
+
 def free_gpu_cache():
     print("Initial GPU Usage")
     gpu_usage()
@@ -71,7 +73,7 @@ def free_gpu_cache():
     print("GPU Usage after emptying the cache")
     gpu_usage()
 
-# free_gpu_cache()
+#free_gpu_cache()
 
 print_config()
 
@@ -264,6 +266,15 @@ train_files, val_files, test_files = [
 
 set_determinism(seed=42)
 
+# test different transforms
+
+
+out_tag = "scale_1_99nocrop"
+max_epochs = 600
+# create outdir
+if not os.path.exists(root_dir + 'out_' + out_tag):
+    os.makedirs(root_dir + 'out_' + out_tag)
+
 train_transforms = Compose(
     [
         # load 4 Nifti images and stack them together
@@ -287,11 +298,12 @@ train_transforms = Compose(
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
         RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
         RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+        RandAdjustContrastd(keys="image", prob=1, gamma=(1.5, 2)),
         RandAffined(
             keys=['image', 'label'],
             mode=('bilinear', 'nearest'),
             prob=1.0, spatial_size=(96, 96, 96),
-            rotate_range=(0, 0, np.pi / 15),
+            rotate_range=(0, 0, np.pi/15),
             scale_range=(0.1, 0.1, 0.1)),
         EnsureTyped(keys=["image", "label"]),
     ]
@@ -344,25 +356,23 @@ val_loader = DataLoader(val_ds, batch_size=2, shuffle=False, num_workers=4)
 
 # Uncomment to display data
 
-# import random
-# m = random.randint(0, 45)
-# s = random.randint(20, 100)
-# val_data_example = val_ds[m]
-# print(f"image shape: {val_data_example['image'].shape}")
-# plt.figure("image", (18, 6))
-# for i in range(2):
-#     plt.subplot(1, 3, i + 1)
-#     plt.title(f"image channel {i}")
-#     plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
-# # also visualize the 3 channels label corresponding to this image
-# print(f"label shape: {val_data_example['label'].shape}")
-# plt.subplot(1, 3, 3)
-# plt.title("label")
-# plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
-# plt.show()
-# plt.close()
-
-max_epochs = 100
+import random
+m = random.randint(0, 45)
+s = random.randint(20, 100)
+val_data_example = val_ds[m]
+print(f"image shape: {val_data_example['image'].shape}")
+plt.figure("image", (18, 6))
+for i in range(2):
+    plt.subplot(1, 3, i + 1)
+    plt.title(f"image channel {i}")
+    plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
+# also visualize the 3 channels label corresponding to this image
+print(f"label shape: {val_data_example['label'].shape}")
+plt.subplot(1, 3, 3)
+plt.title("label")
+plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
+plt.show()
+plt.close()
 
 device = torch.device("cuda:0")
 model = UNet(
@@ -452,7 +462,7 @@ for epoch in range(max_epochs):
                 best_metric = metric
                 best_metric_epoch = epoch + 1
                 torch.save(model.state_dict(), os.path.join(
-                    root_dir, model_name))
+                    root_dir, 'out_' + out_tag, model_name))
                 print("saved new best metric model")
             print(
                 f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
@@ -462,10 +472,6 @@ for epoch in range(max_epochs):
 end = time.time()
 time_taken = end - start
 print(f"Time taken: {round(time_taken, 0)} seconds")
-# create outdir
-
-if not os.path.exists(root_dir + 'out'):
-    os.makedirs(root_dir + 'out')
 # generate loss plot
 plt.figure("train", (12, 6))
 plt.subplot(1, 2, 1)
@@ -481,16 +487,37 @@ y = metric_values
 plt.xlabel("epoch")
 plt.plot(x, y)
 plt.show()
-plt.savefig(os.path.join(root_dir + 'out', model_name.split('.')[0] + 'plot_loss.png'))
+plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
+            bbox_inches='tight', dpi=300, format='png')
+
+# evaluate during training process
+# model.load_state_dict(torch.load(
+#     os.path.join(root_dir, model_name)))
+# model.eval()
+# with torch.no_grad():
+#     for i, val_data in enumerate(val_loader):
+#         roi_size = (128, 128, 128)
+#         sw_batch_size = 1
+#         val_outputs = sliding_window_inference(
+#             val_data["image"].to(device), roi_size, sw_batch_size, model
+#         )
+#         # plot the slice [:, :, 80]
+#         plt.figure("check", (18, 6))
+#         plt.subplot(1, 3, 1)
+#         plt.title(f"image {i}")
+#         plt.imshow(val_data["image"][0, 0, :, :, 80], cmap="gray")
+#         plt.subplot(1, 3, 2)
+#         plt.title(f"label {i}")
+#         plt.imshow(val_data["label"][0, 0, :, :, 80])
+#         plt.subplot(1, 3, 3)
+#         plt.title(f"output {i}")
+#         plt.imshow(torch.argmax(
+#             val_outputs, dim=1).detach().cpu()[0, :, :, 80])
+#         plt.show()
+#         if i == 2:
+#             break
 
 # test on external data
-
-# test_images = sorted(
-#     glob.glob(os.path.join(root_dir, "test", "images", "*.nii.gz")))
-# test_labels = sorted(
-#     glob.glob(os.path.join(root_dir, "test", "masks", "*.nii.gz")))
-
-
 test_transforms = Compose(
     [
         LoadImaged(keys=["image", "label"]),
@@ -498,7 +525,7 @@ test_transforms = Compose(
         CropForegroundd(keys=["image", "label"], source_key="image"),
         Resized(keys="image",
                 mode='trilinear',
-                align_corners= True,
+                align_corners=True,
                 spatial_size=(128, 128, 128)),
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
@@ -520,7 +547,8 @@ test_ds = Dataset(
 test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
 
 post_transforms = Compose([
-    EnsureTyped(keys="pred"),
+    EnsureTyped(keys=["pred", "label"]),
+    EnsureChannelFirstd(keys="label"),
     Invertd(
         keys="pred",
         transform=test_transforms,
@@ -532,21 +560,17 @@ post_transforms = Compose([
         to_tensor=True,
     ),
     AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-    SaveImaged(keys="pred", meta_keys="pred_meta_dict", output_dir=root_dir + "out", output_postfix="seg", resample=False),
+    AsDiscreted(keys="label", to_onehot=2),
+    SaveImaged(keys="pred",
+               meta_keys="pred_meta_dict",
+               output_dir=root_dir + "out_" + out_tag,
+               output_postfix="seg", resample=False),
 ])
 
 from monai.transforms import LoadImage, ScaleIntensityRangePercentiles, EnsureType
 loader = LoadImage()
-normalize = ScaleIntensityRangePercentiles(
-                                        lower=1,
-                                        upper=99,
-                                        b_min=0.0,
-                                        b_max=1.0,
-                                        channel_wise=True,
-                                        clip=True)
-
 model.load_state_dict(torch.load(
-    os.path.join(root_dir, model_name)))
+    os.path.join(root_dir, 'out_' + out_tag, model_name)))
 
 model.eval()
 
@@ -569,25 +593,18 @@ with torch.no_grad():
         # get original image, and normalize it so we can see the normalized image
         # this is both channels
         original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])[0]
-        dice_score = round(
-            f1_score(y_true=test_label[0].flatten(),
-                     y_pred=test_output[0][1].flatten()),
-            4)
-
         original_adc = original_image[:, :, :, 1]
         original_image = original_image[:, :, :, 0]
-        ground_truth = test_label[0].detach().numpy()
+        ground_truth = test_label[0][1].detach().numpy()
         prediction = test_output[0][1].detach().numpy()
         transformed_image = test_inputs[0][0].detach().cpu().numpy()
         size = prediction.sum()
         name = "test_" + os.path.basename(
             test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
-        results.loc[results.id == name, 'size'] = size
-        results.loc[results.id == name, 'dice'] = dice_score
-        save_loc = root_dir + "out" + "/images/" + name + "_"
-        dice_metric(y_pred=test_output[0][1].to(device), y=test_label.to(device))
-        if not os.path.exists(root_dir + "out" + "/images/"):
-            os.makedirs(root_dir + "out" + "/images/")
+        save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
+
+        if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
+            os.makedirs(root_dir + "out_" + out_tag + "/images/")
         create_mr_img(
             original_image,
             save_loc + "dwi.png",
@@ -615,7 +632,6 @@ with torch.no_grad():
                           'png',
                           dpi=300)
 
-
         # uncomment below to visualise results.
         # plt.figure("check", (24, 6))
         # plt.subplot(1, 4, 1)
@@ -631,17 +647,27 @@ with torch.no_grad():
         # plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
         # plt.title(f"Dice score {dice_score}")
         # plt.show()
+
+        a = dice_metric(y_pred=test_output, y=test_label)
+        dice_score = round(a.item(), 4)
+        print(dice_score)
+        results.loc[results.id == name, 'size'] = size
+        results.loc[results.id == name, 'dice'] = dice_score
+
+    # aggregate the final mean dice result
     metric = dice_metric.aggregate().item()
+    # reset the status for next validation round
     dice_metric.reset()
 
-print(f"Mean dice for test set: {metric}")
+print(f"Mean dice on test set: {metric}")
 
+results['mean_dice'] = metric
 results_join = results.join(
     ctp_df[~ctp_df.index.duplicated(keep='first')],
     on='id',
     how='left')
-results_join.to_csv(root_dir + 'out/results.csv', index=False)
+results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
 
 for sub in results_join['id']:
-    create_overviewhtml(sub, results_join, root_dir + 'out/')
+    create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
 
