@@ -269,8 +269,8 @@ set_determinism(seed=42)
 # test different transforms
 
 
-out_tag = "scale_1_99nocrop"
-max_epochs = 600
+out_tag = "scale_1_99"
+max_epochs = 300
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
     os.makedirs(root_dir + 'out_' + out_tag)
@@ -397,7 +397,6 @@ optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
 dice_metric = DiceMetric(include_background=False, reduction="mean")
-
 
 val_interval = 1
 best_metric = -1
@@ -650,7 +649,6 @@ with torch.no_grad():
 
         a = dice_metric(y_pred=test_output, y=test_label)
         dice_score = round(a.item(), 4)
-        print(dice_score)
         results.loc[results.id == name, 'size'] = size
         results.loc[results.id == name, 'dice'] = dice_score
 
