@@ -27,6 +27,8 @@ from monai.transforms import (
     Compose,
     Invertd,
     LoadImaged,
+    CropForegroundd,
+    RandAffined,
     ScaleIntensityRanged,
     MapTransform,
     NormalizeIntensityd,
@@ -267,6 +269,7 @@ train_transforms = Compose(
         # load 4 Nifti images and stack them together
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
+        CropForegroundd(keys=["image", "label"], source_key="image"),
         Resized(keys=["image", "label"],
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
@@ -284,6 +287,12 @@ train_transforms = Compose(
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
         RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
         RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+        RandAffined(
+            keys=['image', 'label'],
+            mode=('bilinear', 'nearest'),
+            prob=1.0, spatial_size=(96, 96, 96),
+            rotate_range=(0, 0, np.pi / 15),
+            scale_range=(0.1, 0.1, 0.1)),
         EnsureTyped(keys=["image", "label"]),
     ]
 )
@@ -293,6 +302,7 @@ val_transforms = Compose(
     [
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys=["image", "label"]),
+        CropForegroundd(keys=["image", "label"], source_key="image"),
         Resized(keys=["image", "label"],
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
@@ -485,6 +495,7 @@ test_transforms = Compose(
     [
         LoadImaged(keys=["image", "label"]),
         EnsureChannelFirstd(keys="image"),
+        CropForegroundd(keys=["image", "label"], source_key="image"),
         Resized(keys="image",
                 mode='trilinear',
                 align_corners= True,
