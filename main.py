@@ -269,8 +269,8 @@ set_determinism(seed=42)
 # test different transforms
 
 
-out_tag = "scale_1_99"
-max_epochs = 1
+out_tag = "final_reshuffle"
+max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
     os.makedirs(root_dir + 'out_' + out_tag)
@@ -298,13 +298,7 @@ train_transforms = Compose(
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
         RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
         RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-        RandAdjustContrastd(keys="image", prob=1, gamma=(1.5, 2)),
-        RandAffined(
-            keys=['image', 'label'],
-            mode=('bilinear', 'nearest'),
-            prob=1.0, spatial_size=(96, 96, 96),
-            rotate_range=(0, 0, np.pi/15),
-            scale_range=(0.1, 0.1, 0.1)),
+        RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
         EnsureTyped(keys=["image", "label"]),
     ]
 )
@@ -352,7 +346,11 @@ val_ds = CacheDataset(
     cache_rate=1.0,
     num_workers=4)
 
-val_loader = DataLoader(val_ds, batch_size=2, shuffle=False, num_workers=4)
+val_loader = DataLoader(
+    val_ds,
+    batch_size=2,
+    shuffle=False,
+    num_workers=4)
 
 # Uncomment to display data
 
@@ -394,7 +392,7 @@ model = UNet(
 # ).to(device)
 loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
-lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+#lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
@@ -429,6 +427,7 @@ for epoch in range(max_epochs):
         # print(
         #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
         #     f"train_loss: {loss.item():.4f}")
+    #lr_scheduler.step()
     epoch_loss /= step
     epoch_loss_values.append(epoch_loss)
     print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
