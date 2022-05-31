@@ -20,32 +20,32 @@ from sklearn.metrics import f1_score
 from monai.networks.nets import SegResNet, UNet
 from monai.networks.layers import Norm
 from monai.transforms import (
-    Activations,
-    Activationsd,
-    AsDiscrete,
-    AsDiscreted,
-    Compose,
-    Invertd,
-    LoadImaged,
-    CropForegroundd,
-    RandAffined,
-    ScaleIntensityRanged,
-    MapTransform,
-    NormalizeIntensityd,
-    ScaleIntensityRangePercentilesd,
-    Orientationd,
-    RandFlipd,
-    AddChanneld,
-    RandAdjustContrastd,
-    RandScaleIntensityd,
-    RandShiftIntensityd,
-    RandSpatialCropd,
-    Spacingd,
-    EnsureChannelFirstd,
-    EnsureTyped,
-    EnsureType,
-    Resized,
-    SaveImaged
+Activations,
+Activationsd,
+AsDiscrete,
+AsDiscreted,
+Compose,
+Invertd,
+LoadImaged,
+CropForegroundd,
+RandAffined,
+ScaleIntensityRanged,
+MapTransform,
+NormalizeIntensityd,
+ScaleIntensityRangePercentilesd,
+Orientationd,
+RandFlipd,
+AddChanneld,
+RandAdjustContrastd,
+RandScaleIntensityd,
+RandShiftIntensityd,
+RandSpatialCropd,
+Spacingd,
+EnsureChannelFirstd,
+EnsureTyped,
+EnsureType,
+Resized,
+SaveImaged
 )
 from monai.utils import first, set_determinism
 
@@ -126,7 +126,7 @@ def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250
     masked_im = np.ma.array(dwi_img, mask=~mask)
 
     fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.4, wspace=0)
+    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
 
     axs = axs.ravel()
 
@@ -142,7 +142,7 @@ def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250
 def create_mr_img(dwi_img, savefile, d, ext='png', dpi=250):
     dwi_img = np.rot90(dwi_img)
     fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.4, wspace=0)
+    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
     axs = axs.ravel()
     for i in range(len(d)):
         axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
@@ -155,7 +155,7 @@ def create_mr_img(dwi_img, savefile, d, ext='png', dpi=250):
 def create_mr_big_img(dwi_img, savefile, d, ext='png', dpi=250):
     dwi_img = np.rot90(dwi_img)
     fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.4, wspace=0)
+    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
     axs = axs.ravel()
     for i in range(len(d)):
         axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray')
@@ -168,7 +168,7 @@ def create_mr_big_img(dwi_img, savefile, d, ext='png', dpi=250):
 def create_adc_img(dwi_img, savefile, d, ext='png', dpi=250):
     dwi_img = np.rot90(dwi_img)
     fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.4, wspace=0)
+    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
     axs = axs.ravel()
     for i in range(len(d)):
         axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=1500)
@@ -177,6 +177,32 @@ def create_adc_img(dwi_img, savefile, d, ext='png', dpi=250):
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
     plt.close()
 
+
+def create_paper_img(dwi_img, gt, pred, savefile, d, ext='png', dpi=250):
+    dwi_img, gt, pred = [np.rot90(im) for im in [dwi_img, gt, pred]]
+    lesions = gt + pred
+    mask = lesions == 0
+    masked_img = np.ma.array(dwi_img, mask=~mask)
+
+    false_neg = np.ma.masked_where(
+        np.logical_and(pred == 0, gt == 1), gt) * gt
+    true_pos = np.ma.masked_where(np.logical_and(pred == 1, gt == 1),
+                                  gt) * gt
+    false_pos = np.ma.masked_where(
+        np.logical_and(pred == 1, gt == 0), pred) * pred
+
+    fig, axs = plt.subplots(3, 6, facecolor='k')
+    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
+    axs = axs.ravel()
+    for i in range(len(d)):
+        axs[i].imshow(false_neg[:,:,d[i]], cmap='gist_rainbow', vmin=0, vmax=1)
+        axs[i].imshow(false_pos[:, :, d[i]], cmap='brg', vmin=0, vmax=1)
+        axs[i].imshow(true_pos[:,:,d[i]], cmap='tab10', vmin=0, vmax=1)
+        axs[i].imshow(masked_img[:,:,d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
+        axs[i].axis('off')
+    # plt.show()
+    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
+    plt.close()
 
 def create_overviewhtml(subject_id, df, outdir):
     '''
@@ -269,7 +295,7 @@ set_determinism(seed=42)
 # test different transforms
 
 
-out_tag = "final_reshuffle"
+out_tag = "final"
 max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
@@ -603,6 +629,16 @@ with torch.no_grad():
 
         if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
             os.makedirs(root_dir + "out_" + out_tag + "/images/")
+
+        create_paper_img(
+            original_image,
+            ground_truth,
+            prediction,
+            save_loc + "paper.png",
+            define_dvalues(original_image),
+            'png',
+            dpi=300
+        )
         create_mr_img(
             original_image,
             save_loc + "dwi.png",
@@ -667,4 +703,3 @@ results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
 
 for sub in results_join['id']:
     create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
-
