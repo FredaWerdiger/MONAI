@@ -295,7 +295,7 @@ set_determinism(seed=42)
 # test different transforms
 
 
-out_tag = "final"
+out_tag = "final_noflip"
 max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
@@ -319,9 +319,9 @@ train_transforms = Compose(
                                         channel_wise=True,
                                         clip=True),
         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-        RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-        RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-        RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+        # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+        # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+        # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
         RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
         RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
         RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
@@ -510,9 +510,9 @@ x = [val_interval * (i + 1) for i in range(len(metric_values))]
 y = metric_values
 plt.xlabel("epoch")
 plt.plot(x, y)
-plt.show()
 plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
             bbox_inches='tight', dpi=300, format='png')
+plt.show()
 
 # evaluate during training process
 # model.load_state_dict(torch.load(
