@@ -197,7 +197,7 @@ def create_paper_img(dwi_img, gt, pred, savefile, d, ext='png', dpi=250):
     for i in range(len(d)):
         axs[i].imshow(false_neg[:,:,d[i]], cmap='gist_rainbow', vmin=0, vmax=1)
         axs[i].imshow(false_pos[:, :, d[i]], cmap='brg', vmin=0, vmax=1)
-        axs[i].imshow(true_pos[:,:,d[i]], cmap='tab10', vmin=0, vmax=1)
+        # axs[i].imshow(true_pos[:,:,d[i]], cmap='tab10', vmin=0, vmax=1)
         axs[i].imshow(masked_img[:,:,d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
         axs[i].axis('off')
     # plt.show()
@@ -277,7 +277,7 @@ if os.path.exists('/media/'):
 
 
 elif os.path.exists('D:'):
-    directory = 'D:/ctp_project_data/DWI_Training_Data_INSP/'
+    directory = 'D:/ctp_project_data/DWI_Training_Data/'
     ctp_df = pd.read_csv(
         'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
         index_col='dl_id')
