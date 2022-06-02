@@ -311,13 +311,13 @@ train_transforms = Compose(
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
                 spatial_size=(128, 128, 128)),
-        ScaleIntensityRangePercentilesd(keys="image",
-                                        lower=1,
-                                        upper=99,
-                                        b_min=0.0,
-                                        b_max=10.0,
-                                        channel_wise=True,
-                                        clip=True),
+        # ScaleIntensityRangePercentilesd(keys="image",
+        #                                 lower=1,
+        #                                 upper=99,
+        #                                 b_min=0.0,
+        #                                 b_max=10.0,
+        #                                 channel_wise=True,
+        #                                 clip=True),
         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
@@ -695,6 +695,13 @@ with torch.no_grad():
 print(f"Mean dice on test set: {metric}")
 
 results['mean_dice'] = metric
+from sklearn.cluster import k_means
+kmeans_labels = k_means(
+    np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
+    n_clusters=2,
+    random_state=0)[1]
+kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
+results['size_label']=kmeans_labels
 results_join = results.join(
     ctp_df[~ctp_df.index.duplicated(keep='first')],
     on='id',
