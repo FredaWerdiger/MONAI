@@ -12,7 +12,7 @@ import glob
 from monai.config import print_config
 from monai.data import Dataset, CacheDataset, DataLoader, decollate_batch
 from monai.handlers.utils import from_engine
-from monai.losses import DiceLoss
+from monai.losses import DiceLoss, DiceCELoss
 from monai.apps import download_and_extract
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
@@ -295,7 +295,7 @@ set_determinism(seed=42)
 # test different transforms
 
 
-out_tag = "final_no_clipping"
+out_tag = "final_DiceCE"
 max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
@@ -311,20 +311,20 @@ train_transforms = Compose(
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
                 spatial_size=(128, 128, 128)),
-        # ScaleIntensityRangePercentilesd(keys="image",
-        #                                 lower=1,
-        #                                 upper=99,
-        #                                 b_min=0.0,
-        #                                 b_max=10.0,
-        #                                 channel_wise=True,
-        #                                 clip=True),
+        ScaleIntensityRangePercentilesd(keys="image",
+                                        lower=1,
+                                        upper=99,
+                                        b_min=0.0,
+                                        b_max=10.0,
+                                        channel_wise=True,
+                                        clip=True),
         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
         RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
         RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-        RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
+        # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
         EnsureTyped(keys=["image", "label"]),
     ]
 )
@@ -416,7 +416,7 @@ model = UNet(
 #     out_channels=2,
 #     dropout_prob=0.2,
 # ).to(device)
-loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
+loss_function = DiceCELoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 #lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
@@ -496,6 +496,8 @@ for epoch in range(max_epochs):
 end = time.time()
 time_taken = end - start
 print(f"Time taken: {round(time_taken, 0)} seconds")
+time_taken_mins = round(time_taken/60, 0)
+time_taken_hours = round(time_taken/3600, 0)
 # generate loss plot
 plt.figure("train", (12, 6))
 plt.subplot(1, 2, 1)
@@ -592,13 +594,13 @@ post_transforms = Compose([
 ])
 
 from monai.transforms import LoadImage, ScaleIntensityRangePercentiles, EnsureType
-loader = LoadImage()
+loader = LoadImage(image_only=False)
 model.load_state_dict(torch.load(
     os.path.join(root_dir, 'out_' + out_tag, model_name)))
 
 model.eval()
 
-results = pd.DataFrame(columns=['id', 'dice', 'size'])
+results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'py_z', 'size_ml'])
 results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
 
 with torch.no_grad():
@@ -616,13 +618,18 @@ with torch.no_grad():
 
         # get original image, and normalize it so we can see the normalized image
         # this is both channels
-        original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])[0]
+        original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
+        volx, voly, volz = original_image[1]['pixdim'] # meta data
+        pixel_vol = volx * voly * volz
+
+        original_image = original_image[0] # image data
         original_adc = original_image[:, :, :, 1]
         original_image = original_image[:, :, :, 0]
         ground_truth = test_label[0][1].detach().numpy()
         prediction = test_output[0][1].detach().numpy()
         transformed_image = test_inputs[0][0].detach().cpu().numpy()
         size = prediction.sum()
+        size_ml = size * pixel_vol
         name = "test_" + os.path.basename(
             test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
         save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
@@ -685,6 +692,10 @@ with torch.no_grad():
         a = dice_metric(y_pred=test_output, y=test_label)
         dice_score = round(a.item(), 4)
         results.loc[results.id == name, 'size'] = size
+        results.loc[results.id == name, 'size_mL'] = size_ml
+        results.loc[results.id == name, 'pix_x'] = volx
+        results.loc[results.id == name, 'pix_y'] = voly
+        results.loc[results.id == name, 'pix_z'] = volz
         results.loc[results.id == name, 'dice'] = dice_score
 
     # aggregate the final mean dice result
@@ -695,6 +706,12 @@ with torch.no_grad():
 print(f"Mean dice on test set: {metric}")
 
 results['mean_dice'] = metric
+try:
+    results['training_hours'] = time_taken_hours
+    results['training_minutes'] = time_taken_mins
+except NameError:
+    print('No time taken.')
+
 from sklearn.cluster import k_means
 kmeans_labels = k_means(
     np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
