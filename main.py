@@ -295,7 +295,7 @@ set_determinism(seed=42)
 # test different transforms
 
 
-out_tag = "final"
+out_tag = "final_no_clipping"
 max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
