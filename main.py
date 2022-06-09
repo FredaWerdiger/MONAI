@@ -269,7 +269,7 @@ def make_dict(root, string):
 
 
 if os.path.exists('/media/'):
-    directory = '/media/mbcneuro/HDD1/DWI_Training_Data_INSP/'
+    directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
     ctp_df = pd.read_csv(
         '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
         index_col='dl_id'
@@ -295,7 +295,7 @@ set_determinism(seed=42)
 # test different transforms
 
 
-out_tag = "final_DiceCE"
+out_tag = "final"
 max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
@@ -324,7 +324,7 @@ train_transforms = Compose(
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
         RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
         RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-        # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
+        RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
         EnsureTyped(keys=["image", "label"]),
     ]
 )
@@ -416,7 +416,7 @@ model = UNet(
 #     out_channels=2,
 #     dropout_prob=0.2,
 # ).to(device)
-loss_function = DiceCELoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
+loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 #lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
