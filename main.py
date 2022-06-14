@@ -619,7 +619,7 @@ with torch.no_grad():
         # get original image, and normalize it so we can see the normalized image
         # this is both channels
         original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
-        volx, voly, volz = original_image[1]['pixdim'] # meta data
+        volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
         pixel_vol = volx * voly * volz
 
         original_image = original_image[0] # image data
