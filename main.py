@@ -417,7 +417,7 @@ model = UNet(
 # ).to(device)
 loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
-#lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+# lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
@@ -452,7 +452,7 @@ for epoch in range(max_epochs):
         # print(
         #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
         #     f"train_loss: {loss.item():.4f}")
-    #lr_scheduler.step()
+    # lr_scheduler.step()
     epoch_loss /= step
     epoch_loss_values.append(epoch_loss)
     print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
