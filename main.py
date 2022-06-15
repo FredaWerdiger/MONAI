@@ -294,8 +294,7 @@ set_determinism(seed=42)
 
 # test different transforms
 
-
-out_tag = "final_dicece"
+out_tag = "final"
 max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
@@ -416,7 +415,7 @@ model = UNet(
 #     out_channels=2,
 #     dropout_prob=0.2,
 # ).to(device)
-loss_function = DiceCELoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
+loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 #lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
@@ -496,8 +495,10 @@ for epoch in range(max_epochs):
 end = time.time()
 time_taken = end - start
 print(f"Time taken: {round(time_taken, 0)} seconds")
-time_taken_mins = round(time_taken/60, 0)
-time_taken_hours = round(time_taken/3600, 0)
+time_taken_hours = time_taken/3600
+time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
+time_taken_hours = int(time_taken_hours)
+
 # generate loss plot
 plt.figure("train", (12, 6))
 plt.subplot(1, 2, 1)
