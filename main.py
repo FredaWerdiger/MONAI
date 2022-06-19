@@ -294,8 +294,7 @@ set_determinism(seed=42)
 
 # test different transforms
 
-
-out_tag = "final"
+out_tag = "final_just_flip"
 max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
@@ -322,9 +321,9 @@ train_transforms = Compose(
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
         RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-        RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-        RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-        RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
+        # RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+        # RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+        # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
         EnsureTyped(keys=["image", "label"]),
     ]
 )
@@ -418,7 +417,7 @@ model = UNet(
 # ).to(device)
 loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
-#lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+# lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
@@ -453,7 +452,7 @@ for epoch in range(max_epochs):
         # print(
         #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
         #     f"train_loss: {loss.item():.4f}")
-    #lr_scheduler.step()
+    # lr_scheduler.step()
     epoch_loss /= step
     epoch_loss_values.append(epoch_loss)
     print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
@@ -496,8 +495,10 @@ for epoch in range(max_epochs):
 end = time.time()
 time_taken = end - start
 print(f"Time taken: {round(time_taken, 0)} seconds")
-time_taken_mins = round(time_taken/60, 0)
-time_taken_hours = round(time_taken/3600, 0)
+time_taken_hours = time_taken/3600
+time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
+time_taken_hours = int(time_taken_hours)
+
 # generate loss plot
 plt.figure("train", (12, 6))
 plt.subplot(1, 2, 1)
@@ -619,7 +620,7 @@ with torch.no_grad():
         # get original image, and normalize it so we can see the normalized image
         # this is both channels
         original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
-        volx, voly, volz = original_image[1]['pixdim'][1:4]# meta data
+        volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
         pixel_vol = volx * voly * volz
 
         original_image = original_image[0] # image data
