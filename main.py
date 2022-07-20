@@ -328,7 +328,6 @@ train_transforms = Compose(
     ]
 )
 
-
 val_transforms = Compose(
     [
         LoadImaged(keys=["image", "label"]),
