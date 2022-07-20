@@ -692,10 +692,10 @@ with torch.no_grad():
         a = dice_metric(y_pred=test_output, y=test_label)
         dice_score = round(a.item(), 4)
         results.loc[results.id == name, 'size'] = size
-        results.loc[results.id == name, 'size_mL'] = size_ml
-        results.loc[results.id == name, 'pix_x'] = volx
-        results.loc[results.id == name, 'pix_y'] = voly
-        results.loc[results.id == name, 'pix_z'] = volz
+        results.loc[results.id == name, 'size_ml'] = size_ml
+        results.loc[results.id == name, 'px_x'] = volx
+        results.loc[results.id == name, 'px_y'] = voly
+        results.loc[results.id == name, 'px_z'] = volz
         results.loc[results.id == name, 'dice'] = dice_score
 
     # aggregate the final mean dice result
