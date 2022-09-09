@@ -636,7 +636,7 @@ with torch.no_grad():
         prediction = test_output[0][1].detach().numpy()
         transformed_image = test_inputs[0][0].detach().cpu().numpy()
         size = prediction.sum()
-        size_ml = size * pixel_vol
+        size_ml = size * pixel_vol / 1000
         name = "test_" + os.path.basename(
             test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
         save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
