@@ -268,13 +268,20 @@ def make_dict(root, string):
     ]
 
 
-if os.path.exists('/media/'):
+if os.path.exists('/media/mbcneuro'):
     directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
     ctp_df = pd.read_csv(
         '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
         index_col='dl_id'
     )
 
+
+elif os.path.exists('/media/fwerdiger'):
+    directory = '/media/fwerdiger/Storage1/DWI_Training_Data/'
+    ctp_df = pd.read_csv(
+        '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+        index_col='dl_id'
+    )
 
 elif os.path.exists('D:'):
     directory = 'D:/ctp_project_data/DWI_Training_Data/'
@@ -295,7 +302,7 @@ set_determinism(seed=42)
 # test different transforms
 
 out_tag = "final_attentionUnet"
-max_epochs = 600
+max_epochs = 10
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
     os.makedirs(root_dir + 'out_' + out_tag)
@@ -360,7 +367,7 @@ train_ds = CacheDataset(
 
 train_loader = DataLoader(
     train_ds,
-    batch_size=2,
+    batch_size=1,
     shuffle=True,
     num_workers=4)
 
@@ -372,7 +379,7 @@ val_ds = CacheDataset(
 
 val_loader = DataLoader(
     val_ds,
-    batch_size=2,
+    batch_size=1,
     shuffle=False,
     num_workers=4)
 
@@ -397,15 +404,15 @@ plt.show()
 plt.close()
 
 device = torch.device("cuda:0")
-# model = UNet(
-#     spatial_dims=3,
-#     in_channels=2,
-#     out_channels=2,
-#     channels=(32, 64, 128, 256),
-#     strides=(2, 2, 2),
-#     num_res_units=2,
-#     norm=Norm.BATCH,
-# ).to(device)
+model = UNet(
+    spatial_dims=3,
+    in_channels=2,
+    out_channels=2,
+    channels=(32, 64, 128, 256),
+    strides=(2, 2, 2),
+    num_res_units=2,
+    norm=Norm.BATCH,
+).to(device)
 model = AttentionUnet(
     spatial_dims=3,
     in_channels=2,
