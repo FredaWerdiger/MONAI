@@ -2,6 +2,7 @@
 # two classes insead of 4 classes
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import math
 import shutil
 import tempfile
@@ -296,7 +297,8 @@ print(root_dir)
 
 train_files, val_files, test_files = [
     make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
-
+train_files = train_files[:10]
+val_files = val_files[:10]
 set_determinism(seed=42)
 
 # test different transforms
@@ -386,7 +388,7 @@ val_loader = DataLoader(
 # Uncomment to display data
 
 import random
-m = random.randint(0, 45)
+m = random.randint(0, 4)
 s = random.randint(20, 100)
 val_data_example = val_ds[m]
 print(f"image shape: {val_data_example['image'].shape}")
@@ -404,6 +406,7 @@ plt.show()
 plt.close()
 
 device = torch.device("cuda:0")
+device = torch.device("cpu")
 model = UNet(
     spatial_dims=3,
     in_channels=2,
@@ -434,7 +437,7 @@ optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
-val_interval = 1
+val_interval = 2
 best_metric = -1
 best_metric_epoch = -1
 epoch_loss_values = []
