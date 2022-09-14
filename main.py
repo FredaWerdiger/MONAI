@@ -38,6 +38,7 @@ Orientationd,
 RandFlipd,
 AddChanneld,
 RandAdjustContrastd,
+RandCropByPosNegLabeld,
 RandScaleIntensityd,
 RandShiftIntensityd,
 RandSpatialCropd,
@@ -278,7 +279,7 @@ if os.path.exists('/media/mbcneuro'):
 
 
 elif os.path.exists('/media/fwerdiger'):
-    directory = '/media/fwerdiger/Storage1/DWI_Training_Data/'
+    directory = '/media/fwerdiger/Storage/DWI_Training_Data/'
     ctp_df = pd.read_csv(
         '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
         index_col='dl_id'
@@ -297,14 +298,12 @@ print(root_dir)
 
 train_files, val_files, test_files = [
     make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
-train_files = train_files[:10]
-val_files = val_files[:10]
 set_determinism(seed=42)
 
 # test different transforms
 
 out_tag = "final_attentionUnet"
-max_epochs = 10
+max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
     os.makedirs(root_dir + 'out_' + out_tag)
@@ -318,7 +317,17 @@ train_transforms = Compose(
         Resized(keys=["image", "label"],
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
-                spatial_size=(128, 128, 128)),
+                spatial_size=(64, 64, 64)),
+        RandCropByPosNegLabeld(
+            keys=["image", "label"],
+            label_key="label",
+            spatial_size=(32, 32, 32),
+            pos=1,
+            neg=1,
+            num_samples=4,
+            image_key="image",
+            image_threshold=0,
+        ),
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
                                         upper=99,
@@ -345,7 +354,7 @@ val_transforms = Compose(
         Resized(keys=["image", "label"],
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
-                spatial_size=(128, 128, 128)),
+                spatial_size=(64, 64, 64)),
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
                                         upper=99,
@@ -369,7 +378,7 @@ train_ds = CacheDataset(
 
 train_loader = DataLoader(
     train_ds,
-    batch_size=1,
+    batch_size=2,
     shuffle=True,
     num_workers=4)
 
@@ -381,15 +390,15 @@ val_ds = CacheDataset(
 
 val_loader = DataLoader(
     val_ds,
-    batch_size=1,
+    batch_size=2,
     shuffle=False,
     num_workers=4)
 
 # Uncomment to display data
 
 import random
-m = random.randint(0, 4)
-s = random.randint(20, 100)
+m = random.randint(0, 50)
+s = random.randint(0, 63)
 val_data_example = val_ds[m]
 print(f"image shape: {val_data_example['image'].shape}")
 plt.figure("image", (18, 6))
@@ -406,16 +415,15 @@ plt.show()
 plt.close()
 
 device = torch.device("cuda:0")
-device = torch.device("cpu")
-model = UNet(
-    spatial_dims=3,
-    in_channels=2,
-    out_channels=2,
-    channels=(32, 64, 128, 256),
-    strides=(2, 2, 2),
-    num_res_units=2,
-    norm=Norm.BATCH,
-).to(device)
+# model = UNet(
+#     spatial_dims=3,
+#     in_channels=2,
+#     out_channels=2,
+#     channels=(32, 64, 128, 256),
+#     strides=(2, 2, 2),
+#     num_res_units=2,
+#     norm=Norm.BATCH,
+# ).to(device)
 model = AttentionUnet(
     spatial_dims=3,
     in_channels=2,
@@ -437,7 +445,7 @@ optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 
 dice_metric = DiceMetric(include_background=False, reduction="mean")
 
-val_interval = 2
+val_interval = 1
 best_metric = -1
 best_metric_epoch = -1
 epoch_loss_values = []
@@ -465,9 +473,9 @@ for epoch in range(max_epochs):
         optimizer.step()
         epoch_loss += loss.item()
         # commenting out print function
-        # print(
-        #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
-        #     f"train_loss: {loss.item():.4f}")
+        print(
+            f"{step}/{len(train_ds) // train_loader.batch_size}, "
+            f"train_loss: {loss.item():.4f}")
     # lr_scheduler.step()
     epoch_loss /= step
     epoch_loss_values.append(epoch_loss)
@@ -482,8 +490,8 @@ for epoch in range(max_epochs):
                     val_data["label"].to(device),
                 )
                 # unsure how to optimize this
-                roi_size = (160, 160, 160)
-                sw_batch_size = 4
+                roi_size = (32, 32, 32)
+                sw_batch_size = 2
                 val_outputs = sliding_window_inference(
                     val_inputs, roi_size, sw_batch_size, model)
                 val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
@@ -569,7 +577,7 @@ test_transforms = Compose(
         Resized(keys="image",
                 mode='trilinear',
                 align_corners=True,
-                spatial_size=(128, 128, 128)),
+                spatial_size=(64, 64, 64)),
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
                                         upper=99,
@@ -623,8 +631,8 @@ results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_load
 with torch.no_grad():
     for i, test_data in enumerate(test_loader):
         test_inputs = test_data["image"].to(device)
-        roi_size = (64, 64, 64)
-        sw_batch_size = 4
+        roi_size = (32, 32, 32)
+        sw_batch_size = 2
         test_data["pred"] = sliding_window_inference(
             test_inputs, roi_size, sw_batch_size, model)
 
