@@ -302,7 +302,7 @@ set_determinism(seed=42)
 
 # test different transforms
 
-out_tag = "final_attentionUnet"
+out_tag = "attention_unet_scale_up_rand_crop_64"
 max_epochs = 600
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
@@ -317,11 +317,11 @@ train_transforms = Compose(
         Resized(keys=["image", "label"],
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
-                spatial_size=(64, 64, 64)),
+                spatial_size=(128, 128, 128)),
         RandCropByPosNegLabeld(
             keys=["image", "label"],
             label_key="label",
-            spatial_size=(32, 32, 32),
+            spatial_size=(64, 64, 64),
             pos=1,
             neg=1,
             num_samples=4,
@@ -354,7 +354,7 @@ val_transforms = Compose(
         Resized(keys=["image", "label"],
                 mode=['trilinear', "nearest"],
                 align_corners=[True, None],
-                spatial_size=(64, 64, 64)),
+                spatial_size=(128, 128, 128)),
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
                                         upper=99,
@@ -490,7 +490,7 @@ for epoch in range(max_epochs):
                     val_data["label"].to(device),
                 )
                 # unsure how to optimize this
-                roi_size = (32, 32, 32)
+                roi_size = (64, 64, 64)
                 sw_batch_size = 2
                 val_outputs = sliding_window_inference(
                     val_inputs, roi_size, sw_batch_size, model)
@@ -577,7 +577,7 @@ test_transforms = Compose(
         Resized(keys="image",
                 mode='trilinear',
                 align_corners=True,
-                spatial_size=(64, 64, 64)),
+                spatial_size=(128, 128, 128)),
         ScaleIntensityRangePercentilesd(keys="image",
                                         lower=1,
                                         upper=99,
@@ -631,7 +631,7 @@ results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_load
 with torch.no_grad():
     for i, test_data in enumerate(test_loader):
         test_inputs = test_data["image"].to(device)
-        roi_size = (32, 32, 32)
+        roi_size = (64, 64, 64)
         sw_batch_size = 2
         test_data["pred"] = sliding_window_inference(
             test_inputs, roi_size, sw_batch_size, model)
