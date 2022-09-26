@@ -53,6 +53,7 @@ from monai.utils import first, set_determinism
 
 import pandas as pd
 import torch
+import torch.nn as nn
 from jinja2 import Environment, FileSystemLoader
 import os
 import sys
@@ -430,7 +431,10 @@ model = AttentionUnet(
     out_channels=2,
     channels=(32, 64, 128, 256),
     strides=(2, 2, 2)
-).to(device)
+)
+model = nn.DataParallel(model)
+model.to(device)
+
 # model = SegResNet(
 #     blocks_down=[1, 2, 2, 4],
 #     blocks_up=[1, 1, 1],
