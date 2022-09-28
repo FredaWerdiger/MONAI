@@ -38,20 +38,12 @@ class SimpleSegmentationModel(nn.Module):
                                    nn.BatchNorm3d(64),
                                    nn.ReLU(inplace=True),
                                    nn.MaxPool3d(kernel_size=2, stride=2))
-        self.conv3 = nn.Sequential(nn.ConvTranspose3d(64, 32, 2, 2),
-                                   nn.Conv3d(64, 32, 3, 1, 1),
-                                   nn.BatchNorm3d(32),
-                                   nn.ReLU(inplace=True)
-                                   )
-        self.finalconv = nn.Conv3d(32, 2, 1)
+        self.finalconv = nn.Conv3d(64, 2, 1)
 
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
-        # print("Output size: {}".format(x.shape))
-        # x - self.conv3(x)
-        # print("Output size: {}".format(x.shape))
-        # x = self.finalconv(x)
+        x = self.finalconv(x)
         return x
 
 # model = SimpleClassificationModel(2,2)
