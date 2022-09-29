@@ -38,8 +38,8 @@ class SimpleSegmentationModel(nn.Module):
                                    nn.BatchNorm3d(64),
                                    nn.ReLU(inplace=True),
                                    nn.MaxPool3d(kernel_size=2, stride=2))
-        self.finalconv = nn.Conv3d(64, 2, 1)
-        self.upsample = nn.Upsample(mode="trilinear", scale_factor=4)
+        self.finalconv = nn.Conv3d(64, out_channels, 1)
+        self.upsample = nn.Upsample(mode="trilinear", scale_factor=4, align_corners=True)
 
     def forward(self, x):
         x = self.conv1(x)

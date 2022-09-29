@@ -3,6 +3,8 @@
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+os.environ['MASTER_ADDR'] = 'localhost'
+os.environ['MASTER_PORT'] = '12355'
 import math
 import shutil
 import tempfile
@@ -55,6 +57,7 @@ from monai.utils import first, set_determinism
 
 import pandas as pd
 import torch
+from torch.nn import DataParallel
 from jinja2 import Environment, FileSystemLoader
 import os
 
@@ -414,7 +417,7 @@ plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
 plt.show()
 plt.close()
 
-device = torch.device("cuda:0")
+device = torch.device("cuda")
 # model = UNet(
 #     spatial_dims=3,
 #     in_channels=2,
@@ -433,7 +436,8 @@ device = torch.device("cuda:0")
 # )
 # model = nn.DataParallel(model)
 # model.to(device)
-model = SimpleSegmentationModel(2, 2).to(device)
+model = SimpleSegmentationModel(2, 2)
+
 # model = SegResNet(
 #     blocks_down=[1, 2, 2, 4],
 #     blocks_up=[1, 1, 1],
@@ -442,6 +446,9 @@ model = SimpleSegmentationModel(2, 2).to(device)
 #     out_channels=2,
 #     dropout_prob=0.2,
 # ).to(device)
+if torch.cuda.device_count() > 1:
+    model = torch.nn.parallel.DistributedDataParallel(model).to(device)
+
 loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
 optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
 # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
