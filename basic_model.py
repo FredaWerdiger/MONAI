@@ -39,11 +39,13 @@ class SimpleSegmentationModel(nn.Module):
                                    nn.ReLU(inplace=True),
                                    nn.MaxPool3d(kernel_size=2, stride=2))
         self.finalconv = nn.Conv3d(64, 2, 1)
+        self.upsample = nn.Upsample(mode="trilinear", scale_factor=4)
 
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.finalconv(x)
+        x = self.upsample(x)
         return x
 
 # model = SimpleClassificationModel(2,2)

@@ -19,6 +19,7 @@ from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
 from sklearn.metrics import f1_score
 from monai.networks.nets import SegResNet, UNet, AttentionUnet
+from basic_model import SimpleSegmentationModel, SimpleClassificationModel
 from monai.networks.layers import Norm
 from monai.transforms import (
 Activations,
@@ -46,6 +47,7 @@ Spacingd,
 EnsureChannelFirstd,
 EnsureTyped,
 EnsureType,
+Resize,
 Resized,
 SaveImaged
 )
@@ -53,11 +55,8 @@ from monai.utils import first, set_determinism
 
 import pandas as pd
 import torch
-import torch.nn as nn
 from jinja2 import Environment, FileSystemLoader
 import os
-import sys
-from termcolor import colored
 
 from GPUtil import showUtilization as gpu_usage
 from numba import cuda
@@ -303,8 +302,8 @@ set_determinism(seed=42)
 
 # test different transforms
 
-out_tag = "attention_unet_scale_up_rand_crop_64"
-max_epochs = 600
+out_tag = "testing_simple_model"
+max_epochs = 2
 # create outdir
 if not os.path.exists(root_dir + 'out_' + out_tag):
     os.makedirs(root_dir + 'out_' + out_tag)
@@ -425,16 +424,16 @@ device = torch.device("cuda:0")
 #     num_res_units=2,
 #     norm=Norm.BATCH,
 # ).to(device)
-model = AttentionUnet(
-    spatial_dims=3,
-    in_channels=2,
-    out_channels=2,
-    channels=(32, 64, 128, 256),
-    strides=(2, 2, 2)
-)
-model = nn.DataParallel(model)
-model.to(device)
-
+# model = AttentionUnet(
+#     spatial_dims=3,
+#     in_channels=2,
+#     out_channels=2,
+#     channels=(32, 64, 128, 256),
+#     strides=(2, 2, 2)
+# )
+# model = nn.DataParallel(model)
+# model.to(device)
+model = SimpleSegmentationModel(2, 2).to(device)
 # model = SegResNet(
 #     blocks_down=[1, 2, 2, 4],
 #     blocks_up=[1, 1, 1],
