@@ -57,7 +57,10 @@ def example(rank, world_size):
         directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
     else:
         directory = 'D:/ctp_project_data/DWI_Training_Data/'
+
     root_dir = directory
+    if not os.path.exists(root_dir + "practice"):
+        os.makedirs(root_dir + "practice")
 
 
     train_files, val_files = [make_dict(root_dir, string) for string in ["train", "validation"]]
@@ -198,15 +201,15 @@ def example(rank, world_size):
                 batch["image"],
                 batch["label"]
             )
-        # inputs = torch.randn((1, 2, 128, 128, 128))
-        # labels = torch.randn((1, 2, 128, 128, 128))
+            # inputs = torch.randn((1, 2, 128, 128, 128))
+            # labels = torch.randn((1, 2, 128, 128, 128))
             outputs = ddp_model(inputs.to(rank))
             labels = labels.to(rank)
-        # backward pass
+            # backward pass
             loss = loss_fn(outputs, labels)
             loss.backward()
             epoch_loss += loss.item()
-        # update parameters
+            # update parameters
             optimizer.step()
             print("step {}/{}".format(step, int(num_batches)))
             print(f"Training Loss: {loss.item():.4f}")
@@ -243,6 +246,23 @@ def example(rank, world_size):
                     f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
                 )
         sleep(0.02)
+
+    # now plot the loss and the dice
+    plt.figure("Results of training", (12,6))
+    plt.subplot(1, 2, 1)
+    x = [i + 1 for i in range(len(epoch_loss_list))]
+    plt.plot(x, epoch_loss_list)
+    plt.title("Loss trend")
+    plt.xlabel("Epoch number")
+    plt.ylabel("Average loss")
+    plt.subplot(1, 2, 2)
+    plt.title('Mean dice trend')
+    plt.xlabel("Epoch number")
+    plt.ylabel("Mean dice")
+    x = [(i + 1) * val_interval for i in range(len(mean_dice_list))]
+    plt.plot(x, mean_dice_list)
+    plt.savefig(root_dir + "practice", bbox_inches='tight', dpi=300, format='png')
+    plt.close()
 
 def main():
     # comment out below for dev
