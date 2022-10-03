@@ -266,7 +266,7 @@ def example(rank, world_size):
 
 def main():
     # comment out below for dev
-    world_size = 1
+    world_size = 2
     mp.spawn(example,
              args=(world_size,),
              nprocs=world_size,
