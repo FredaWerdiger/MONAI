@@ -51,7 +51,7 @@ def make_dict(root, string):
 
 def example(rank, world_size):
     # create default process group
-    # dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
     # create local model
     if os.path.exists('/media/'):
         directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
