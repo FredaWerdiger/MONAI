@@ -12,7 +12,6 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import glob
 import random
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 from time import sleep
 from basic_model import SimpleSegmentationModel
 from monai.data import CacheDataset, DataLoader, decollate_batch
@@ -75,6 +74,7 @@ def prepare(dataset,
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
+    os.environ['WORLD_SIZE'] = '2'
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 def example(rank, world_size):
@@ -114,7 +114,7 @@ def example(rank, world_size):
                 spatial_size=(64, 64, 64),
                 pos=1,
                 neg=1,
-                num_samples=4,
+                num_samples=2,
                 image_key="image",
                 image_threshold=0,
             ),
@@ -138,7 +138,7 @@ def example(rank, world_size):
         ]
     )
     # here we don't cache any data in case out of memory issue
-    batch_size = 4
+    batch_size = 2
     train_ds = CacheDataset(
         data=train_files,
         transform=train_transforms,
@@ -205,7 +205,7 @@ def example(rank, world_size):
     best_metric_epoch = -1
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True,to_onehot=2)])
     post_pred_label = Compose([EnsureType(), AsDiscrete(argmax=False, to_onehot=2)])
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch+1, num_epochs))
         step = 0 # which step out of the number of batches
         epoch_loss = 0 # total loss for this epoch
@@ -265,7 +265,6 @@ def example(rank, world_size):
                     f"Mean dice at epoch {epoch + 1}: {mean_dice:.4f}"
                     f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
                 )
-        sleep(0.02)
     # now plot the loss and the dice
     plt.figure("Results of training", (12,6))
     plt.subplot(1, 2, 1)
@@ -283,6 +282,8 @@ def example(rank, world_size):
     plt.savefig(root_dir + "practice", bbox_inches='tight', dpi=300, format='png')
     plt.close()
     cleanup()
+
+
 def main():
     # comment out below for dev
     world_size = 2
