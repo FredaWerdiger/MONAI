@@ -5,12 +5,10 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.nn.functional import one_hot
+from torch.utils.data.distributed import DistributedSampler
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-os.environ['MASTER_ADDR'] = 'localhost'
-os.environ['MASTER_PORT'] = '12355'
 import glob
 import random
 import matplotlib.pyplot as plt
@@ -47,6 +45,28 @@ def make_dict(root, string):
         {"image": image_name, "label": label_name}
         for image_name, label_name in zip(images, labels)
     ]
+
+def prepare(dataset,
+            rank,
+            world_size,
+            batch_size,
+            pin_memory=False,
+            num_workers=0):
+    sampler = DistributedSampler(
+        dataset,
+        num_replicas=world_size,
+        rank=rank,
+        shuffle=False,
+        drop_last=False)
+    dataloader=DataLoader(dataset,
+                          batch_size=batch_size,
+                          pin_memory=pin_memory,
+                          num_workers=num_workers,
+                          drop_last=False,
+                          shuffle=False,
+                          sampler=sampler
+                          )
+    return dataloader
 
 
 def example(rank, world_size):
@@ -118,11 +138,7 @@ def example(rank, world_size):
         num_workers=4
     )
 
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=4)
+    train_loader = prepare(train_ds, rank, world_size, batch_size)
 
     val_ds = CacheDataset(
         data=val_files,
@@ -131,38 +147,32 @@ def example(rank, world_size):
         num_workers=4
     )
 
-    val_loader = DataLoader(
-        val_ds,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=4)
+    val_loader = prepare(val_ds, rank, world_size, batch_size)
 
     set_determinism(seed=42)
-
-    import matplotlib.pyplot as plt
     # plot validation data example
-    l = random.randint(0, len(val_ds) - 1)
-    random_image = val_ds[l]
-    image_shape = random_image["image"].shape
-    channel_1 = random_image["image"][0]
-    channel_2 = random_image["image"][1]
-    label = random_image["label"][0]
-    random_slice = random.randint(0, image_shape[2] - 1)
-
-    plt.figure("image",(18,6))
-    plt.subplot(1,3,1)
-    plt.imshow(channel_1[:, :, random_slice], cmap="gray")
-    plt.axis("off")
-    plt.title("Diffusion Weighted Imaging")
-    plt.subplot(1,3,2)
-    plt.imshow(channel_2[:, :, random_slice], cmap="gray")
-    plt.axis("off")
-    plt.title("Apparent Diffusion Coefficient")
-    plt.subplot(1,3,3)
-    plt.imshow(label[:, :, random_slice], cmap="gray")
-    plt.axis("off")
-    plt.title("Stroke lesion")
-    plt.show()
+    # l = random.randint(0, len(val_ds) - 1)
+    # random_image = val_ds[l]
+    # image_shape = random_image["image"].shape
+    # channel_1 = random_image["image"][0]
+    # channel_2 = random_image["image"][1]
+    # label = random_image["label"][0]
+    # random_slice = random.randint(0, image_shape[2] - 1)
+    #
+    # plt.figure("image",(18,6))
+    # plt.subplot(1,3,1)
+    # plt.imshow(channel_1[:, :, random_slice], cmap="gray")
+    # plt.axis("off")
+    # plt.title("Diffusion Weighted Imaging")
+    # plt.subplot(1,3,2)
+    # plt.imshow(channel_2[:, :, random_slice], cmap="gray")
+    # plt.axis("off")
+    # plt.title("Apparent Diffusion Coefficient")
+    # plt.subplot(1,3,3)
+    # plt.imshow(label[:, :, random_slice], cmap="gray")
+    # plt.axis("off")
+    # plt.title("Stroke lesion")
+    # plt.show()
 
     model = SimpleSegmentationModel(2, 2).to(rank)
     # model = monai.networks.nets.UNet(spatial_dims=3,
@@ -250,7 +260,7 @@ def example(rank, world_size):
                     f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
                 )
         sleep(0.02)
-
+    cleanup()
     # now plot the loss and the dice
     plt.figure("Results of training", (12,6))
     plt.subplot(1, 2, 1)
