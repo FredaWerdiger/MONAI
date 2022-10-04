@@ -75,7 +75,7 @@ def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
     os.environ['WORLD_SIZE'] = '2'
-    os.environ['LOCAL RANK'] = rank
+    os.environ['LOCAL RANK'] = str(rank)
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 def example(rank, world_size):
