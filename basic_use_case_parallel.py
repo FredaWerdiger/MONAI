@@ -253,9 +253,9 @@ def example(rank, world_size):
                     val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
                     # transform from a batched tensor to a list of tensors
                     # turn into an array of discrete binary values
-                    # val_outputs_list = [post_pred(i) for i in decollate_batch(val_outputs)]
-                    # val_labels = [post_pred_label(i) for i in decollate_batch(val_labels)]
-                    # metric(y_pred=val_outputs_list, y=val_labels)
+                    val_outputs_list = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    val_labels = [post_pred_label(i) for i in decollate_batch(val_labels)]
+                    metric(y_pred=val_outputs_list, y=val_labels)
                 # mean_dice = metric.aggregate().item()
                 # metric.reset()
                 # mean_dice_list.append(mean_dice)
