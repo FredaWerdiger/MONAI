@@ -50,6 +50,7 @@ def make_dict(root, string):
 
 
 def example(rank, world_size):
+    print(f"Running DDP on rank {rank}.")
     # create default process group
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
     # create local model
