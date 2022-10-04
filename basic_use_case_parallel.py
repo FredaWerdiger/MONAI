@@ -239,8 +239,11 @@ def example(rank, world_size):
                 metric.reset()
                 mean_dice_list.append(mean_dice)
                 if mean_dice > best_metric:
+                    CHECKPOINT_PATH = root_dir + 'practice/best_model.pth'
                     best_metric_epoch = epoch + 1
-                    torch.save(model.state_dict(), root_dir + 'practice/best_model.pth')
+                    # only save in one process
+                    if rank == 0:
+                        torch.save(model.state_dict(), CHECKPOINT_PATH)
                     best_metric = mean_dice
                 print(
                     f"Mean dice at epoch {epoch + 1}: {mean_dice:.4f}"
