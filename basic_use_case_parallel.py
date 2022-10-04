@@ -248,14 +248,14 @@ def example(rank, world_size):
                         val["image"].to(rank),
                         val["label"].to(rank)
                     )
-                #     roi_size = (64, 64, 64)
-                #     sw_batch_size = 2
-                #     val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
-                #     # transform from a batched tensor to a list of tensors
-                #     # turn into an array of discrete binary values
-                #     val_outputs_list = [post_pred(i) for i in decollate_batch(val_outputs)]
-                #     val_labels = [post_pred_label(i) for i in decollate_batch(val_labels)]
-                #     metric(y_pred=val_outputs_list, y=val_labels)
+                    roi_size = (64, 64, 64)
+                    sw_batch_size = 2
+                    val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
+                    # transform from a batched tensor to a list of tensors
+                    # turn into an array of discrete binary values
+                    # val_outputs_list = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    # val_labels = [post_pred_label(i) for i in decollate_batch(val_labels)]
+                    # metric(y_pred=val_outputs_list, y=val_labels)
                 # mean_dice = metric.aggregate().item()
                 # metric.reset()
                 # mean_dice_list.append(mean_dice)
