@@ -248,28 +248,28 @@ def example(rank, world_size):
                         val["image"].to(rank),
                         val["label"].to(rank)
                     )
-                    roi_size = (64, 64, 64)
-                    sw_batch_size = 2
-                    val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
-                    # transform from a batched tensor to a list of tensors
-                    # turn into an array of discrete binary values
-                    val_outputs_list = [post_pred(i) for i in decollate_batch(val_outputs)]
-                    val_labels = [post_pred_label(i) for i in decollate_batch(val_labels)]
-                    metric(y_pred=val_outputs_list, y=val_labels)
-                mean_dice = metric.aggregate().item()
-                metric.reset()
-                mean_dice_list.append(mean_dice)
-                if mean_dice > best_metric:
-                    CHECKPOINT_PATH = root_dir + 'practice/best_model.pth'
-                    best_metric_epoch = epoch + 1
-                    # only save in one process
-                    if rank == 0:
-                        torch.save(model.state_dict(), CHECKPOINT_PATH)
-                    best_metric = mean_dice
-                print(
-                    f"Mean dice at epoch {epoch + 1}: {mean_dice:.4f}"
-                    f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
-                )
+                #     roi_size = (64, 64, 64)
+                #     sw_batch_size = 2
+                #     val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
+                #     # transform from a batched tensor to a list of tensors
+                #     # turn into an array of discrete binary values
+                #     val_outputs_list = [post_pred(i) for i in decollate_batch(val_outputs)]
+                #     val_labels = [post_pred_label(i) for i in decollate_batch(val_labels)]
+                #     metric(y_pred=val_outputs_list, y=val_labels)
+                # mean_dice = metric.aggregate().item()
+                # metric.reset()
+                # mean_dice_list.append(mean_dice)
+                # if mean_dice > best_metric:
+                #     CHECKPOINT_PATH = root_dir + 'practice/best_model.pth'
+                #     best_metric_epoch = epoch + 1
+                #     # only save in one process
+                #     if rank == 0:
+                #         torch.save(model.state_dict(), CHECKPOINT_PATH)
+                #     best_metric = mean_dice
+                # print(
+                #     f"Mean dice at epoch {epoch + 1}: {mean_dice:.4f}"
+                #     f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
+                # )
     # now plot the loss and the dice
     if rank == 0:
         plt.figure("Results of training", (12,6))
