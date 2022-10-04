@@ -233,6 +233,7 @@ def example(rank, world_size):
             print(f"Training Loss: {loss.item():.4f}")
         epoch_loss /= step
         epoch_loss_list.append(epoch_loss)
+        print(f"Epoch losses: {epoch_loss_list}")
         print(f"Average loss for epoch: {epoch_loss:.4f}")
 
         # if (epoch + 1) % 2 == 0:
@@ -280,7 +281,7 @@ def example(rank, world_size):
     plt.ylabel("Mean dice")
     x = [(i + 1) * val_interval for i in range(len(mean_dice_list))]
     plt.plot(x, mean_dice_list)
-    plt.savefig(root_dir + "practice", bbox_inches='tight', dpi=300, format='png')
+    plt.savefig(root_dir + "practice/loss_plot", bbox_inches='tight', dpi=300, format='png')
     plt.close()
     cleanup()
 
