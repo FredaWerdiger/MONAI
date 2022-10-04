@@ -32,6 +32,7 @@ from monai.inferers import sliding_window_inference
 from monai.utils import first, set_determinism
 from monai.metrics import DiceMetric
 
+#https://medium.com/codex/a-comprehensive-tutorial-to-pytorch-distributeddataparallel-1f4b42bb1b51
 
 def cleanup():
     dist.destroy_process_group()
@@ -200,10 +201,12 @@ def example(rank, world_size):
     num_epochs = 20
     val_interval = 2
     num_batches = len(train_ds) / batch_size
-    epoch_loss_list = [] # make a list of average loss values for the loss plot
-    mean_dice_list = [] # make a list of mean dice loss
-    best_metric = -1
-    best_metric_epoch = -1
+    # only doing eval on master node
+    if rank == 0:
+        epoch_loss_list = [] # make a list of average loss values for the loss plot
+        mean_dice_list = [] # make a list of mean dice loss
+        best_metric = -1
+        best_metric_epoch = -1
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True,to_onehot=2)])
     post_pred_label = Compose([EnsureType(), AsDiscrete(argmax=False, to_onehot=2)])
     for epoch in range(num_epochs):
@@ -231,9 +234,9 @@ def example(rank, world_size):
             optimizer.step()
             print("step {}/{}".format(step, int(num_batches)))
             print(f"Training Loss: {loss.item():.4f}")
-        epoch_loss /= step
-        epoch_loss_list.append(epoch_loss)
-        print(f"Epoch losses: {epoch_loss_list}")
+        if rank == 0:
+            epoch_loss /= step
+            epoch_loss_list.append(epoch_loss)
         print(f"Average loss for epoch: {epoch_loss:.4f}")
 
         # if (epoch + 1) % 2 == 0:
@@ -268,21 +271,22 @@ def example(rank, world_size):
         #             f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
         #         )
     # now plot the loss and the dice
-    plt.figure("Results of training", (12,6))
-    plt.subplot(1, 2, 1)
-    x = [i + 1 for i in range(len(epoch_loss_list))]
-    plt.plot(x, epoch_loss_list)
-    plt.title("Loss trend")
-    plt.xlabel("Epoch number")
-    plt.ylabel("Average loss")
-    plt.subplot(1, 2, 2)
-    plt.title('Mean dice trend')
-    plt.xlabel("Epoch number")
-    plt.ylabel("Mean dice")
-    x = [(i + 1) * val_interval for i in range(len(mean_dice_list))]
-    plt.plot(x, mean_dice_list)
-    plt.savefig(root_dir + "practice/loss_plot", bbox_inches='tight', dpi=300, format='png')
-    plt.close()
+    if rank == 0:
+        plt.figure("Results of training", (12,6))
+        plt.subplot(1, 2, 1)
+        x = [i + 1 for i in range(len(epoch_loss_list))]
+        plt.plot(x, epoch_loss_list)
+        plt.title("Loss trend")
+        plt.xlabel("Epoch number")
+        plt.ylabel("Average loss")
+        plt.subplot(1, 2, 2)
+        plt.title('Mean dice trend')
+        plt.xlabel("Epoch number")
+        plt.ylabel("Mean dice")
+        x = [(i + 1) * val_interval for i in range(len(mean_dice_list))]
+        plt.plot(x, mean_dice_list)
+        plt.savefig(root_dir + "practice/loss_plot", bbox_inches='tight', dpi=300, format='png')
+        plt.close()
     cleanup()
 
 
