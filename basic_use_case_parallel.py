@@ -257,8 +257,8 @@ def example(rank, world_size):
                     val_labels = [post_pred_label(i) for i in decollate_batch(val_labels)]
                     metric(y_pred=val_outputs_list, y=val_labels)
                 mean_dice = metric.aggregate().item()
-                metric.reset()
-                mean_dice_list.append(mean_dice)
+                # metric.reset()
+                # mean_dice_list.append(mean_dice)
                 # if mean_dice > best_metric:
                 #     CHECKPOINT_PATH = root_dir + 'practice/best_model.pth'
                 #     best_metric_epoch = epoch + 1
