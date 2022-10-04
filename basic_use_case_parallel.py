@@ -34,6 +34,10 @@ from monai.utils import first, set_determinism
 from monai.metrics import DiceMetric
 
 
+def cleanup():
+    dist.destroy_process_group()
+
+
 def make_dict(root, string):
     images = sorted(
         glob.glob(os.path.join(root, string, 'images', '*.nii.gz'))
@@ -68,11 +72,15 @@ def prepare(dataset,
                           )
     return dataloader
 
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 def example(rank, world_size):
     print(f"Running DDP on rank {rank}.")
     # create default process group
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    setup(rank, world_size)
     # create local model
     if os.path.exists('/media/'):
         directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
@@ -183,10 +191,7 @@ def example(rank, world_size):
     #                                  kernel_size=3,
     #                                  num_res_units=2).to(rank)
     # construct DDP model
-    if rank=="cuda":
-        ddp_model = model
-    else:
-        ddp_model = DDP(model, device_ids=[rank])
+    ddp_model = DDP(model, device_ids=[rank])
     # define loss function and optimizer
     loss_fn = nn.MSELoss()
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.001)
@@ -205,6 +210,7 @@ def example(rank, world_size):
         step = 0 # which step out of the number of batches
         epoch_loss = 0 # total loss for this epoch
         model.train()
+        train_loader.sampler.set_epoch(epoch)
         for batch in train_loader:
             step += 1
             # forward pass
@@ -260,7 +266,6 @@ def example(rank, world_size):
                     f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
                 )
         sleep(0.02)
-    cleanup()
     # now plot the loss and the dice
     plt.figure("Results of training", (12,6))
     plt.subplot(1, 2, 1)
@@ -277,7 +282,7 @@ def example(rank, world_size):
     plt.plot(x, mean_dice_list)
     plt.savefig(root_dir + "practice", bbox_inches='tight', dpi=300, format='png')
     plt.close()
-
+    cleanup()
 def main():
     # comment out below for dev
     world_size = 2
@@ -290,6 +295,4 @@ if __name__ == "__main__":
     # Environment variables which need to be
     # set when using c10d's default "env"
     # initialization mode.
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "29500"
     main()
