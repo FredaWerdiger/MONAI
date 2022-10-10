@@ -99,8 +99,8 @@ def example(rank, world_size):
     train_files, val_files = [make_dict(root_dir, string) for string in ["train", "validation"]]
 
     # reduce dataset for now
-    train_files = train_files[:64]
-    val_files = val_files[:32]
+    train_files = train_files
+    val_files = val_files
 
     train_transforms = Compose(
         [
