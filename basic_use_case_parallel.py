@@ -269,8 +269,7 @@ def example(rank, world_size):
                     # val_outputs_list = post_pred(val_outputs) #for i in decollate_batch(val_outputs)]
                     # val_labels = post_pred_label(val_labels)# for i in decollate_batch(val_labels)]
                     # print(val_outputs_list.shape, val_outputs[0].max())
-                    print(val_labels.shape, val_labels[0].max())
-                    metric(val_outputs, val_labels.astype(torch.long))
+                    metric(val_outputs, val_labels.long())
                 mean_dice = metric.compute().cpu().detach().numpy()
                 metric.reset()
                 if rank == 0:
