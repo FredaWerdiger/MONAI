@@ -521,21 +521,19 @@ def example(rank, world_size):
                 metric = dice_metric.compute().cpu().detach().numpy()
                 # reset the status for next validation round
                 dice_metric.reset()
-
-                if metric > best_metric:
-                    best_metric = metric
-                    best_metric_epoch = epoch + 1
-                    if rank == 0:
-                        metric_values.append(metric)
-                        # only saving models on master node
+                if rank == 0:
+                    metric_values.append(metric)
+                    if metric > best_metric:
+                        best_metric = metric
+                        best_metric_epoch = epoch + 1
                         torch.save(model.state_dict(), os.path.join(
                             root_dir, 'out_' + out_tag, model_name))
                         print("saved new best metric model")
-                print(
-                    f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
-                    f"\nbest mean dice: {best_metric:.4f} "
-                    f"at epoch: {best_metric_epoch}"
-                )
+                    print(
+                        f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
+                        f"\nbest mean dice: {best_metric:.4f} "
+                        f"at epoch: {best_metric_epoch}"
+                    )
 
     end = time.time()
     time_taken = end - start
