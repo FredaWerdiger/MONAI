@@ -334,8 +334,8 @@ def example(rank, world_size):
 
     train_files, val_files, test_files = [
         make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
-
-    train_files, val_files = train_files[:16], val_files[:8]
+    train_files = train_files[:16]
+    val_files = val_files[:8]
     set_determinism(seed=42)
 
     max_epochs = 2
