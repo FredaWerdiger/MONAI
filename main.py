@@ -2,11 +2,7 @@
 # two classes insead of 4 classes
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-os.environ['MASTER_ADDR'] = 'localhost'
-os.environ['MASTER_PORT'] = '12355'
 import math
-import shutil
 import tempfile
 import time
 import matplotlib.pyplot as plt
@@ -15,51 +11,45 @@ import glob
 from monai.config import print_config
 from monai.data import Dataset, CacheDataset, DataLoader, decollate_batch
 from monai.handlers.utils import from_engine
-from monai.losses import DiceLoss, DiceCELoss
-from monai.apps import download_and_extract
+from monai.losses import DiceLoss
+from torchmetrics import Dice
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
-from sklearn.metrics import f1_score
 from monai.networks.nets import SegResNet, UNet, AttentionUnet
-from basic_model import SimpleSegmentationModel, SimpleClassificationModel
 from monai.networks.layers import Norm
 from monai.transforms import (
-Activations,
-Activationsd,
-AsDiscrete,
-AsDiscreted,
-Compose,
-Invertd,
-LoadImaged,
-CropForegroundd,
-RandAffined,
-ScaleIntensityRanged,
-MapTransform,
-NormalizeIntensityd,
-ScaleIntensityRangePercentilesd,
-Orientationd,
-RandFlipd,
-AddChanneld,
-RandAdjustContrastd,
-RandCropByPosNegLabeld,
-RandScaleIntensityd,
-RandShiftIntensityd,
-RandSpatialCropd,
-Spacingd,
-EnsureChannelFirstd,
-EnsureTyped,
-EnsureType,
-Resize,
-Resized,
-SaveImaged
+    AsDiscrete,
+    AsDiscreted,
+    Compose,
+    Invertd,
+    LoadImage,
+    LoadImaged,
+    CropForegroundd,
+    NormalizeIntensityd,
+    ScaleIntensityRangePercentilesd,
+    RandFlipd,
+    RandAdjustContrastd,
+    RandCropByPosNegLabeld,
+    RandScaleIntensityd,
+    RandShiftIntensityd,
+    EnsureChannelFirstd,
+    EnsureTyped,
+    EnsureType,
+    Resized,
+    SaveImaged
 )
+
 from monai.utils import first, set_determinism
 
 import pandas as pd
 import torch
-from torch.nn import DataParallel
 from jinja2 import Environment, FileSystemLoader
 import os
+
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 
 from GPUtil import showUtilization as gpu_usage
 from numba import cuda
@@ -273,492 +263,516 @@ def make_dict(root, string):
     ]
 
 
-if os.path.exists('/media/mbcneuro'):
-    directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
-    ctp_df = pd.read_csv(
-        '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
-        index_col='dl_id'
-    )
+def cleanup():
+    dist.destroy_process_group()
 
 
-elif os.path.exists('/media/fwerdiger'):
-    directory = '/media/fwerdiger/Storage/DWI_Training_Data/'
-    ctp_df = pd.read_csv(
-        '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
-        index_col='dl_id'
-    )
-
-elif os.path.exists('D:'):
-    directory = 'D:/ctp_project_data/DWI_Training_Data/'
-    ctp_df = pd.read_csv(
-        'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
-        index_col='dl_id')
-
-
-root_dir = tempfile.mkdtemp() if directory is None else directory
-print(root_dir)
-
-
-train_files, val_files, test_files = [
-    make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
-set_determinism(seed=42)
-
-# test different transforms
-
-out_tag = "testing_simple_model"
-max_epochs = 2
-# create outdir
-if not os.path.exists(root_dir + 'out_' + out_tag):
-    os.makedirs(root_dir + 'out_' + out_tag)
-
-train_transforms = Compose(
-    [
-        # load 4 Nifti images and stack them together
-        LoadImaged(keys=["image", "label"]),
-        EnsureChannelFirstd(keys=["image", "label"]),
-        CropForegroundd(keys=["image", "label"], source_key="image"),
-        Resized(keys=["image", "label"],
-                mode=['trilinear', "nearest"],
-                align_corners=[True, None],
-                spatial_size=(128, 128, 128)),
-        RandCropByPosNegLabeld(
-            keys=["image", "label"],
-            label_key="label",
-            spatial_size=(64, 64, 64),
-            pos=1,
-            neg=1,
-            num_samples=4,
-            image_key="image",
-            image_threshold=0,
-        ),
-        ScaleIntensityRangePercentilesd(keys="image",
-                                        lower=1,
-                                        upper=99,
-                                        b_min=0.0,
-                                        b_max=10.0,
-                                        channel_wise=True,
-                                        clip=True),
-        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-        RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-        RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-        RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-        RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-        RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-        RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
-        EnsureTyped(keys=["image", "label"]),
-    ]
-)
-
-val_transforms = Compose(
-    [
-        LoadImaged(keys=["image", "label"]),
-        EnsureChannelFirstd(keys=["image", "label"]),
-        CropForegroundd(keys=["image", "label"], source_key="image"),
-        Resized(keys=["image", "label"],
-                mode=['trilinear', "nearest"],
-                align_corners=[True, None],
-                spatial_size=(128, 128, 128)),
-        ScaleIntensityRangePercentilesd(keys="image",
-                                        lower=1,
-                                        upper=99,
-                                        b_min=0.0,
-                                        b_max=10.0,
-                                        channel_wise=True,
-                                        clip=True),
-        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-        EnsureTyped(keys=["image", "label"]),
-    ]
-)
-
-# here we don't cache any data in case out of memory issue
-train_ds = CacheDataset(
-    data=train_files,
-    transform=train_transforms,
-    cache_rate=1.0,
-    num_workers=4
-)
+def prepare(dataset,
+            rank,
+            world_size,
+            batch_size,
+            pin_memory=False,
+            num_workers=0):
+    sampler = DistributedSampler(
+        dataset,
+        num_replicas=world_size,
+        rank=rank,
+        shuffle=False,
+        drop_last=False)
+    dataloader=DataLoader(dataset,
+                          batch_size=batch_size,
+                          pin_memory=pin_memory,
+                          num_workers=num_workers,
+                          drop_last=False,
+                          shuffle=False,
+                          sampler=sampler
+                          )
+    return dataloader
 
 
-train_loader = DataLoader(
-    train_ds,
-    batch_size=2,
-    shuffle=True,
-    num_workers=4)
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    os.environ['WORLD_SIZE'] = '2'
+    os.environ['LOCAL RANK'] = str(rank)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
-val_ds = CacheDataset(
-    data=val_files,
-    transform=val_transforms,
-    cache_rate=1.0,
-    num_workers=4)
 
-val_loader = DataLoader(
-    val_ds,
-    batch_size=2,
-    shuffle=False,
-    num_workers=4)
+def example(rank, world_size):
 
-# Uncomment to display data
-
-import random
-m = random.randint(0, 50)
-s = random.randint(0, 63)
-val_data_example = val_ds[m]
-print(f"image shape: {val_data_example['image'].shape}")
-plt.figure("image", (18, 6))
-for i in range(2):
-    plt.subplot(1, 3, i + 1)
-    plt.title(f"image channel {i}")
-    plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
-# also visualize the 3 channels label corresponding to this image
-print(f"label shape: {val_data_example['label'].shape}")
-plt.subplot(1, 3, 3)
-plt.title("label")
-plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
-plt.show()
-plt.close()
-
-device = torch.device("cuda")
-# model = UNet(
-#     spatial_dims=3,
-#     in_channels=2,
-#     out_channels=2,
-#     channels=(32, 64, 128, 256),
-#     strides=(2, 2, 2),
-#     num_res_units=2,
-#     norm=Norm.BATCH,
-# ).to(device)
-# model = AttentionUnet(
-#     spatial_dims=3,
-#     in_channels=2,
-#     out_channels=2,
-#     channels=(32, 64, 128, 256),
-#     strides=(2, 2, 2)
-# )
-# model = nn.DataParallel(model)
-# model.to(device)
-model = SimpleSegmentationModel(2, 2)
-
-# model = SegResNet(
-#     blocks_down=[1, 2, 2, 4],
-#     blocks_up=[1, 1, 1],
-#     init_filters=8,
-#     in_channels=2,
-#     out_channels=2,
-#     dropout_prob=0.2,
-# ).to(device)
-if torch.cuda.device_count() > 1:
-    model = torch.nn.parallel.DistributedDataParallel(model).to(device)
-
-loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
-optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
-# lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
-
-dice_metric = DiceMetric(include_background=False, reduction="mean")
-
-val_interval = 1
-best_metric = -1
-best_metric_epoch = -1
-epoch_loss_values = []
-metric_values = []
-post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
-post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
-start = time.time()
-model_name = 'best_metric_model' + str(max_epochs) + '.pth'
-for epoch in range(max_epochs):
-    print("-" * 10)
-    print(f"epoch {epoch + 1}/{max_epochs}")
-    model.train()
-    epoch_loss = 0
-    step = 0
-    for batch_data in train_loader:
-        step += 1
-        inputs, labels = (
-            batch_data["image"].to(device),
-            batch_data["label"].to(device),
+    if os.path.exists('/media/mbcneuro'):
+        directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
+        ctp_df = pd.read_csv(
+            '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            index_col='dl_id'
         )
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = loss_function(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        epoch_loss += loss.item()
-        # commenting out print function
-        print(
-            f"{step}/{len(train_ds) // train_loader.batch_size}, "
-            f"train_loss: {loss.item():.4f}")
-    # lr_scheduler.step()
-    epoch_loss /= step
-    epoch_loss_values.append(epoch_loss)
-    print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
 
-    if (epoch + 1) % val_interval == 0:
-        model.eval()
-        with torch.no_grad():
-            for val_data in val_loader:
-                val_inputs, val_labels = (
-                    val_data["image"].to(device),
-                    val_data["label"].to(device),
+
+    elif os.path.exists('/media/fwerdiger'):
+        directory = '/media/fwerdiger/Storage/DWI_Training_Data/'
+        ctp_df = pd.read_csv(
+            '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            index_col='dl_id'
+        )
+
+    elif os.path.exists('D:'):
+        directory = 'D:/ctp_project_data/DWI_Training_Data/'
+        ctp_df = pd.read_csv(
+            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            index_col='dl_id')
+
+    root_dir = tempfile.mkdtemp() if directory is None else directory
+    print(root_dir)
+
+    # create outdir
+    out_tag = "testing_unet_model_ddp"
+    if not os.path.exists(root_dir + 'out_' + out_tag):
+        os.makedirs(root_dir + 'out_' + out_tag)
+
+    train_files, val_files, test_files = [
+        make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
+
+    set_determinism(seed=42)
+
+    max_epochs = 2
+    batch_size = 2
+
+    train_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys=["image", "label"]),
+            Resized(keys=["image", "label"],
+                    mode=['trilinear', "nearest"],
+                    align_corners=[True, None],
+                    spatial_size=(128, 128, 128)),
+            RandCropByPosNegLabeld(
+                keys=["image", "label"],
+                label_key="label",
+                spatial_size=(64, 64, 64),
+                pos=1,
+                neg=1,
+                num_samples=4,
+                image_key="image",
+                image_threshold=0,
+            ),
+            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+            RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
+            EnsureTyped(keys=["image", "label"]),
+        ]
+    )
+
+    val_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys=["image", "label"]),
+            Resized(keys=["image", "label"],
+                    mode=['trilinear', "nearest"],
+                    align_corners=[True, None],
+                    spatial_size=(128, 128, 128)),
+            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image", "label"]),
+        ]
+    )
+
+    # here we don't cache any data in case out of memory issue
+    train_ds = CacheDataset(
+        data=train_files,
+        transform=train_transforms,
+        cache_rate=1.0,
+        num_workers=4
+    )
+
+    train_loader = prepare(train_ds, rank, world_size, batch_size)
+
+    val_ds = CacheDataset(
+        data=val_files,
+        transform=val_transforms,
+        cache_rate=1.0,
+        num_workers=4)
+
+    val_loader = prepare(val_ds, rank, world_size, batch_size)
+
+    # Uncomment to display data
+
+    import random
+    m = random.randint(0, 50)
+    s = random.randint(0, 63)
+    val_data_example = val_ds[m]
+    print(f"image shape: {val_data_example['image'].shape}")
+    plt.figure("image", (18, 6))
+    for i in range(2):
+        plt.subplot(1, 3, i + 1)
+        plt.title(f"image channel {i}")
+        plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
+    # also visualize the 3 channels label corresponding to this image
+    print(f"label shape: {val_data_example['label'].shape}")
+    plt.subplot(1, 3, 3)
+    plt.title("label")
+    plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
+    plt.show()
+    plt.close()
+
+    model = UNet(
+        spatial_dims=3,
+        in_channels=2,
+        out_channels=2,
+        channels=(32, 64, 128, 256),
+        strides=(2, 2, 2),
+        num_res_units=2,
+        norm=Norm.BATCH,
+    ).to(rank)
+    # model = AttentionUnet(
+    #     spatial_dims=3,
+    #     in_channels=2,
+    #     out_channels=2,
+    #     channels=(32, 64, 128, 256),
+    #     strides=(2, 2, 2)
+    # ).to(rank)
+
+    ddp_model = DDP(model, device_ids=[rank])
+
+    # model = SegResNet(
+    #     blocks_down=[1, 2, 2, 4],
+    #     blocks_up=[1, 1, 1],
+    #     init_filters=8,
+    #     in_channels=2,
+    #     out_channels=2,
+    #     dropout_prob=0.2,
+    # ).to(device)
+
+    loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
+    optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+
+    # dice_metric = DiceMetric(include_background=False, reduction="mean")
+    # this dice loss works with DDP
+    dice_metric = Dice(dist_sync_on_step=True, ignore_index=0).to(rank)
+
+    val_interval = 1
+    best_metric = -1
+    best_metric_epoch = -1
+    epoch_loss_values = []
+    metric_values = []
+    # Below not needed for torchmetrics metric
+    # post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
+    # post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
+    start = time.time()
+    model_name = 'best_metric_model' + str(max_epochs) + '.pth'
+    for epoch in range(max_epochs):
+        print("-" * 10)
+        print(f"epoch {epoch + 1}/{max_epochs}")
+        model.train()
+        epoch_loss = 0
+        step = 0
+        for batch_data in train_loader:
+            step += 1
+            inputs, labels = (
+                batch_data["image"].to(rank),
+                batch_data["label"].to(rank),
+            )
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = loss_function(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            # commenting out print function
+            # print(
+            #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
+            #     f"train_loss: {loss.item():.4f}")
+        # lr_scheduler.step()
+        epoch_loss /= step
+        epoch_loss_values.append(epoch_loss)
+        print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+
+        if (epoch + 1) % val_interval == 0:
+            model.eval()
+            with torch.no_grad():
+                for val_data in val_loader:
+                    val_inputs, val_labels = (
+                        val_data["image"].to(rank),
+                        val_data["label"].to(rank),
+                    )
+                    # unsure how to optimize this
+                    roi_size = (64, 64, 64)
+                    sw_batch_size = 2
+                    val_outputs = sliding_window_inference(
+                        val_inputs, roi_size, sw_batch_size, model)
+                    # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    # val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    # compute metric for current iteration
+                    dice_metric(val_outputs, val_labels.long)
+
+                # aggregate the final mean dice result
+                metric = dice_metric.compute().cpu().detach().numpy()
+                # reset the status for next validation round
+                dice_metric.reset()
+
+                metric_values.append(metric)
+                if metric > best_metric:
+                    best_metric = metric
+                    best_metric_epoch = epoch + 1
+                    if rank == 0:
+                        # only saving models on master node
+                        torch.save(model.state_dict(), os.path.join(
+                            root_dir, 'out_' + out_tag, model_name))
+                        print("saved new best metric model")
+                print(
+                    f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
+                    f"\nbest mean dice: {best_metric:.4f} "
+                    f"at epoch: {best_metric_epoch}"
                 )
-                # unsure how to optimize this
+
+    end = time.time()
+    time_taken = end - start
+    print(f"Time taken: {round(time_taken, 0)} seconds")
+    time_taken_hours = time_taken/3600
+    time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
+    time_taken_hours = int(time_taken_hours)
+
+    if rank == 0:
+        # generate loss plot
+        plt.figure("train", (12, 6))
+        plt.subplot(1, 2, 1)
+        plt.title("Epoch Average Loss")
+        x = [i + 1 for i in range(len(epoch_loss_values))]
+        y = epoch_loss_values
+        plt.xlabel("epoch")
+        plt.plot(x, y)
+        plt.subplot(1, 2, 2)
+        plt.title("Val Mean Dice")
+        x = [val_interval * (i + 1) for i in range(len(metric_values))]
+        y = metric_values
+        plt.xlabel("epoch")
+        plt.plot(x, y)
+        plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
+                    bbox_inches='tight', dpi=300, format='png')
+        plt.close()
+
+    # evaluate during training process
+    # model.load_state_dict(torch.load(
+    #     os.path.join(root_dir, model_name)))
+    # model.eval()
+    # with torch.no_grad():
+    #     for i, val_data in enumerate(val_loader):
+    #         roi_size = (128, 128, 128)
+    #         sw_batch_size = 1
+    #         val_outputs = sliding_window_inference(
+    #             val_data["image"].to(device), roi_size, sw_batch_size, model
+    #         )
+    #         # plot the slice [:, :, 80]
+    #         plt.figure("check", (18, 6))
+    #         plt.subplot(1, 3, 1)
+    #         plt.title(f"image {i}")
+    #         plt.imshow(val_data["image"][0, 0, :, :, 80], cmap="gray")
+    #         plt.subplot(1, 3, 2)
+    #         plt.title(f"label {i}")
+    #         plt.imshow(val_data["label"][0, 0, :, :, 80])
+    #         plt.subplot(1, 3, 3)
+    #         plt.title(f"output {i}")
+    #         plt.imshow(torch.argmax(
+    #             val_outputs, dim=1).detach().cpu()[0, :, :, 80])
+    #         plt.show()
+    #         if i == 2:
+    #             break
+
+    # test on external data
+    test_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys="image"),
+            Resized(keys="image",
+                    mode='trilinear',
+                    align_corners=True,
+                    spatial_size=(128, 128, 128)),
+            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image", "label"]),
+            SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
+        ]
+    )
+
+
+    test_ds = Dataset(
+        data=test_files, transform=test_transforms)
+
+    test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
+
+    post_transforms = Compose([
+        EnsureTyped(keys=["pred", "label"]),
+        EnsureChannelFirstd(keys="label"),
+        Invertd(
+            keys="pred",
+            transform=test_transforms,
+            orig_keys="image",
+            meta_keys="pred_meta_dict",
+            orig_meta_keys="image_meta_dict",
+            meta_key_postfix="meta_dict",
+            nearest_interp=False,
+            to_tensor=True,
+        ),
+        AsDiscreted(keys="pred", argmax=True, to_onehot=2),
+        AsDiscreted(keys="label", to_onehot=2),
+        SaveImaged(keys="pred",
+                   meta_keys="pred_meta_dict",
+                   output_dir=root_dir + "out_" + out_tag,
+                   output_postfix="seg", resample=False),
+    ])
+
+    from monai.transforms import LoadImage
+
+    if rank == 0:
+        loader = LoadImage(image_only=False)
+        model.load_state_dict(torch.load(
+            os.path.join(root_dir, 'out_' + out_tag, model_name)))
+
+        model.eval()
+
+        results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'py_z', 'size_ml'])
+        results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
+
+        with torch.no_grad():
+            for i, test_data in enumerate(test_loader):
+                test_inputs, test_label = (test_data["image"].to(rank),
+                                            test_data["label"].to(rank))
                 roi_size = (64, 64, 64)
                 sw_batch_size = 2
-                val_outputs = sliding_window_inference(
-                    val_inputs, roi_size, sw_batch_size, model)
-                val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
-                val_labels = [post_label(i) for i in decollate_batch(val_labels)]
-                # compute metric for current iteration
-                dice_metric(y_pred=val_outputs, y=val_labels)
+                test_data["pred"] = sliding_window_inference(
+                    test_inputs, roi_size, sw_batch_size, model)
+
+                a = dice_metric(test_data["pred"], test_label)
+
+                dice_score = round(a.item(), 4)
+
+                test_data = [post_transforms(i) for i in decollate_batch(test_data)]
+
+                test_output, test_label, test_image = from_engine(["pred", "label", "image"])(test_data)
+
+                # get original image, and normalize it so we can see the normalized image
+                # this is both channels
+                original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
+                volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
+                pixel_vol = volx * voly * volz
+
+                original_image = original_image[0] # image data
+                original_adc = original_image[:, :, :, 1]
+                original_image = original_image[:, :, :, 0]
+                ground_truth = test_label[0][1].detach().numpy()
+                prediction = test_output[0][1].detach().numpy()
+                transformed_image = test_inputs[0][0].detach().cpu().numpy()
+                size = prediction.sum()
+                size_ml = size * pixel_vol / 1000
+                name = "test_" + os.path.basename(
+                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
+                save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
+
+                if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
+                    os.makedirs(root_dir + "out_" + out_tag + "/images/")
+
+                create_paper_img(
+                    original_image,
+                    ground_truth,
+                    prediction,
+                    save_loc + "paper.png",
+                    define_dvalues(original_image),
+                    'png',
+                    dpi=300
+                )
+                create_mr_img(
+                    original_image,
+                    save_loc + "dwi.png",
+                    define_dvalues(original_image),
+                    'png',
+                    dpi=300)
+                create_adc_img(
+                    original_adc,
+                    save_loc + "adc.png",
+                    define_dvalues(original_image),
+                    'png',
+                    dpi=300)
+
+                [create_mrlesion_img(
+                    original_image,
+                    im,
+                    save_loc + name + '.png',
+                    define_dvalues(original_image),
+                    'png',
+                    dpi=300) for im, name in zip([prediction, ground_truth], ["pred", "truth"])]
+
+                create_mr_big_img(transformed_image,
+                                  save_loc + "dwi_tran.png",
+                                  define_dvalues_big(transformed_image),
+                                  'png',
+                                  dpi=300)
+
+                # uncomment below to visualise results.
+                # plt.figure("check", (24, 6))
+                # plt.subplot(1, 4, 1)
+                # plt.imshow(original_image[:, :, 12], cmap="gray")
+                # plt.title(f"image {name}")
+                # plt.subplot(1, 4, 2)
+                # plt.imshow(test_image[0].detach().cpu()[0, :, :, 12], cmap="gray")
+                # plt.title(f"transformed image {name}")
+                # plt.subplot(1, 4, 3)
+                # plt.imshow(test_label[0].detach().cpu()[:, :, 12])
+                # plt.title(f"label {name}")
+                # plt.subplot(1, 4, 4)
+                # plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
+                # plt.title(f"Dice score {dice_score}")
+                # plt.show()
+
+                results.loc[results.id == name, 'size'] = size
+                results.loc[results.id == name, 'size_ml'] = size_ml
+                results.loc[results.id == name, 'px_x'] = volx
+                results.loc[results.id == name, 'px_y'] = voly
+                results.loc[results.id == name, 'px_z'] = volz
+                results.loc[results.id == name, 'dice'] = dice_score
 
             # aggregate the final mean dice result
-            metric = dice_metric.aggregate().item()
+            metric = dice_metric.compute().cpu().detach().numpy()
             # reset the status for next validation round
             dice_metric.reset()
 
-            metric_values.append(metric)
-            if metric > best_metric:
-                best_metric = metric
-                best_metric_epoch = epoch + 1
-                torch.save(model.state_dict(), os.path.join(
-                    root_dir, 'out_' + out_tag, model_name))
-                print("saved new best metric model")
-            print(
-                f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
-                f"\nbest mean dice: {best_metric:.4f} "
-                f"at epoch: {best_metric_epoch}"
-            )
-end = time.time()
-time_taken = end - start
-print(f"Time taken: {round(time_taken, 0)} seconds")
-time_taken_hours = time_taken/3600
-time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
-time_taken_hours = int(time_taken_hours)
+        print(f"Mean dice on test set: {metric}")
 
-# generate loss plot
-plt.figure("train", (12, 6))
-plt.subplot(1, 2, 1)
-plt.title("Epoch Average Loss")
-x = [i + 1 for i in range(len(epoch_loss_values))]
-y = epoch_loss_values
-plt.xlabel("epoch")
-plt.plot(x, y)
-plt.subplot(1, 2, 2)
-plt.title("Val Mean Dice")
-x = [val_interval * (i + 1) for i in range(len(metric_values))]
-y = metric_values
-plt.xlabel("epoch")
-plt.plot(x, y)
-plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
-            bbox_inches='tight', dpi=300, format='png')
-plt.show()
+        results['mean_dice'] = metric
+        try:
+            results['training_hours'] = time_taken_hours
+            results['training_minutes'] = time_taken_mins
+        except NameError:
+            print('No time taken.')
 
-# evaluate during training process
-# model.load_state_dict(torch.load(
-#     os.path.join(root_dir, model_name)))
-# model.eval()
-# with torch.no_grad():
-#     for i, val_data in enumerate(val_loader):
-#         roi_size = (128, 128, 128)
-#         sw_batch_size = 1
-#         val_outputs = sliding_window_inference(
-#             val_data["image"].to(device), roi_size, sw_batch_size, model
-#         )
-#         # plot the slice [:, :, 80]
-#         plt.figure("check", (18, 6))
-#         plt.subplot(1, 3, 1)
-#         plt.title(f"image {i}")
-#         plt.imshow(val_data["image"][0, 0, :, :, 80], cmap="gray")
-#         plt.subplot(1, 3, 2)
-#         plt.title(f"label {i}")
-#         plt.imshow(val_data["label"][0, 0, :, :, 80])
-#         plt.subplot(1, 3, 3)
-#         plt.title(f"output {i}")
-#         plt.imshow(torch.argmax(
-#             val_outputs, dim=1).detach().cpu()[0, :, :, 80])
-#         plt.show()
-#         if i == 2:
-#             break
+        from sklearn.cluster import k_means
+        kmeans_labels = k_means(
+            np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
+            n_clusters=2,
+            random_state=0)[1]
+        kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
+        results['size_label']=kmeans_labels
+        results_join = results.join(
+            ctp_df[~ctp_df.index.duplicated(keep='first')],
+            on='id',
+            how='left')
+        results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
 
-# test on external data
-test_transforms = Compose(
-    [
-        LoadImaged(keys=["image", "label"]),
-        EnsureChannelFirstd(keys="image"),
-        CropForegroundd(keys="image", source_key="image"),
-        Resized(keys="image",
-                mode='trilinear',
-                align_corners=True,
-                spatial_size=(128, 128, 128)),
-        ScaleIntensityRangePercentilesd(keys="image",
-                                        lower=1,
-                                        upper=99,
-                                        b_min=0.0,
-                                        b_max=10.0,
-                                        channel_wise=True,
-                                        clip=True),
-        NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-        EnsureTyped(keys=["image", "label"]),
-        SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
-    ]
-)
+        for sub in results_join['id']:
+            create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
+    cleanup()
 
+def main():
+    # comment out below for dev
+    world_size = 2
+    mp.spawn(example,
+             args=(world_size,),
+             nprocs=world_size,
+             join=True)
 
-test_ds = Dataset(
-    data=test_files, transform=test_transforms)
-
-test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
-
-post_transforms = Compose([
-    EnsureTyped(keys=["pred", "label"]),
-    EnsureChannelFirstd(keys="label"),
-    Invertd(
-        keys="pred",
-        transform=test_transforms,
-        orig_keys="image",
-        meta_keys="pred_meta_dict",
-        orig_meta_keys="image_meta_dict",
-        meta_key_postfix="meta_dict",
-        nearest_interp=False,
-        to_tensor=True,
-    ),
-    AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-    AsDiscreted(keys="label", to_onehot=2),
-    SaveImaged(keys="pred",
-               meta_keys="pred_meta_dict",
-               output_dir=root_dir + "out_" + out_tag,
-               output_postfix="seg", resample=False),
-])
-
-from monai.transforms import LoadImage, ScaleIntensityRangePercentiles, EnsureType
-loader = LoadImage(image_only=False)
-model.load_state_dict(torch.load(
-    os.path.join(root_dir, 'out_' + out_tag, model_name)))
-
-model.eval()
-
-results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'py_z', 'size_ml'])
-results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
-
-with torch.no_grad():
-    for i, test_data in enumerate(test_loader):
-        test_inputs = test_data["image"].to(device)
-        roi_size = (64, 64, 64)
-        sw_batch_size = 2
-        test_data["pred"] = sliding_window_inference(
-            test_inputs, roi_size, sw_batch_size, model)
-
-        test_data = [post_transforms(i) for i in decollate_batch(test_data)]
-
-        # uncomment the following lines to visualize the predicted results
-        test_output, test_label, test_image = from_engine(["pred", "label", "image"])(test_data)
-
-        # get original image, and normalize it so we can see the normalized image
-        # this is both channels
-        original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
-        volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
-        pixel_vol = volx * voly * volz
-
-        original_image = original_image[0] # image data
-        original_adc = original_image[:, :, :, 1]
-        original_image = original_image[:, :, :, 0]
-        ground_truth = test_label[0][1].detach().numpy()
-        prediction = test_output[0][1].detach().numpy()
-        transformed_image = test_inputs[0][0].detach().cpu().numpy()
-        size = prediction.sum()
-        size_ml = size * pixel_vol / 1000
-        name = "test_" + os.path.basename(
-            test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
-        save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
-
-        if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
-            os.makedirs(root_dir + "out_" + out_tag + "/images/")
-
-        create_paper_img(
-            original_image,
-            ground_truth,
-            prediction,
-            save_loc + "paper.png",
-            define_dvalues(original_image),
-            'png',
-            dpi=300
-        )
-        create_mr_img(
-            original_image,
-            save_loc + "dwi.png",
-            define_dvalues(original_image),
-            'png',
-            dpi=300)
-        create_adc_img(
-            original_adc,
-            save_loc + "adc.png",
-            define_dvalues(original_image),
-            'png',
-            dpi=300)
-
-        [create_mrlesion_img(
-            original_image,
-            im,
-            save_loc + name + '.png',
-            define_dvalues(original_image),
-            'png',
-            dpi=300) for im, name in zip([prediction, ground_truth], ["pred", "truth"])]
-
-        create_mr_big_img(transformed_image,
-                          save_loc + "dwi_tran.png",
-                          define_dvalues_big(transformed_image),
-                          'png',
-                          dpi=300)
-
-        # uncomment below to visualise results.
-        # plt.figure("check", (24, 6))
-        # plt.subplot(1, 4, 1)
-        # plt.imshow(original_image[:, :, 12], cmap="gray")
-        # plt.title(f"image {name}")
-        # plt.subplot(1, 4, 2)
-        # plt.imshow(test_image[0].detach().cpu()[0, :, :, 12], cmap="gray")
-        # plt.title(f"transformed image {name}")
-        # plt.subplot(1, 4, 3)
-        # plt.imshow(test_label[0].detach().cpu()[:, :, 12])
-        # plt.title(f"label {name}")
-        # plt.subplot(1, 4, 4)
-        # plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
-        # plt.title(f"Dice score {dice_score}")
-        # plt.show()
-
-        a = dice_metric(y_pred=test_output, y=test_label)
-        dice_score = round(a.item(), 4)
-        results.loc[results.id == name, 'size'] = size
-        results.loc[results.id == name, 'size_ml'] = size_ml
-        results.loc[results.id == name, 'px_x'] = volx
-        results.loc[results.id == name, 'px_y'] = voly
-        results.loc[results.id == name, 'px_z'] = volz
-        results.loc[results.id == name, 'dice'] = dice_score
-
-    # aggregate the final mean dice result
-    metric = dice_metric.aggregate().item()
-    # reset the status for next validation round
-    dice_metric.reset()
-
-print(f"Mean dice on test set: {metric}")
-
-results['mean_dice'] = metric
-try:
-    results['training_hours'] = time_taken_hours
-    results['training_minutes'] = time_taken_mins
-except NameError:
-    print('No time taken.')
-
-from sklearn.cluster import k_means
-kmeans_labels = k_means(
-    np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
-    n_clusters=2,
-    random_state=0)[1]
-kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
-results['size_label']=kmeans_labels
-results_join = results.join(
-    ctp_df[~ctp_df.index.duplicated(keep='first')],
-    on='id',
-    how='left')
-results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
-
-for sub in results_join['id']:
-    create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
+if __name__ == "__main__":
+    # Environment variables which need to be
+    # set when using c10d's default "env"
+    # initialization mode.
+    main()
