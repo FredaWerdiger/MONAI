@@ -21,6 +21,7 @@ from monai.transforms import (
     Compose,
     LoadImaged,
     CropForegroundd,
+    EnsureChannelFirst,
     EnsureType,
     NormalizeIntensityd,
     RandCropByPosNegLabeld,
@@ -150,6 +151,11 @@ def example(rank, world_size):
     )
 
     train_loader = prepare(train_ds, rank, world_size, batch_size)
+    # train_loader = DataLoader(train_ds,
+    #                           batch_size=batch_size,
+    #                           num_workers=0,
+    #                           drop_last=False,
+    #                           shuffle=False)
 
     val_ds = CacheDataset(
         data=val_files,
@@ -157,7 +163,11 @@ def example(rank, world_size):
         cache_rate=1.0,
         num_workers=4
     )
-
+    # val_loader = DataLoader(val_ds,
+    #                           batch_size=batch_size,
+    #                           num_workers=0,
+    #                           drop_last=False,
+    #                           shuffle=False)
     val_loader = prepare(val_ds, rank, world_size, batch_size)
 
     set_determinism(seed=42)
@@ -200,7 +210,7 @@ def example(rank, world_size):
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.001)
     # metric = DiceMetric(include_background=False)
     # metric to aggregate over ddt
-    metric = Dice(dist_sync_on_step=True)
+    metric = Dice(dist_sync_on_step=True, ignore_index=0)
     num_epochs = 20
     val_interval = 2
     num_batches = len(train_ds) / batch_size
@@ -217,7 +227,7 @@ def example(rank, world_size):
         step = 0 # which step out of the number of batches
         epoch_loss = 0 # total loss for this epoch
         model.train()
-        train_loader.sampler.set_epoch(epoch)
+        # train_loader.sampler.set_epoch(epoch)
         for batch in train_loader:
             step += 1
             # forward pass
@@ -256,12 +266,12 @@ def example(rank, world_size):
                     val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
                     # transform from a batched tensor to a list of tensors
                     # turn into an array of discrete binary values
-                    val_outputs_list = post_pred(val_outputs) #for i in decollate_batch(val_outputs)]
-                    val_labels = post_pred_label(val_labels)# for i in decollate_batch(val_labels)]
+                    # val_outputs_list = post_pred(val_outputs) #for i in decollate_batch(val_outputs)]
+                    # val_labels = post_pred_label(val_labels)# for i in decollate_batch(val_labels)]
                     # print(val_outputs_list.shape, val_outputs[0].max())
                     print(val_labels.shape, val_labels[0].max())
-                    metric(val_outputs_list, val_labels)
-                mean_dice = metric.compute()
+                    metric(val_outputs, val_labels.astype(torch.long))
+                mean_dice = metric.compute().cpu().detach().numpy()
                 metric.reset()
                 if rank == 0:
                     mean_dice_list.append(mean_dice)
@@ -303,7 +313,6 @@ def main():
              args=(world_size,),
              nprocs=world_size,
              join=True)
-
 if __name__ == "__main__":
     # Environment variables which need to be
     # set when using c10d's default "env"
