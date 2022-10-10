@@ -299,6 +299,9 @@ def setup(rank, world_size):
 
 
 def example(rank, world_size):
+    print(f"Running DDP on rank {rank}.")
+    # create default process group
+    setup(rank, world_size)
 
     if os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
