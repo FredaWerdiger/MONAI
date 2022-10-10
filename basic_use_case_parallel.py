@@ -210,7 +210,7 @@ def example(rank, world_size):
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.001)
     # metric = DiceMetric(include_background=False)
     # metric to aggregate over ddt
-    metric = Dice(dist_sync_on_step=True, ignore_index=0)
+    metric = Dice(dist_sync_on_step=True, ignore_index=0).to(rank)
     num_epochs = 20
     val_interval = 2
     num_batches = len(train_ds) / batch_size
