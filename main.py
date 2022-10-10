@@ -456,11 +456,13 @@ def example(rank, world_size):
     # this dice loss works with DDP
     dice_metric = Dice(dist_sync_on_step=True, ignore_index=0).to(rank)
 
-    val_interval = 1
-    best_metric = -1
-    best_metric_epoch = -1
-    epoch_loss_values = []
-    metric_values = []
+    val_interval = 2
+    # only doing these for master node
+    if rank == 0:
+        epoch_loss_values = []
+        metric_values = []
+        best_metric = -1
+        best_metric_epoch = -1
     # Below not needed for torchmetrics metric
     # post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     # post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
@@ -489,8 +491,9 @@ def example(rank, world_size):
             #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
         # lr_scheduler.step()
-        epoch_loss /= step
-        epoch_loss_values.append(epoch_loss)
+        if rank == 0:
+            epoch_loss /= step
+            epoch_loss_values.append(epoch_loss)
         print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
 
         if (epoch + 1) % val_interval == 0:
@@ -516,11 +519,11 @@ def example(rank, world_size):
                 # reset the status for next validation round
                 dice_metric.reset()
 
-                metric_values.append(metric)
                 if metric > best_metric:
                     best_metric = metric
                     best_metric_epoch = epoch + 1
                     if rank == 0:
+                        metric_values.append(metric)
                         # only saving models on master node
                         torch.save(model.state_dict(), os.path.join(
                             root_dir, 'out_' + out_tag, model_name))
