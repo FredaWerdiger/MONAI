@@ -651,7 +651,7 @@ def example(rank, world_size):
                 test_data["pred"] = sliding_window_inference(
                     test_inputs, roi_size, sw_batch_size, model)
 
-                a = dice_metric(test_data["pred"], test_label)
+                a = dice_metric(test_data["pred"], test_label.long())
 
                 dice_score = round(a.item(), 4)
 
@@ -764,6 +764,7 @@ def example(rank, world_size):
             ctp_df[~ctp_df.index.duplicated(keep='first')],
             on='id',
             how='left')
+        print(results)
         results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
 
         for sub in results_join['id']:
