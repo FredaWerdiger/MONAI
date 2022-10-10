@@ -650,7 +650,7 @@ def example(rank, world_size):
                 sw_batch_size = 2
                 test_data["pred"] = sliding_window_inference(
                     test_inputs, roi_size, sw_batch_size, model)
-
+                print(test_data["pred"].shape, test_label.shape)
                 a = dice_metric(test_data["pred"], test_label.long())
 
                 dice_score = round(a.item(), 4)
