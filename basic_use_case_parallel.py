@@ -210,8 +210,8 @@ def example(rank, world_size):
         mean_dice_list = [] # make a list of mean dice loss
         best_metric = -1
         best_metric_epoch = -1
-    post_pred = Compose([EnsureType(), AsDiscrete(argmax=True,to_onehot=2)])
-    post_pred_label = Compose([EnsureType(), AsDiscrete(argmax=False, to_onehot=2)])
+    post_pred = Compose([EnsureType(), AsDiscrete(argmax=True,to_onehot=None)])
+    post_pred_label = Compose([EnsureType(), AsDiscrete(argmax=False, to_onehot=None)])
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch+1, num_epochs))
         step = 0 # which step out of the number of batches
@@ -242,7 +242,7 @@ def example(rank, world_size):
             epoch_loss_list.append(epoch_loss)
         print(f"Average loss for epoch: {epoch_loss:.4f}")
 
-        if rank == 0 and (epoch + 1) % 2 == 0:
+        if (epoch + 1) % 2 == 0:
             model.eval()
             print("Evaluating...")
             with torch.no_grad():
@@ -256,23 +256,26 @@ def example(rank, world_size):
                     val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
                     # transform from a batched tensor to a list of tensors
                     # turn into an array of discrete binary values
-                    val_outputs_list = [post_pred(i) for i in decollate_batch(val_outputs)]
-                    val_labels = [post_pred_label(i) for i in decollate_batch(val_labels)]
-                    metric(y_pred=val_outputs_list, y=val_labels)
+                    val_outputs_list = post_pred(val_outputs) #for i in decollate_batch(val_outputs)]
+                    val_labels = post_pred_label(val_labels)# for i in decollate_batch(val_labels)]
+                    # print(val_outputs_list.shape, val_outputs[0].max())
+                    print(val_labels.shape, val_labels[0].max())
+                    metric(val_outputs_list, val_labels)
                 mean_dice = metric.compute()
                 metric.reset()
-                mean_dice_list.append(mean_dice)
-                if mean_dice > best_metric:
-                    CHECKPOINT_PATH = root_dir + 'practice/best_model.pth'
-                    best_metric_epoch = epoch + 1
-                    # only save in one process
-                    if rank == 0:
-                        torch.save(model.state_dict(), CHECKPOINT_PATH)
-                    best_metric = mean_dice
-                print(
-                    f"Mean dice at epoch {epoch + 1}: {mean_dice:.4f}"
-                    f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
-                )
+                if rank == 0:
+                    mean_dice_list.append(mean_dice)
+                    if mean_dice > best_metric:
+                        CHECKPOINT_PATH = root_dir + 'practice/best_model.pth'
+                        best_metric_epoch = epoch + 1
+                        # only save in one process
+                        if rank == 0:
+                            torch.save(model.state_dict(), CHECKPOINT_PATH)
+                        best_metric = mean_dice
+                    print(
+                        f"Mean dice at epoch {epoch + 1}: {mean_dice:.4f}"
+                        f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
+                    )
     # now plot the loss and the dice
     if rank == 0:
         plt.figure("Results of training", (12,6))
