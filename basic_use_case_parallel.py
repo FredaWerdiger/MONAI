@@ -307,7 +307,7 @@ def example(rank, world_size):
         plt.ylabel("Mean dice")
         x = [(i + 1) * val_interval for i in range(len(mean_dice_list))]
         plt.plot(x, mean_dice_list)
-        plt.savefig(root_dir + "practice/loss_plot", bbox_inches='tight', dpi=300, format='png')
+        plt.savefig(root_dir + "practice/loss_plot.png", bbox_inches='tight', dpi=300, format='png')
         plt.close()
     cleanup()
 
