@@ -335,6 +335,7 @@ def example(rank, world_size):
     train_files, val_files, test_files = [
         make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
 
+    train_files, val_files = train_files[:16], val_files[:8]
     set_determinism(seed=42)
 
     max_epochs = 2
@@ -512,7 +513,9 @@ def example(rank, world_size):
                     # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     # val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
-                    dice_metric(val_outputs, val_labels.long)
+                    val_labels.long()
+
+                    dice_metric(val_outputs, val_labels.long())
 
                 # aggregate the final mean dice result
                 metric = dice_metric.compute().cpu().detach().numpy()
