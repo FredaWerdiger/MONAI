@@ -651,14 +651,11 @@ def example(rank, world_size):
                 test_data["pred"] = sliding_window_inference(
                     test_inputs, roi_size, sw_batch_size, model)
 
-
-
-                dice_score = round(a.item(), 4)
-
                 test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
                 test_output, test_label, test_image = from_engine(["pred", "label", "image"])(test_data)
                 a = dice_metric(test_output, test_label.long())
+                dice_score = round(a.item(), 4)
 
                 # get original image, and normalize it so we can see the normalized image
                 # this is both channels
