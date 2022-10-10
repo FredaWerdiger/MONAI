@@ -206,8 +206,15 @@ def example(rank, world_size):
     # construct DDP model
     ddp_model = DDP(model, device_ids=[rank])
     # define loss function and optimizer
-    loss_fn = nn.MSELoss()
-    optimizer = optim.SGD(ddp_model.parameters(), lr=0.001)
+    loss_fn = monai.losses.DiceLoss(
+        smooth_nr=0,
+        smooth_dr=1e-5,
+        to_onehot_y=True,
+        softmax=True)
+    optimizer = optim.Adam(
+        ddp_model.parameters(),
+        lr=1e-4,
+        weight_decay=1e-5)
     # metric = DiceMetric(include_background=False)
     # metric to aggregate over ddt
     metric = Dice(dist_sync_on_step=True, ignore_index=0).to(rank)
