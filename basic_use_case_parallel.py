@@ -211,6 +211,7 @@ def example(rank, world_size):
         smooth_dr=1e-5,
         to_onehot_y=True,
         softmax=True)
+    loss_fn  = nn.MSELoss()
     optimizer = optim.Adam(
         ddp_model.parameters(),
         lr=1e-4,
