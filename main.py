@@ -402,24 +402,24 @@ def example(rank, world_size):
     val_loader = prepare(val_ds, rank, world_size, batch_size)
 
     # Uncomment to display data
-
-    import random
-    m = random.randint(0, 50)
-    s = random.randint(0, 63)
-    val_data_example = val_ds[m]
-    print(f"image shape: {val_data_example['image'].shape}")
-    plt.figure("image", (18, 6))
-    for i in range(2):
-        plt.subplot(1, 3, i + 1)
-        plt.title(f"image channel {i}")
-        plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
-    # also visualize the 3 channels label corresponding to this image
-    print(f"label shape: {val_data_example['label'].shape}")
-    plt.subplot(1, 3, 3)
-    plt.title("label")
-    plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
-    plt.show()
-    plt.close()
+    #
+    # import random
+    # m = random.randint(0, 50)
+    # s = random.randint(0, 63)
+    # val_data_example = val_ds[m]
+    # print(f"image shape: {val_data_example['image'].shape}")
+    # plt.figure("image", (18, 6))
+    # for i in range(2):
+    #     plt.subplot(1, 3, i + 1)
+    #     plt.title(f"image channel {i}")
+    #     plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
+    # # also visualize the 3 channels label corresponding to this image
+    # print(f"label shape: {val_data_example['label'].shape}")
+    # plt.subplot(1, 3, 3)
+    # plt.title("label")
+    # plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
+    # plt.show()
+    # plt.close()
 
     model = UNet(
         spatial_dims=3,
