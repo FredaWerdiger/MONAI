@@ -654,7 +654,8 @@ def example(rank, world_size):
                 test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
                 test_output, test_label, test_image = from_engine(["pred", "label", "image"])(test_data)
-                a = dice_metric(test_output, test_label.long())
+
+                a = dice_metric(test_data[0]["pred"], test_data[0]["label"].long())
                 dice_score = round(a.item(), 4)
 
                 # get original image, and normalize it so we can see the normalized image
