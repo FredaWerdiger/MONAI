@@ -2,7 +2,6 @@ import monai.networks.nets
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import torch.nn as nn
 from torchmetrics import Dice
 import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -13,7 +12,6 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import glob
 import random
 import matplotlib.pyplot as plt
-from time import sleep
 from basic_model import SimpleSegmentationModel
 from monai.data import CacheDataset, DataLoader, decollate_batch
 from monai.transforms import (
@@ -211,7 +209,6 @@ def example(rank, world_size):
         smooth_dr=1e-5,
         to_onehot_y=True,
         softmax=True)
-    loss_fn  = nn.MSELoss()
     optimizer = optim.Adam(
         ddp_model.parameters(),
         lr=1e-4,
@@ -219,7 +216,7 @@ def example(rank, world_size):
     # metric = DiceMetric(include_background=False)
     # metric to aggregate over ddt
     metric = Dice(dist_sync_on_step=True, ignore_index=0).to(rank)
-    num_epochs = 20
+    num_epochs = 300
     val_interval = 2
     num_batches = len(train_ds) / batch_size
     # only doing eval on master node
@@ -258,7 +255,7 @@ def example(rank, world_size):
         if rank == 0:
             epoch_loss /= step
             epoch_loss_list.append(epoch_loss)
-        print(f"Average loss for epoch: {epoch_loss:.4f}")
+        print(f"Average loss for epoch {epoch}: {epoch_loss:.4f}")
 
         if (epoch + 1) % 2 == 0:
             model.eval()
