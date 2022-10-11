@@ -337,7 +337,7 @@ def example(rank, world_size):
 
     set_determinism(seed=42)
 
-    max_epochs = 2
+    max_epochs = 4
     batch_size = 4
 
     train_transforms = Compose(
