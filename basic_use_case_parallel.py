@@ -85,7 +85,7 @@ def example(rank, world_size):
     setup(rank, world_size)
     # create local model
     if os.path.exists('/media/'):
-        directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
+        directory = '/media/mbcneuro/DWI_Training_Data/'
     else:
         directory = 'D:/ctp_project_data/DWI_Training_Data/'
 
