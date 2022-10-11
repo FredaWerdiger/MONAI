@@ -304,7 +304,7 @@ def example(rank, world_size):
     setup(rank, world_size)
 
     if os.path.exists('/media/mbcneuro'):
-        directory = '/media/mbcneuro/HDD1/DWI_Training_Data/'
+        directory = '/media/mbcneuro/DWI_Training_Data/'
         ctp_df = pd.read_csv(
             '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id'
