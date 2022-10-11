@@ -492,7 +492,7 @@ def example(rank, world_size):
             #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
         # lr_scheduler.step()
-        if rank == 0:
+        if rank == '0':
             epoch_loss /= step
             epoch_loss_values.append(epoch_loss)
         print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
@@ -521,7 +521,7 @@ def example(rank, world_size):
                 metric = dice_metric.compute().cpu().detach().numpy()
                 # reset the status for next validation round
                 dice_metric.reset()
-                if rank == 0:
+                if rank == '0':
                     metric_values.append(metric)
                     if metric > best_metric:
                         best_metric = metric
@@ -655,7 +655,8 @@ def example(rank, world_size):
 
                 test_output, test_label, test_image = from_engine(["pred", "label", "image"])(test_data)
 
-                a = dice_metric(test_data[0]["pred"], test_data[0]["label"].long())
+                a = dice_metric(test_output[0], test_label[0].long())
+
                 dice_score = round(a.item(), 4)
 
                 # get original image, and normalize it so we can see the normalized image
