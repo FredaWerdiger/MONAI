@@ -328,7 +328,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "testing_unet_model_ddp"
+    out_tag = "testing_attention_unet_ddp"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -337,7 +337,7 @@ def example(rank, world_size):
 
     set_determinism(seed=42)
 
-    max_epochs = 4
+    max_epochs = 600
     batch_size = 4
 
     train_transforms = Compose(
