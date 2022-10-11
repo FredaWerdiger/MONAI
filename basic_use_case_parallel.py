@@ -194,7 +194,14 @@ def example(rank, world_size):
     # plt.show()
 
     model = SimpleSegmentationModel(2, 2).to(rank)
-    model = monai.networks.Nets.AttentionUnet(
+    model = monai.networks.nets.UNet(spatial_dims=3,
+                                     in_channels=2,
+                                     out_channels=2,
+                                     channels=[32, 64, 128],
+                                     strides=[2,2],
+                                     kernel_size=3,
+                                     num_res_units=2).to(rank)
+    model = monai.networks.nets.AttentionUnet(
         spatial_dims=3,
         in_channels=2,
         out_channels=2,
