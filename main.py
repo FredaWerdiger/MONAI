@@ -351,7 +351,7 @@ def example(rank, world_size):
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(64, 64, 64),
+                spatial_size=(32, 32, 32),
                 pos=1,
                 neg=1,
                 num_samples=4,
