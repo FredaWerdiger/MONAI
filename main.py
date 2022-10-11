@@ -633,6 +633,7 @@ def example(rank, world_size):
     from monai.transforms import LoadImage
 
     if rank == 0:
+        dice_metric = Dice()
         loader = LoadImage(image_only=False)
         model.load_state_dict(torch.load(
             os.path.join(root_dir, 'out_' + out_tag, model_name)))
