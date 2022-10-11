@@ -520,7 +520,7 @@ def example(rank, world_size):
                 metric = dice_metric.compute().cpu().detach().numpy()
                 # reset the status for next validation round
                 dice_metric.reset()
-                if rank == '0':
+                if rank == 0:
                     metric_values.append(metric)
                     if metric > best_metric:
                         best_metric = metric
