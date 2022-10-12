@@ -437,7 +437,7 @@ def example(rank, world_size):
         strides=(2, 2, 2)
     ).to(rank)
 
-    model = DDP(model, device_ids=[rank])
+    ddp_model = DDP(model, device_ids=[rank])
 
     # model = SegResNet(
     #     blocks_down=[1, 2, 2, 4],
@@ -448,8 +448,15 @@ def example(rank, world_size):
     #     dropout_prob=0.2,
     # ).to(device)
 
-    loss_function = DiceLoss(smooth_nr=0, smooth_dr=1e-5, to_onehot_y=True, softmax=True)
-    optimizer = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
+    loss_function = DiceLoss(
+        smooth_nr=0,
+        smooth_dr=1e-5,
+        to_onehot_y=True,
+        softmax=True)
+    optimizer = torch.optim.Adam(
+        ddp_model.parameters(),
+        1e-4,
+        weight_decay=1e-5)
     # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
     # dice_metric = DiceMetric(include_background=False, reduction="mean")
@@ -482,7 +489,7 @@ def example(rank, world_size):
                 batch_data["label"].to(rank),
             )
             optimizer.zero_grad()
-            outputs = model(inputs)
+            outputs = ddp_model(inputs)
             loss = loss_function(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -499,6 +506,7 @@ def example(rank, world_size):
 
         if (epoch + 1) % val_interval == 0:
             model.eval()
+            print("Evaluating...")
             with torch.no_grad():
                 for val_data in val_loader:
                     val_inputs, val_labels = (
@@ -513,8 +521,6 @@ def example(rank, world_size):
                     # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     # val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
-                    val_labels.long()
-
                     dice_metric(val_outputs, val_labels.long())
 
                 # aggregate the final mean dice result

@@ -263,9 +263,9 @@ def example(rank, world_size):
         if rank == 0:
             epoch_loss /= step
             epoch_loss_list.append(epoch_loss)
-        print(f"Average loss for epoch {epoch}: {epoch_loss:.4f}")
+        print(f"Average loss for epoch {epoch + 1}: {epoch_loss:.4f}")
 
-        if (epoch + 1) % 2 == 0:
+        if (epoch + 1) % val_interval == 0:
             model.eval()
             print("Evaluating...")
             with torch.no_grad():
