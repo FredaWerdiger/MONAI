@@ -488,7 +488,7 @@ def example(rank, world_size):
         print(f"epoch {epoch + 1}/{max_epochs}")
         epoch_loss = 0
         step = 0
-        model.train()
+        ddp_model.train()
         train_loader.sampler.set_epoch(epoch)
         for batch_data in train_loader:
             step += 1
@@ -513,7 +513,7 @@ def example(rank, world_size):
             print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
 
         if (epoch + 1) % val_interval == 0:
-            model.eval()
+            ddp_model.eval()
             print("Evaluating...")
             with torch.no_grad():
                 for val_data in val_loader:
@@ -525,7 +525,7 @@ def example(rank, world_size):
                     roi_size = (64, 64, 64)
                     sw_batch_size = 2
                     val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model)
+                        val_inputs, roi_size, sw_batch_size, ddp_model)
                     # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     # val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
@@ -540,7 +540,7 @@ def example(rank, world_size):
                     if metric > best_metric:
                         best_metric = metric
                         best_metric_epoch = epoch + 1
-                        torch.save(model.state_dict(), os.path.join(
+                        torch.save(ddp_model.state_dict(), os.path.join(
                             root_dir, 'out_' + out_tag, model_name))
                         print("saved new best metric model")
                     print(
