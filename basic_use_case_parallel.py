@@ -240,7 +240,7 @@ def example(rank, world_size):
         step = 0 # which step out of the number of batches
         epoch_loss = 0 # total loss for this epoch
         model.train()
-        # train_loader.sampler.set_epoch(epoch)
+        train_loader.sampler.set_epoch(epoch)
         for batch in train_loader:
             step += 1
             # forward pass
