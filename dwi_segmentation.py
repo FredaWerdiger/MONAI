@@ -337,7 +337,7 @@ def example(rank, world_size):
 
     set_determinism(seed=42)
 
-    max_epochs = 20
+    max_epochs = 300
     batch_size = 2
 
     train_transforms = Compose(
@@ -471,7 +471,7 @@ def example(rank, world_size):
         dist_sync_on_step=True,
         ignore_index=0).to(rank)
 
-    val_interval = 2
+    val_interval = 4
     # only doing these for master node
     if rank == 0:
         epoch_loss_values = []
