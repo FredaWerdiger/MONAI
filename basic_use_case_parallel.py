@@ -145,7 +145,7 @@ def example(rank, world_size):
         data=train_files,
         transform=train_transforms,
         cache_rate=1.0,
-        num_workers=4
+        num_workers=0
     )
 
     train_loader = prepare(train_ds, rank, world_size, batch_size)
@@ -159,7 +159,7 @@ def example(rank, world_size):
         data=val_files,
         transform=val_transforms,
         cache_rate=1.0,
-        num_workers=4
+        num_workers=0
     )
     # val_loader = DataLoader(val_ds,
     #                           batch_size=batch_size,
