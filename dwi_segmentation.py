@@ -351,7 +351,7 @@ def example(rank, world_size):
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(64, 64, 64),
+                spatial_size=(32, 32, 32),
                 pos=1,
                 neg=1,
                 num_samples=4,
@@ -481,7 +481,7 @@ def example(rank, world_size):
     # Below not needed for torchmetrics metric
     # post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     # post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
-    # start = time.time()
+    start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -549,12 +549,12 @@ def example(rank, world_size):
                         f"at epoch: {best_metric_epoch}"
                     )
 
-    # end = time.time()
-    # time_taken = end - start
-    # print(f"Time taken: {round(time_taken, 0)} seconds")
-    # time_taken_hours = time_taken/3600
-    # time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
-    # time_taken_hours = int(time_taken_hours)
+    end = time.time()
+    time_taken = end - start
+    print(f"Time taken: {round(time_taken, 0)} seconds")
+    time_taken_hours = time_taken/3600
+    time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
+    time_taken_hours = int(time_taken_hours)
 
     if rank == 0:
         # generate loss plot
@@ -581,7 +581,7 @@ def example(rank, world_size):
         myfile.write(f'Validation interval: {val_interval}\n')
         myfile.write(f"Best metric: {best_metric:.4f}\n")
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
-        # myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
+        myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
 
     # evaluate during training process
     # model.load_state_dict(torch.load(
