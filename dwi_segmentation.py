@@ -351,7 +351,7 @@ def example(rank, world_size):
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(32, 32, 32),
+                spatial_size=(64, 64, 64),
                 pos=1,
                 neg=1,
                 num_samples=4,
@@ -503,9 +503,9 @@ def example(rank, world_size):
             epoch_loss += loss.item()
             optimizer.step()
             # commenting out print function
-            print(
-                f"{step}/{len(train_ds) // train_loader.batch_size}, "
-                f"train_loss: {loss.item():.4f}")
+            # print(
+            #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
+            #     f"train_loss: {loss.item():.4f}")
         # lr_scheduler.step()
         if rank == 0:
             epoch_loss /= step
