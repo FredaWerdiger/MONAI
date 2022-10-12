@@ -193,14 +193,14 @@ def example(rank, world_size):
     # plt.title("Stroke lesion")
     # plt.show()
 
-    model = SimpleSegmentationModel(2, 2).to(rank)
-    model = monai.networks.nets.UNet(spatial_dims=3,
-                                     in_channels=2,
-                                     out_channels=2,
-                                     channels=[32, 64, 128],
-                                     strides=[2,2],
-                                     kernel_size=3,
-                                     num_res_units=2).to(rank)
+    # model = SimpleSegmentationModel(2, 2).to(rank)
+    # model = monai.networks.nets.UNet(spatial_dims=3,
+    #                                  in_channels=2,
+    #                                  out_channels=2,
+    #                                  channels=[32, 64, 128],
+    #                                  strides=[2,2],
+    #                                  kernel_size=3,
+    #                                  num_res_units=2).to(rank)
     model = monai.networks.nets.AttentionUnet(
         spatial_dims=3,
         in_channels=2,
@@ -250,6 +250,7 @@ def example(rank, world_size):
             )
             # inputs = torch.randn((1, 2, 128, 128, 128))
             # labels = torch.randn((1, 2, 128, 128, 128))
+            optimizer.zero_grad()
             outputs = ddp_model(inputs.to(rank))
             labels = labels.to(rank)
             # backward pass
@@ -325,6 +326,7 @@ def main():
              args=(world_size,),
              nprocs=world_size,
              join=True)
+
 if __name__ == "__main__":
     # Environment variables which need to be
     # set when using c10d's default "env"
