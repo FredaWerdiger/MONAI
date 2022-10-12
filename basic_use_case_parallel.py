@@ -10,6 +10,8 @@ import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import glob
+import time
+import numpy as np
 import random
 import matplotlib.pyplot as plt
 from basic_model import SimpleSegmentationModel
@@ -23,6 +25,9 @@ from monai.transforms import (
     EnsureType,
     NormalizeIntensityd,
     RandCropByPosNegLabeld,
+    RandFlipd,
+    RandScaleIntensityd,
+    RandShiftIntensityd,
     EnsureChannelFirstd,
     EnsureTyped,
     Resized
@@ -120,7 +125,13 @@ def example(rank, world_size):
                 image_key="image",
                 image_threshold=0,
             ),
+            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True), \
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
             EnsureTyped(keys=["image", "label"]),
         ]
     )
@@ -140,7 +151,7 @@ def example(rank, world_size):
         ]
     )
     # here we don't cache any data in case out of memory issue
-    batch_size = 2
+    batch_size = 4
     train_ds = CacheDataset(
         data=train_files,
         transform=train_transforms,
@@ -225,7 +236,7 @@ def example(rank, world_size):
     # metric to aggregate over ddt
     metric = Dice(dist_sync_on_step=True, ignore_index=0).to(rank)
     num_epochs = 300
-    val_interval = 2
+    val_interval = 4
     num_batches = len(train_ds) / batch_size
     # only doing eval on master node
     if rank == 0:
@@ -235,6 +246,8 @@ def example(rank, world_size):
         best_metric_epoch = -1
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True,to_onehot=None)])
     post_pred_label = Compose([EnsureType(), AsDiscrete(argmax=False, to_onehot=None)])
+
+    start = time.time()
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch+1, num_epochs))
         step = 0 # which step out of the number of batches
@@ -264,7 +277,7 @@ def example(rank, world_size):
         if rank == 0:
             epoch_loss /= step
             epoch_loss_list.append(epoch_loss)
-        print(f"Average loss for epoch {epoch + 1}: {epoch_loss:.4f}")
+            print(f"Average loss for epoch {epoch + 1}: {epoch_loss:.4f}")
 
         if (epoch + 1) % val_interval == 0:
             ddp_model.eval()
@@ -299,6 +312,12 @@ def example(rank, world_size):
                         f"Mean dice at epoch {epoch + 1}: {mean_dice:.4f}"
                         f"\nBest mean dice: {best_metric:.4f}; at epoch {best_metric_epoch}"
                     )
+    end = time.time()
+    time_taken = end - start
+    print(f"Time taken: {round(time_taken, 0)} seconds")
+    time_taken_hours = time_taken / 3600
+    time_taken_mins = np.ceil((time_taken / 3600 - int(time_taken / 3600)) * 60)
+    time_taken_hours = int(time_taken_hours)
     # now plot the loss and the dice
     if rank == 0:
         plt.figure("Results of training", (12,6))
@@ -316,6 +335,14 @@ def example(rank, world_size):
         plt.plot(x, mean_dice_list)
         plt.savefig(root_dir + "practice/loss_plot.png", bbox_inches='tight', dpi=300, format='png')
         plt.close()
+
+    with open(root_dir + 'practice/model_info.txt', 'w') as myfile:
+        myfile.write(f'Number of epochs: {num_epochs}\n')
+        myfile.write(f'Validation interval: {val_interval}\n')
+        myfile.write(f"Best metric: {best_metric:.4f}\n")
+        myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
+        myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
+
     cleanup()
 
 
