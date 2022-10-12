@@ -359,12 +359,12 @@ def example(rank, world_size):
                 image_threshold=0,
             ),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-            RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            # RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            # RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+            # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
             EnsureTyped(keys=["image", "label"]),
         ]
     )
@@ -510,7 +510,7 @@ def example(rank, world_size):
         if rank == 0:
             epoch_loss /= step
             epoch_loss_values.append(epoch_loss)
-        print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+            print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
 
         if (epoch + 1) % val_interval == 0:
             model.eval()
