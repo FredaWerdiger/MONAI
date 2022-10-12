@@ -239,7 +239,7 @@ def example(rank, world_size):
         print("Epoch {}/{}".format(epoch+1, num_epochs))
         step = 0 # which step out of the number of batches
         epoch_loss = 0 # total loss for this epoch
-        model.train()
+        ddp_model.train()
         train_loader.sampler.set_epoch(epoch)
         for batch in train_loader:
             step += 1
@@ -267,7 +267,7 @@ def example(rank, world_size):
         print(f"Average loss for epoch {epoch + 1}: {epoch_loss:.4f}")
 
         if (epoch + 1) % val_interval == 0:
-            model.eval()
+            ddp_model.eval()
             print("Evaluating...")
             with torch.no_grad():
                 for val in val_loader:
@@ -277,7 +277,7 @@ def example(rank, world_size):
                     )
                     roi_size = (64, 64, 64)
                     sw_batch_size = 2
-                    val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, model)
+                    val_outputs = sliding_window_inference(val_inputs, roi_size, sw_batch_size, ddp_model)
                     # transform from a batched tensor to a list of tensors
                     # turn into an array of discrete binary values
                     # val_outputs_list = post_pred(val_outputs) #for i in decollate_batch(val_outputs)]
@@ -293,7 +293,7 @@ def example(rank, world_size):
                         best_metric_epoch = epoch + 1
                         # only save in one process
                         if rank == 0:
-                            torch.save(model.state_dict(), CHECKPOINT_PATH)
+                            torch.save(ddp_model.state_dict(), CHECKPOINT_PATH)
                         best_metric = mean_dice
                     print(
                         f"Mean dice at epoch {epoch + 1}: {mean_dice:.4f}"
