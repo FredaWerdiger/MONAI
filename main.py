@@ -337,7 +337,7 @@ def example(rank, world_size):
 
     set_determinism(seed=42)
 
-    max_epochs = 600
+    max_epochs = 20
     batch_size = 4
 
     train_transforms = Compose(
@@ -351,7 +351,7 @@ def example(rank, world_size):
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(32, 32, 32),
+                spatial_size=(64, 64, 64),
                 pos=1,
                 neg=1,
                 num_samples=4,
@@ -437,7 +437,7 @@ def example(rank, world_size):
         strides=(2, 2, 2)
     ).to(rank)
 
-    ddp_model = DDP(model, device_ids=[rank])
+    model = DDP(model, device_ids=[rank])
 
     # model = SegResNet(
     #     blocks_down=[1, 2, 2, 4],
@@ -469,6 +469,7 @@ def example(rank, world_size):
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     for epoch in range(max_epochs):
+        train_loader.sampler.set_epoch(epoch)
         print("-" * 10)
         print(f"epoch {epoch + 1}/{max_epochs}")
         model.train()
@@ -491,7 +492,7 @@ def example(rank, world_size):
             #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
         # lr_scheduler.step()
-        if rank == '0':
+        if rank == 0:
             epoch_loss /= step
             epoch_loss_values.append(epoch_loss)
         print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
@@ -559,6 +560,14 @@ def example(rank, world_size):
         plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                     bbox_inches='tight', dpi=300, format='png')
         plt.close()
+
+    # save model results in a separate file
+    with open(root_dir + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
+        myfile.write(f'Number of epochs: {max_epochs}\n')
+        myfile.write(f'Validation interval: {val_interval}\n')
+        myfile.write(f"Best metric: {best_metric:.4f}\n")
+        myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
+        myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
 
     # evaluate during training process
     # model.load_state_dict(torch.load(
