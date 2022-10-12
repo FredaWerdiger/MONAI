@@ -390,7 +390,10 @@ def example(rank, world_size):
         num_workers=4
     )
 
-    train_loader = prepare(train_ds, rank, world_size, batch_size)
+    train_loader = prepare(train_ds,
+                           rank,
+                           world_size,
+                           batch_size)
 
     val_ds = CacheDataset(
         data=val_files,
@@ -398,7 +401,10 @@ def example(rank, world_size):
         cache_rate=1.0,
         num_workers=4)
 
-    val_loader = prepare(val_ds, rank, world_size, batch_size)
+    val_loader = prepare(val_ds,
+                         rank,
+                         world_size,
+                         batch_size)
 
     # Uncomment to display data
     #
@@ -461,7 +467,9 @@ def example(rank, world_size):
 
     # dice_metric = DiceMetric(include_background=False, reduction="mean")
     # this dice loss works with DDP
-    dice_metric = Dice(dist_sync_on_step=True, ignore_index=0).to(rank)
+    dice_metric = Dice(
+        dist_sync_on_step=True,
+        ignore_index=0).to(rank)
 
     val_interval = 2
     # only doing these for master node
@@ -476,12 +484,12 @@ def example(rank, world_size):
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     for epoch in range(max_epochs):
-        train_loader.sampler.set_epoch(epoch)
         print("-" * 10)
         print(f"epoch {epoch + 1}/{max_epochs}")
-        model.train()
         epoch_loss = 0
         step = 0
+        model.train()
+        train_loader.sampler.set_epoch(epoch)
         for batch_data in train_loader:
             step += 1
             inputs, labels = (
@@ -492,12 +500,12 @@ def example(rank, world_size):
             outputs = ddp_model(inputs)
             loss = loss_function(outputs, labels)
             loss.backward()
-            optimizer.step()
             epoch_loss += loss.item()
+            optimizer.step()
             # commenting out print function
-            # print(
-            #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
-            #     f"train_loss: {loss.item():.4f}")
+            print(
+                f"{step}/{len(train_ds) // train_loader.batch_size}, "
+                f"train_loss: {loss.item():.4f}")
         # lr_scheduler.step()
         if rank == 0:
             epoch_loss /= step
