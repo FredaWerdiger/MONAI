@@ -328,7 +328,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "testing_attention_unet_ddp"
+    out_tag = "attention_unet_ddp"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -337,7 +337,7 @@ def example(rank, world_size):
 
     set_determinism(seed=42)
 
-    max_epochs = 300
+    max_epochs = 600
     batch_size = 2
 
     train_transforms = Compose(
@@ -471,7 +471,7 @@ def example(rank, world_size):
         dist_sync_on_step=True,
         ignore_index=0).to(rank)
 
-    val_interval = 4
+    val_interval = 2
     # only doing these for master node
     if rank == 0:
         epoch_loss_values = []
@@ -575,13 +575,14 @@ def example(rank, world_size):
                     bbox_inches='tight', dpi=300, format='png')
         plt.close()
 
-    # save model results in a separate file
-    with open(root_dir + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
-        myfile.write(f'Number of epochs: {max_epochs}\n')
-        myfile.write(f'Validation interval: {val_interval}\n')
-        myfile.write(f"Best metric: {best_metric:.4f}\n")
-        myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
-        myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
+
+        # save model results in a separate file
+        with open(root_dir + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
+            myfile.write(f'Number of epochs: {max_epochs}\n')
+            myfile.write(f'Validation interval: {val_interval}\n')
+            myfile.write(f"Best metric: {best_metric:.4f}\n")
+            myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
+            myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
 
     # evaluate during training process
     # model.load_state_dict(torch.load(
