@@ -328,7 +328,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp"
+    out_tag = "attention_unet_ddp_noaugmentation"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -337,7 +337,7 @@ def example(rank, world_size):
 
     set_determinism(seed=42)
 
-    max_epochs = 600
+    max_epochs = 300
     batch_size = 2
 
     train_transforms = Compose(
@@ -358,12 +358,12 @@ def example(rank, world_size):
                 image_key="image",
                 image_threshold=0,
             ),
-            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+            # NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            # RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            # RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
             # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
             EnsureTyped(keys=["image", "label"]),
         ]
@@ -471,7 +471,7 @@ def example(rank, world_size):
         dist_sync_on_step=True,
         ignore_index=0).to(rank)
 
-    val_interval = 2
+    val_interval = 4
     # only doing these for master node
     if rank == 0:
         epoch_loss_values = []
