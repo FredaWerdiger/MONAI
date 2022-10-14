@@ -328,7 +328,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_noaugmentation"
+    out_tag = "attention_unet_ddp_new_adam"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -359,12 +359,12 @@ def example(rank, world_size):
                 image_threshold=0,
             ),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            # RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-            # RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-            # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+            RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
             EnsureTyped(keys=["image", "label"]),
         ]
     )
