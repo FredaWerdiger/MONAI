@@ -328,7 +328,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp"
+    out_tag = "attention_unet_ddp_noaugmentation"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -471,7 +471,7 @@ def example(rank, world_size):
         dist_sync_on_step=True,
         ignore_index=0).to(rank)
 
-    # val_interval = 4
+    val_interval = 4
     # only doing these for master node
     if rank == 0:
         epoch_loss_values = []
