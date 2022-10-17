@@ -52,7 +52,7 @@ print(root_dir)
 
 test_files = make_dict(root_dir, "no_seg")
 # replace with path
-model_file = "D:/ctp_project_data/DWI_Training_Data_INSP/out_scale_1_99/best_metric_model100.pth"
+model_file = "/media/mbcneuro/HDD1/DWI_Training_Data/out_final_no_clipping/best_metric_model600.pth"
 out_dir = root_dir + "no_seg/images"
 
 if not os.path.exists(out_dir):
