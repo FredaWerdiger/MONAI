@@ -1,6 +1,9 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
 import os
+
+import sklearn.metrics
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import math
 import tempfile
@@ -8,6 +11,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import glob
+from sklearn.metrics import f1_score
 from monai.config import print_config
 from monai.data import Dataset, CacheDataset, DataLoader, decollate_batch
 from monai.handlers.utils import from_engine
@@ -328,7 +332,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_new_adam"
+    out_tag = "attention_unet_ddp_2"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -337,7 +341,7 @@ def example(rank, world_size):
 
     set_determinism(seed=42)
 
-    max_epochs = 200
+    max_epochs = 600
     batch_size = 2
 
     train_transforms = Compose(
@@ -471,16 +475,17 @@ def example(rank, world_size):
         dist_sync_on_step=True,
         ignore_index=0).to(rank)
 
-    val_interval = 4
+    val_interval = 2
     # only doing these for master node
     if rank == 0:
         epoch_loss_values = []
         metric_values = []
         best_metric = -1
         best_metric_epoch = -1
+        f1_scores = []
     # Below not needed for torchmetrics metric
-    # post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
-    # post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
+    post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
+    post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     for epoch in range(max_epochs):
@@ -530,11 +535,20 @@ def example(rank, world_size):
                     # val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
                     dice_metric(val_outputs, val_labels.long())
-
+                    # validate with f1 score
+                    f1_outputs = [post_pred(i)[0].detach().numpy().flatten() for i in decollate_batch(val_outputs)]
+                    f1_labels = [post_label(i)[0].detach().numpy().flatten() for i in decollate_batch(val_labels)]
+                    f1_scores_batch = [sklearn.metrics.f1_score(i.flatten(), j.flatten())
+                                       for i,j in zip(f1_outputs, f1_labels)]
+                    print(f1_scores_batch)
+                    for f in f1_scores_batch:
+                        f1_scores.append(f)
                 # aggregate the final mean dice result
                 metric = dice_metric.compute().cpu().detach().numpy()
                 # reset the status for next validation round
                 dice_metric.reset()
+                mean_f1 = np.asarray(f1_scores).mean()
+                f1_scores = []
                 if rank == 0:
                     metric_values.append(metric)
                     if metric > best_metric:
@@ -545,6 +559,7 @@ def example(rank, world_size):
                         print("saved new best metric model")
                     print(
                         f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
+                        f"current f1: {mean_f1:.4f}"
                         f"\nbest mean dice: {best_metric:.4f} "
                         f"at epoch: {best_metric_epoch}"
                     )
