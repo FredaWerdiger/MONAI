@@ -536,8 +536,8 @@ def example(rank, world_size):
                     # compute metric for current iteration
                     dice_metric(val_outputs, val_labels.long())
                     # validate with f1 score
-                    f1_outputs = [post_pred(i)[0].detach().numpy().flatten() for i in decollate_batch(val_outputs)]
-                    f1_labels = [post_label(i)[0].detach().numpy().flatten() for i in decollate_batch(val_labels)]
+                    f1_outputs = [post_pred(i)[0].cpu().numpy().flatten() for i in decollate_batch(val_outputs)]
+                    f1_labels = [post_label(i)[0].cpu().numpy().flatten() for i in decollate_batch(val_labels)]
                     f1_scores_batch = [sklearn.metrics.f1_score(i.flatten(), j.flatten())
                                        for i,j in zip(f1_outputs, f1_labels)]
                     print(f1_scores_batch)
