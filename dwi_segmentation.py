@@ -31,6 +31,7 @@ from monai.transforms import (
     CropForegroundd,
     NormalizeIntensityd,
     ScaleIntensityRangePercentilesd,
+    RandAffined,
     RandFlipd,
     RandAdjustContrastd,
     RandCropByPosNegLabeld,
@@ -332,7 +333,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_2"
+    out_tag = "attention_unet_ddp_dice_background"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -363,12 +364,13 @@ def example(rank, world_size):
                 image_threshold=0,
             ),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            # RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
             RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
             RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-            RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
+            # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
             EnsureTyped(keys=["image", "label"]),
         ]
     )
@@ -462,7 +464,8 @@ def example(rank, world_size):
         smooth_nr=0,
         smooth_dr=1e-5,
         to_onehot_y=True,
-        softmax=True)
+        softmax=True,
+        include_background=True)
     optimizer = torch.optim.Adam(
         ddp_model.parameters(),
         1e-4,
@@ -482,7 +485,7 @@ def example(rank, world_size):
         metric_values = []
         best_metric = -1
         best_metric_epoch = -1
-    f1_scores = []
+    # f1_scores = []
     # Below not needed for torchmetrics metric
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
@@ -536,18 +539,18 @@ def example(rank, world_size):
                     # compute metric for current iteration
                     dice_metric(val_outputs, val_labels.long())
                     # validate with f1 score
-                    f1_outputs = [post_pred(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_outputs)]
-                    f1_labels = [post_label(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_labels)]
-                    f1_scores_batch = [sklearn.metrics.f1_score(i.flatten(), j.flatten())
-                                       for i,j in zip(f1_outputs, f1_labels)]
-                    for f in f1_scores_batch:
-                        f1_scores.append(f)
+                #     f1_outputs = [post_pred(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_outputs)]
+                #     f1_labels = [post_label(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_labels)]
+                #     f1_scores_batch = [sklearn.metrics.f1_score(i.flatten(), j.flatten())
+                #                        for i,j in zip(f1_outputs, f1_labels)]
+                #     for f in f1_scores_batch:
+                #         f1_scores.append(f)
                 # aggregate the final mean dice result
                 metric = dice_metric.compute().cpu().detach().numpy()
                 # reset the status for next validation round
                 dice_metric.reset()
-                mean_f1 = np.asarray(f1_scores).mean()
-                f1_scores = []
+                # mean_f1 = np.asarray(f1_scores).mean()
+                # f1_scores = []
                 if rank == 0:
                     metric_values.append(metric)
                     if metric > best_metric:
@@ -558,7 +561,7 @@ def example(rank, world_size):
                         print("saved new best metric model")
                     print(
                         f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
-                        f"current f1: {mean_f1:.4f}"
+                        # f"current f1: {mean_f1:.4f}"
                         f"\nbest mean dice: {best_metric:.4f} "
                         f"at epoch: {best_metric_epoch}"
                     )
