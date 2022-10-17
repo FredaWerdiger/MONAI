@@ -482,7 +482,7 @@ def example(rank, world_size):
         metric_values = []
         best_metric = -1
         best_metric_epoch = -1
-        f1_scores = []
+    f1_scores = []
     # Below not needed for torchmetrics metric
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
