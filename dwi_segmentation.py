@@ -356,7 +356,7 @@ def example(rank, world_size):
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(32, 32, 32),
+                spatial_size=(64, 64, 64),
                 pos=1,
                 neg=1,
                 num_samples=4,
@@ -364,7 +364,7 @@ def example(rank, world_size):
                 image_threshold=0,
             ),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            # RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
+            RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
