@@ -333,7 +333,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_dice_background"
+    out_tag = "attention_unet_ddp_dice_background_96"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -352,7 +352,7 @@ def example(rank, world_size):
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
-                    spatial_size=(128, 128, 128)),
+                    spatial_size=(96, 96, 96)),
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
@@ -382,7 +382,7 @@ def example(rank, world_size):
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
-                    spatial_size=(128, 128, 128)),
+                    spatial_size=(96, 96, 96)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
         ]
@@ -531,7 +531,7 @@ def example(rank, world_size):
                     )
                     # unsure how to optimize this
                     roi_size = (64, 64, 64)
-                    sw_batch_size = 2
+                    sw_batch_size = 4
                     val_outputs = sliding_window_inference(
                         val_inputs, roi_size, sw_batch_size, ddp_model)
                     # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
