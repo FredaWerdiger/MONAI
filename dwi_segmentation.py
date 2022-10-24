@@ -333,7 +333,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_dice_background_96"
+    out_tag = "attention_unet_ddp_dice_background"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -343,7 +343,7 @@ def example(rank, world_size):
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 2
+    batch_size = 4
 
     train_transforms = Compose(
         [
@@ -352,11 +352,11 @@ def example(rank, world_size):
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
-                    spatial_size=(96, 96, 96)),
+                    spatial_size=(128, 128, 128)),
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(64, 64, 64),
+                spatial_size=(32, 32, 32),
                 pos=1,
                 neg=1,
                 num_samples=4,
@@ -382,7 +382,7 @@ def example(rank, world_size):
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
-                    spatial_size=(96, 96, 96)),
+                    spatial_size=(128, 128, 128)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
         ]
@@ -531,7 +531,7 @@ def example(rank, world_size):
                     )
                     # unsure how to optimize this
                     roi_size = (64, 64, 64)
-                    sw_batch_size = 4
+                    sw_batch_size = 2
                     val_outputs = sliding_window_inference(
                         val_inputs, roi_size, sw_batch_size, ddp_model)
                     # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
