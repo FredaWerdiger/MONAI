@@ -333,7 +333,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_dice_background_batch8"
+    out_tag = "attention_unet_ddp_dice_background_batch4_64size"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -343,7 +343,7 @@ def example(rank, world_size):
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 8
+    batch_size = 4
 
     train_transforms = Compose(
         [
@@ -352,7 +352,7 @@ def example(rank, world_size):
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
-                    spatial_size=(128, 128, 128)),
+                    spatial_size=(64, 64, 64)),
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
@@ -382,7 +382,7 @@ def example(rank, world_size):
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
-                    spatial_size=(128, 128, 128)),
+                    spatial_size=(64, 64, 64)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
         ]
