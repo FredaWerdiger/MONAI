@@ -333,7 +333,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_dice_background_batch4_64size"
+    out_tag = "attention_unet_ddp_dice_background_batch8_64size"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -343,7 +343,7 @@ def example(rank, world_size):
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 4
+    batch_size = 8
 
     train_transforms = Compose(
         [
