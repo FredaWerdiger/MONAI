@@ -308,6 +308,8 @@ def example(rank, world_size):
     # create default process group
     setup(rank, world_size)
 
+    HOMEDIR = os.path.expanduser('~/')
+
     if os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/DWI_Training_Data/'
         ctp_df = pd.read_csv(
@@ -329,6 +331,9 @@ def example(rank, world_size):
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
 
+    if os.path.exists(HOMEDIR + 'mediaflux/'):
+        directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/DWI_Training_Data/'
+
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
@@ -344,7 +349,8 @@ def example(rank, world_size):
 
     max_epochs = 600
     batch_size = 8
-
+    image_size = (64, 64, 64)
+    patch_size = (32, 32, 32)
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "label"]),
@@ -352,11 +358,11 @@ def example(rank, world_size):
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
-                    spatial_size=(64, 64, 64)),
+                    spatial_size=image_size),
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(32, 32, 32),
+                spatial_size=patch_size,
                 pos=1,
                 neg=1,
                 num_samples=4,
@@ -382,7 +388,7 @@ def example(rank, world_size):
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
-                    spatial_size=(64, 64, 64)),
+                    spatial_size=image_size),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
         ]
@@ -485,7 +491,8 @@ def example(rank, world_size):
         metric_values = []
         best_metric = -1
         best_metric_epoch = -1
-    # f1_scores = []
+        f1_mean_values = []
+    f1_scores = []
     # Below not needed for torchmetrics metric
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
@@ -539,20 +546,21 @@ def example(rank, world_size):
                     # compute metric for current iteration
                     dice_metric(val_outputs, val_labels.long())
                     # validate with f1 score
-                #     f1_outputs = [post_pred(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_outputs)]
-                #     f1_labels = [post_label(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_labels)]
-                #     f1_scores_batch = [sklearn.metrics.f1_score(i.flatten(), j.flatten())
-                #                        for i,j in zip(f1_outputs, f1_labels)]
-                #     for f in f1_scores_batch:
-                #         f1_scores.append(f)
+                    f1_outputs = [post_pred(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_outputs)]
+                    f1_labels = [post_label(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_labels)]
+                    f1_scores_batch = [sklearn.metrics.f1_score(i.flatten(), j.flatten())
+                                       for i,j in zip(f1_outputs, f1_labels)]
+                    for f in f1_scores_batch:
+                        f1_scores.append(f)
                 # aggregate the final mean dice result
                 metric = dice_metric.compute().cpu().detach().numpy()
                 # reset the status for next validation round
                 dice_metric.reset()
-                # mean_f1 = np.asarray(f1_scores).mean()
-                # f1_scores = []
+                mean_f1 = np.asarray(f1_scores).mean()
+                f1_scores = []
                 if rank == 0:
                     metric_values.append(metric)
+                    f1_mean_values.append(mean_f1)
                     if metric > best_metric:
                         best_metric = metric
                         best_metric_epoch = epoch + 1
@@ -561,7 +569,7 @@ def example(rank, world_size):
                         print("saved new best metric model")
                     print(
                         f"current epoch: {epoch + 1} current mean dice: {metric:.4f}"
-                        # f"current f1: {mean_f1:.4f}"
+                        f"current f1: {mean_f1:.4f}"
                         f"\nbest mean dice: {best_metric:.4f} "
                         f"at epoch: {best_metric_epoch}"
                     )
@@ -591,11 +599,26 @@ def example(rank, world_size):
         plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                     bbox_inches='tight', dpi=300, format='png')
         plt.close()
+        # compare dice with f1
+        plt.figure("Compare dice scores", (6, 6))
+        plt.title("Compare dice scores")
+        x = [val_interval * (i + 1) for i in range(len(metric_values))]
+        y = metric_values
+        plt.plot(x, y, 'b', label="synchronized mean dice")
+        y = f1_mean_values
+        plt.plot(x, y, 'k', label="manual mean dice")
+        plt.legend()
+        plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'dice_compare.png'),
+                    bbox_inches='tight', dpi=300, format='png')
+        plt.close()
 
 
         # save model results in a separate file
         with open(root_dir + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
             myfile.write(f'Number of epochs: {max_epochs}\n')
+            myfile.write(f'Batch size: {batch_size}\n')
+            myfile.write(f'Image size: {image_size}\n')
+            myfile.write(f'Patch size: {patch_size}\n')
             myfile.write(f'Validation interval: {val_interval}\n')
             myfile.write(f"Best metric: {best_metric:.4f}\n")
             myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
