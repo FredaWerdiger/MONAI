@@ -331,9 +331,6 @@ def example(rank, world_size):
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
 
-    if os.path.exists(HOMEDIR + 'mediaflux/'):
-        directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/DWI_Training_Data/'
-
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
