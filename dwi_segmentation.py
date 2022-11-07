@@ -1,9 +1,6 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
 import os
-
-import sklearn.metrics
-
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import math
 import tempfile
@@ -545,7 +542,7 @@ def example(rank, world_size):
                     # validate with f1 score
                     f1_outputs = [post_pred(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_outputs)]
                     f1_labels = [post_label(i)[1].cpu().numpy().flatten() for i in decollate_batch(val_labels)]
-                    f1_scores_batch = [sklearn.metrics.f1_score(i.flatten(), j.flatten())
+                    f1_scores_batch = [f1_score(i.flatten(), j.flatten())
                                        for i,j in zip(f1_outputs, f1_labels)]
                     for f in f1_scores_batch:
                         f1_scores.append(f)
