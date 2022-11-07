@@ -335,7 +335,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_dice_background_batch8_64size"
+    out_tag = "attention_unet_ddp_batch2_64size_no_patch"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -345,9 +345,9 @@ def example(rank, world_size):
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 8
+    batch_size = 2
     image_size = (64, 64, 64)
-    patch_size = (32, 32, 32)
+    patch_size = None
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "label"]),
@@ -356,16 +356,16 @@ def example(rank, world_size):
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
                     spatial_size=image_size),
-            RandCropByPosNegLabeld(
-                keys=["image", "label"],
-                label_key="label",
-                spatial_size=patch_size,
-                pos=1,
-                neg=1,
-                num_samples=4,
-                image_key="image",
-                image_threshold=0,
-            ),
+            # RandCropByPosNegLabeld(
+            #     keys=["image", "label"],
+            #     label_key="label",
+            #     spatial_size=patch_size,
+            #     pos=1,
+            #     neg=1,
+            #     num_samples=4,
+            #     image_key="image",
+            #     image_threshold=0,
+            # ),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
@@ -468,7 +468,7 @@ def example(rank, world_size):
         smooth_dr=1e-5,
         to_onehot_y=True,
         softmax=True,
-        include_background=True)
+        include_background=False)
     optimizer = torch.optim.Adam(
         ddp_model.parameters(),
         1e-4,
