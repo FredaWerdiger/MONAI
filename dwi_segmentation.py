@@ -16,7 +16,7 @@ from monai.losses import DiceLoss
 from torchmetrics import Dice
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
-from monai.networks.nets import SegResNet, UNet, AttentionUnet
+from monai.networks.nets import SegResNet, UNet, AttentionUnet, DenseNet
 from monai.networks.layers import Norm
 from monai.transforms import (
     AsDiscrete,
@@ -332,7 +332,7 @@ def example(rank, world_size):
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_ddp_batch2_64size_no_patch"
+    out_tag = "densenet_ddp_64_size_image"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -449,6 +449,12 @@ def example(rank, world_size):
         strides=(2, 2, 2)
     ).to(rank)
 
+    model = DenseNet(
+        spatial_dims=3,
+        in_channels=2,
+        out_channels=3
+    )
+
     ddp_model = DDP(model, device_ids=[rank])
 
     # model = SegResNet(
@@ -470,7 +476,7 @@ def example(rank, world_size):
         ddp_model.parameters(),
         1e-4,
         weight_decay=1e-5)
-    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
     # dice_metric = DiceMetric(include_background=False, reduction="mean")
     # this dice loss works with DDP
@@ -515,7 +521,7 @@ def example(rank, world_size):
             # print(
             #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
-        # lr_scheduler.step()
+        lr_scheduler.step()
         if rank == 0:
             epoch_loss /= step
             epoch_loss_values.append(epoch_loss)
