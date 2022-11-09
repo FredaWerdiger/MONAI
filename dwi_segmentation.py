@@ -445,15 +445,15 @@ def example(rank, world_size):
         spatial_dims=3,
         in_channels=2,
         out_channels=2,
-        channels=(32, 64, 128, 256),
-        strides=(2, 2, 2)
+        channels=(32, 64, 128, 256, 512),
+        strides=(2, 2, 2),
     ).to(rank)
 
     model = DenseNet(
         spatial_dims=3,
         in_channels=2,
-        out_channels=3
-    )
+        out_channels=2
+    ).to(rank)
 
     ddp_model = DDP(model, device_ids=[rank])
 
@@ -554,6 +554,7 @@ def example(rank, world_size):
                         f1_scores.append(f)
                 # aggregate the final mean dice result
                 metric = dice_metric.compute().cpu().detach().numpy()
+
                 # reset the status for next validation round
                 dice_metric.reset()
                 mean_f1 = np.asarray(f1_scores).mean()
