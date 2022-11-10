@@ -114,7 +114,7 @@ def example(rank, world_size):
 
     train_loader = prepare(train_dataset,
                            rank,
-                           world_size.
+                           world_size,
                            batch_size)
 
     val_loader = prepare(val_dataset,
