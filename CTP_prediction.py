@@ -232,18 +232,17 @@ def example(rank, world_size):
                     # compute metric for current iteration
                     dice_metric_torch_macro(val_outputs, val_labels.long())
                     # now to for the MONAI dice metric
-                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
-                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
-                    dice_metric(val_outputs, val_labels)
+                    # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    # val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    # dice_metric(val_outputs, val_labels)
 
-                torchmetric_macro = dice_metric_torch_macro.compute().item()
+                mean_dice = dice_metric_torch_macro.compute().item()
                 dice_metric_torch_macro.reset()
-                mean_dice = dice_metric.aggregate().item()
-                dice_metric.reset()
+                # mean_dice = dice_metric.aggregate().item()
+                # dice_metric.reset()
 
                 if rank == 0:
                     dice_metric_values.append(mean_dice)
-                    dice_metric_macro_values.append(torchmetric_macro)
 
                     if mean_dice > best_metric:
                         best_metric = mean_dice
@@ -251,17 +250,11 @@ def example(rank, world_size):
                         torch.save(model.state_dict(), os.path.join(
                             directory, 'out_' + out_tag, model_name))
                         print("saved new best metric model")
-                    if torchmetric_macro > best_metric_macro:
-                        best_metric_macro = torchmetric_macro
-                        best_metric_epoch_macro = epoch + 1
 
                     print(
                         f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
-                        f"\ncurrent torchmetric macro: {torchmetric_macro:.4f}"
                         f"\nbest mean dice: {best_metric:.4f} "
                         f"at epoch: {best_metric_epoch}"
-                        f"\nbest mean dice macro: {best_metric_macro:.4f} "
-                        f"at epoch: {best_metric_epoch_macro}"
                     )
                 # # evaluate during training process
                 # model.load_state_dict(torch.load(
@@ -306,8 +299,6 @@ def example(rank, world_size):
         myfile.write(f'Validation interval: {val_interval}\n')
         myfile.write(f"Best metric: {best_metric:.4f}\n")
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
-        myfile.write(f"Best metric other: {best_metric:.4f}\n")
-        myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
         myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
 
 
@@ -325,9 +316,6 @@ def example(rank, world_size):
     y = dice_metric_values
     plt.xlabel("epoch")
     plt.plot(x, y, 'b', label="MONAI Dice")
-    y = dice_metric_macro_values
-    plt.plot(x, y, 'r', label="torchmetrics macro mean dice")
-    plt.legend(loc=4)
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
