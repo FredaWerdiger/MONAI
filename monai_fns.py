@@ -44,6 +44,18 @@ def free_gpu_cache():
     gpu_usage()
 
 
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    os.environ['WORLD_SIZE'] = '2'
+    os.environ['LOCAL RANK'] = str(rank)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+
+
+def cleanup():
+    dist.destroy_process_group()
+
+
 class DDPSetUp():
     def __init__(self,
                 rank,

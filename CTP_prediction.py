@@ -1,5 +1,5 @@
 import os
-from monai_fns import DDPSetUp, BuildDataset, prepare, free_gpu_cache
+from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
 from monai.data import CacheDataset, DataLoader, decollate_batch
@@ -45,7 +45,7 @@ from torchmetrics import Dice
 
 def example(rank, world_size):
     print(f"Running DDP on rank {rank}.")
-    DDPSetUp(rank, world_size).setup
+    setup(rank, world_size)
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/CTP_DL_Data/'
@@ -325,7 +325,7 @@ def example(rank, world_size):
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
-    DDPSetUp(rank, world_size).cleanup()
+    cleanup()
 
 
 def main():
@@ -336,6 +336,7 @@ def main():
              args=(world_size,),
              nprocs=world_size,
              join=True)
+
 
 if __name__ == "__main__":
     # Environment variables which need to be
