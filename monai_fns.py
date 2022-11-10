@@ -1,7 +1,10 @@
 import os
 import glob
 import torch.distributed as dist
+import torch
 from monai.data import Dataset, DataLoader, DistributedSampler
+from numba import cuda
+from GPUtil import showUtilization as gpu_usage
 
 
 def prepare(dataset,
@@ -25,6 +28,20 @@ def prepare(dataset,
                           sampler=sampler
                           )
     return dataloader
+
+
+def free_gpu_cache():
+    print("Initial GPU Usage")
+    gpu_usage()
+
+    torch.cuda.empty_cache()
+
+    cuda.select_device(0)
+    cuda.close()
+    cuda.select_device(0)
+
+    print("GPU Usage after emptying the cache")
+    gpu_usage()
 
 
 class DDPSetUp():
