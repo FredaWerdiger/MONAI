@@ -102,20 +102,25 @@ def example(rank, world_size):
         data=train_files,
         transform=train_transforms,
         cache_rate=1.0,
-        num_workers=4
+        num_workers=0
     )
 
     val_dataset = CacheDataset(
         data=val_files,
         transform=val_transforms,
         cache_rate=1.0,
-        num_workers=4
+        num_workers=0
     )
 
-    train_loader = DataLoader(train_dataset,
-                              batch_size=batch_size,
-                              num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=4)
+    train_loader = prepare(train_dataset,
+                           rank,
+                           world_size.
+                           batch_size)
+
+    val_loader = prepare(val_dataset,
+                         rank,
+                         world_size,
+                         batch_size)
 
     # Uncomment to display data
     #
@@ -186,6 +191,7 @@ def example(rank, world_size):
         epoch_loss = 0
         step = 0
         model.train()
+        train_loader.sampler.set_epoch(epoch)
         for batch_data in train_loader:
             step += 1
             inputs, labels = (
