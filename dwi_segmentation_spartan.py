@@ -121,7 +121,7 @@ def main():
         data=train_files,
         transform=train_transforms,
         cache_rate=1.0,
-        num_workers=0
+        num_workers=4
     )
 
     train_loader = DataLoader(train_ds,
@@ -131,7 +131,7 @@ def main():
         data=val_files,
         transform=val_transforms,
         cache_rate=1.0,
-        num_workers=0)
+        num_workers=4)
 
     val_loader = DataLoader(val_ds,
                             batch_size=batch_size)
@@ -172,7 +172,7 @@ def main():
         in_channels=2,
         out_channels=2,
         channels=(32, 64, 128, 256, 512),
-        strides=(2, 2, 2),
+        strides=(2, 2, 2, 2),
     ).to(rank)
 
     # model = DenseNet(
