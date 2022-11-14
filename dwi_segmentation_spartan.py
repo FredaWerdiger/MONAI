@@ -13,7 +13,6 @@ from monai.config import print_config
 from monai.data import Dataset, CacheDataset, DataLoader, decollate_batch
 from monai.handlers.utils import from_engine
 from monai.losses import DiceLoss
-from torchmetrics import Dice
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
 from monai.networks.nets import SegResNet, UNet, AttentionUnet, DenseNet
@@ -43,18 +42,9 @@ from monai.transforms import (
 
 from monai.utils import first, set_determinism
 
-import pandas as pd
 import torch
-from jinja2 import Environment, FileSystemLoader
 import os
 
-import torch.distributed as dist
-import torch.multiprocessing as mp
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
-
-from GPUtil import showUtilization as gpu_usage
-from numba import cuda
 
 
 
@@ -73,7 +63,6 @@ def make_dict(root, string):
 
 
 def main():
-
 
     directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
 
