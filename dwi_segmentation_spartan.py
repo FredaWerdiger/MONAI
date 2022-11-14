@@ -222,7 +222,6 @@ def main():
         epoch_loss = 0
         step = 0
         model.train()
-        train_loader.sampler.set_epoch(epoch)
         for batch_data in train_loader:
             step += 1
             inputs, labels = (
