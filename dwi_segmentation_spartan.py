@@ -70,7 +70,7 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_4layers_128_size_image"
+    out_tag = "attention_unet_5layers_128_size_image"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -171,8 +171,8 @@ def main():
         spatial_dims=3,
         in_channels=2,
         out_channels=2,
-        channels=(32, 64, 128, 256),
-        strides=(2, 2, 2),
+        channels=(32, 64, 128, 256, 512),
+        strides=(2, 2, 2, 2),
     ).to(rank)
 
     # model = DenseNet(
