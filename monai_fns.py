@@ -80,5 +80,9 @@ class BuildDataset():
         self.images_dict = [
             {"image": image_name, "label": label_name}
             for image_name, label_name in zip(images, labels)
-    ]
+        ]
+        self.no_seg_dict = [
+            {"image": image_name} for image_name in images
+                            ]
+
 

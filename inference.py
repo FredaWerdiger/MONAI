@@ -219,7 +219,7 @@ def make_dict(root, string):
         for image_name, label_name in zip(images, labels)
     ]
 
-def main(root_dir, ctp_df, model_path, out_tag):
+def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
 
 
     # test on external data
@@ -277,17 +277,18 @@ def main(root_dir, ctp_df, model_path, out_tag):
         channels=(32, 64, 128, 256),
         strides=(2, 2, 2)
     ).to(device)
-    # original saved file with DataParallel
-    state_dict = torch.load(model_path)
-    # create new OrderedDict that does not contain `module.`
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = k[7:]  # remove `module.`
-        new_state_dict[name] = v
-
-    # load params
-    model.load_state_dict(new_state_dict)
-
+    if ddp:
+        # original saved file with DataParallel
+        state_dict = torch.load(model_path)
+        # create new OrderedDict that does not contain `module.`
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = k[7:]  # remove `module.`
+            new_state_dict[name] = v
+        # load params
+        model.load_state_dict(new_state_dict)
+    else:
+        model.load_state_dict(torch.load(model_path))
     model.eval()
 
     results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'px_z', 'size_ml'])
