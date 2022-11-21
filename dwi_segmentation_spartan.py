@@ -306,17 +306,17 @@ def main():
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
     # compare dice with f1
-    plt.figure("Compare dice scores", (6, 6))
-    plt.title("Compare dice scores")
-    x = [val_interval * (i + 1) for i in range(len(metric_values))]
-    y = metric_values
-    plt.plot(x, y, 'b', label="synchronized mean dice")
-    y = f1_mean_values
-    plt.plot(x, y, 'k', label="manual mean dice")
-    plt.legend()
-    plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'dice_compare.png'),
-                bbox_inches='tight', dpi=300, format='png')
-    plt.close()
+    # plt.figure("Compare dice scores", (6, 6))
+    # plt.title("Compare dice scores")
+    # x = [val_interval * (i + 1) for i in range(len(metric_values))]
+    # y = metric_values
+    # plt.plot(x, y, 'b', label="synchronized mean dice")
+    # y = f1_mean_values
+    # plt.plot(x, y, 'k', label="manual mean dice")
+    # plt.legend()
+    # plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'dice_compare.png'),
+    #             bbox_inches='tight', dpi=300, format='png')
+    # plt.close()
 
 
     # save model results in a separate file
