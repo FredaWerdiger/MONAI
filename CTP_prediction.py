@@ -33,14 +33,14 @@ import math
 import matplotlib.pyplot as plt
 import glob
 import time
-from numba import cuda
+# from numba import cuda
 import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
+# import torch.distributed as dist
+# import torch.multiprocessing as mp
+# from torch.nn.parallel import DistributedDataParallel as DDP
+# from torch.utils.data.distributed import DistributedSampler
 from torch.optim import Adam
-from torchmetrics import Dice
+# from torchmetrics import Dice
 from recursive_data import get_semi_dataset
 
 
