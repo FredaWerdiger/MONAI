@@ -7,6 +7,7 @@ import glob
 from monai.networks.nets import UNet
 from monai.inferers import sliding_window_inference
 from monai.data import Dataset, DataLoader, decollate_batch
+from monai.handlers.utils import from_engine
 from monai.networks.layers import Norm
 from monai.transforms import (
     AsDiscreted,
@@ -25,10 +26,15 @@ from monai.transforms import (
 import pandas as pd
 import torch
 from monai_fns import *
+from inference import create_mrlesion_img, define_dvalues
 
 def main(directory, model_file):
 
     test_files = BuildDataset(directory, "no_seg").no_seg_dict
+    # remove this file for now which doesn't load
+    remove = 'image_INSP_CN020302'
+    test_files = [name for name in test_files if remove not in name["image"]]
+
     # replace with path
     out_dir = directory + "no_seg/masks"
     trans_dir = directory + "no_seg/transforms"
@@ -79,7 +85,7 @@ def main(directory, model_file):
         SaveImaged(keys="pred",
                    meta_keys="pred_meta_dict",
                    output_dir=out_dir,
-                   output_postfix="seg", resample=False, separate_folder=False),
+                   output_postfix="pred", resample=False, separate_folder=False),
     ])
 
     device = torch.device("cuda:0")
@@ -98,7 +104,6 @@ def main(directory, model_file):
     model.load_state_dict(torch.load(model_file))
     model.eval()
 
-
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
@@ -108,6 +113,28 @@ def main(directory, model_file):
                 test_inputs, roi_size, sw_batch_size, model)
 
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
+
+            name = 'INSP_' + os.path.basename(
+                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[2]
+            print(name)
+
+            test_output, test_image = from_engine(["pred", "image"])(test_data)
+            original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
+            # volx, voly, volz = original_image[1]['pixdim'][1:4]  # meta data
+
+            original_image = original_image[0] # image data
+            original_image = original_image[:, :, :, 0]
+            prediction = test_output[0][0].detach().numpy()
+
+            save_loc = directory + "no_seg/pred_images/" + name + "_pred.png"
+
+            # create_mrlesion_img(
+            #     original_image,
+            #     prediction,
+            #     save_loc,
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300)
 
 
 
