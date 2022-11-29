@@ -328,6 +328,10 @@ def main():
 
     # save model results in a separate file
     with open(root_dir + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
+        myfile.write('Train dataset size:\n')
+        myfile.write(f'Manual segmentations: {len(train_files)}\n')
+        myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
+        myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
