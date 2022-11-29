@@ -9,7 +9,7 @@ from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
 from monai.handlers import EarlyStopHandler
 from monai.utils import first, set_determinism
-from torchmetrics import Dice
+# from torchmetrics import Dice
 from monai.networks.nets import UNet
 from monai.transforms import (
     AsDiscrete,
@@ -40,7 +40,6 @@ import torch
 # from torch.nn.parallel import DistributedDataParallel as DDP
 # from torch.utils.data.distributed import DistributedSampler
 from torch.optim import Adam
-# from torchmetrics import Dice
 from recursive_data import get_semi_dataset
 
 
