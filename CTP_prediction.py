@@ -41,23 +41,27 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from torch.optim import Adam
 from torchmetrics import Dice
+from recursive_data import get_semi_dataset
 
 
-def example(rank, world_size):
-    print(f"Running DDP on rank {rank}.")
-    setup(rank, world_size)
+def main():
     HOMEDIR = os.path.expanduser('~/')
-    if os.path.exists('/media/mbcneuro'):
+    if os.path.exists(HOMEDIR + 'mediaflux/'):
+        directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
+    elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
+        directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
+    elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/CTP_DL_Data/'
     elif os.path.exists('/media/fwerdiger'):
         directory = '/media/fwerdiger/Storage/CTP_DL_Data/'
+
 
     # model parameters
     max_epochs = 600
     image_size = (128, 128, 128)
     batch_size = 2
     val_interval = 2
-    out_tag = 'unet_manual_segmentation_patients'
+    out_tag = 'unet_semi_segmentation_patients'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -65,6 +69,8 @@ def example(rank, world_size):
 
     train_files = BuildDataset(directory, 'train').images_dict
     val_files = BuildDataset(directory, 'validation').images_dict
+    semi_files = get_semi_dataset()
+    train_files = train_files + semi_files
 
     train_transforms = Compose(
         [
@@ -102,25 +108,22 @@ def example(rank, world_size):
         data=train_files,
         transform=train_transforms,
         cache_rate=1.0,
-        num_workers=0
+        num_workers=4
     )
 
     val_dataset = CacheDataset(
         data=val_files,
         transform=val_transforms,
         cache_rate=1.0,
-        num_workers=0
+        num_workers=4
     )
 
-    train_loader = prepare(train_dataset,
-                           rank,
-                           world_size,
-                           batch_size)
+    train_loader = DataLoader(train_dataset,
+                              batch_size=batch_size,
+                              shuffle=True)
 
-    val_loader = prepare(val_dataset,
-                         rank,
-                         world_size,
-                         batch_size)
+    val_loader = DataLoader(val_dataset,
+                            batch_size=batch_size)
 
     # Uncomment to display data
     #
@@ -142,7 +145,7 @@ def example(rank, world_size):
     # plt.show()
     # plt.close()
 
-
+    device = 'cuda'
     model = UNet(
         spatial_dims=3,
         in_channels=4,
@@ -151,9 +154,7 @@ def example(rank, world_size):
         strides=(2, 2, 2),
         num_res_units=2,
         norm=Norm.BATCH
-    ).to(rank)
-
-    model = DDP(model, device_ids=[rank])
+    ).to(device)
 
     loss_function = DiceLoss(smooth_dr=1e-5,
                              smooth_nr=0,
@@ -166,19 +167,17 @@ def example(rank, world_size):
                      weight_decay=1e-5)
 
     dice_metric = DiceMetric(include_background=False, reduction='mean')
-    dice_metric_torch_macro = Dice(dist_sync_on_step=True,
-                                   num_classes=2, ignore_index=0, average='macro').to(rank)
+    # dice_metric_torch_macro = Dice(dist_sync_on_step=True,
+    #                                num_classes=2, ignore_index=0, average='macro').to(device)
 
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
-    if rank == 0:
-        epoch_loss_values = []
-        dice_metric_values = []
-        dice_metric_macro_values = []
-        best_metric = -1
-        best_metric_epoch = -1
-        best_metric_macro = -1
-        best_metric_epoch_macro = -1
+
+    epoch_loss_values = []
+    dice_metric_values = []
+    best_metric = -1
+    best_metric_epoch = -1
+
 
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
@@ -191,12 +190,11 @@ def example(rank, world_size):
         epoch_loss = 0
         step = 0
         model.train()
-        train_loader.sampler.set_epoch(epoch)
         for batch_data in train_loader:
             step += 1
             inputs, labels = (
-                batch_data["image"].to(rank),
-                batch_data["label"].to(rank),
+                batch_data["image"].to(device),
+                batch_data["label"].to(device),
             )
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -209,10 +207,9 @@ def example(rank, world_size):
             #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
         lr_scheduler.step()
-        if rank == 0:
-            epoch_loss /= step
-            epoch_loss_values.append(epoch_loss)
-            print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+        epoch_loss /= step
+        epoch_loss_values.append(epoch_loss)
+        print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
 
         if (epoch + 1) % val_interval == 0:
             model.eval()
@@ -220,8 +217,8 @@ def example(rank, world_size):
             with torch.no_grad():
                 for val_data in val_loader:
                     val_inputs, val_labels = (
-                        val_data["image"].to(rank),
-                        val_data["label"].to(rank),
+                        val_data["image"].to(device),
+                        val_data["label"].to(device),
                     )
                     # unsure how to optimize this
                     roi_size = image_size
@@ -230,32 +227,28 @@ def example(rank, world_size):
                         val_inputs, roi_size, sw_batch_size, model)
 
                     # compute metric for current iteration
-                    dice_metric_torch_macro(val_outputs, val_labels.long())
+                    # dice_metric_torch_macro(val_outputs, val_labels.long())
                     # now to for the MONAI dice metric
-                    # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
-                    # val_labels = [post_label(i) for i in decollate_batch(val_labels)]
-                    # dice_metric(val_outputs, val_labels)
+                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    dice_metric(val_outputs, val_labels)
 
-                mean_dice = dice_metric_torch_macro.compute().item()
-                dice_metric_torch_macro.reset()
-                # mean_dice = dice_metric.aggregate().item()
-                # dice_metric.reset()
+                mean_dice = dice_metric.aggregate().item()
+                dice_metric.reset()
+                dice_metric_values.append(mean_dice)
 
-                if rank == 0:
-                    dice_metric_values.append(mean_dice)
+                if mean_dice > best_metric:
+                    best_metric = mean_dice
+                    best_metric_epoch = epoch + 1
+                    torch.save(model.state_dict(), os.path.join(
+                        directory, 'out_' + out_tag, model_name))
+                    print("saved new best metric model")
 
-                    if mean_dice > best_metric:
-                        best_metric = mean_dice
-                        best_metric_epoch = epoch + 1
-                        torch.save(model.state_dict(), os.path.join(
-                            directory, 'out_' + out_tag, model_name))
-                        print("saved new best metric model")
-
-                    print(
-                        f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
-                        f"\nbest mean dice: {best_metric:.4f} "
-                        f"at epoch: {best_metric_epoch}"
-                    )
+                print(
+                    f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
+                    f"\nbest mean dice: {best_metric:.4f} "
+                    f"at epoch: {best_metric_epoch}"
+                )
                 # # evaluate during training process
                 # model.load_state_dict(torch.load(
                 #     os.path.join(directory, 'out_' + out_tag, model_name)))
@@ -265,7 +258,7 @@ def example(rank, world_size):
                 #         roi_size = image_size
                 #         sw_batch_size = 1
                 #         val_outputs = sliding_window_inference(
-                #             val_data["image"].to(rank), roi_size, sw_batch_size, model
+                #             val_data["image"].to(device), roi_size, sw_batch_size, model
                 #         )
                 #         # plot the slice [:, :, 80]
                 #         plt.figure("check", (30, 6))
@@ -291,8 +284,10 @@ def example(rank, world_size):
     time_taken_hours = int(time_taken_hours)
 
     with open(directory + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
-        myfile.write(f'Train dataset size: {len(train_dataset)}\n')
-        myfile.write(f'validation dataset size: {len(val_dataset)}\n')
+        myfile.write('Train dataset size:\n')
+        myfile.write(f'Manual segmentations: {len(train_files)}\n')
+        myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
+        myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -315,21 +310,10 @@ def example(rank, world_size):
     x = [val_interval * (i + 1) for i in range(len(dice_metric_values))]
     y = dice_metric_values
     plt.xlabel("epoch")
-    plt.plot(x, y, 'b', label="MONAI Dice")
+    plt.plot(x, y, 'b', label="Dice")
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
-    cleanup()
-
-
-def main():
-    # comment out below for dev
-    free_gpu_cache()
-    world_size = 2
-    mp.spawn(example,
-             args=(world_size,),
-             nprocs=world_size,
-             join=True)
 
 
 if __name__ == "__main__":
