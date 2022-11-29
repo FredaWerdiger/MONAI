@@ -44,6 +44,7 @@ from monai.utils import first, set_determinism
 
 import torch
 import os
+from recursive_data import get_semi_dataset
 
 
 
@@ -65,17 +66,20 @@ def make_dict(root, string):
 def main():
 
     directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
+    existing_model = directory + 'out_final_no_cropping/best_metric_model600.pth'
 
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
     # create outdir
-    out_tag = "attention_unet_5layers_128_size_image"
+    out_tag = "unet_recursive"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
     train_files, val_files, test_files = [
         make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
+    semi_files = get_semi_dataset()
+    train_files = semi_files + train_files
 
     set_determinism(seed=42)
 
@@ -125,7 +129,8 @@ def main():
     )
 
     train_loader = DataLoader(train_ds,
-                              batch_size=batch_size)
+                              batch_size=batch_size,
+                              shuffle=True)
 
     val_ds = CacheDataset(
         data=val_files,
@@ -158,22 +163,22 @@ def main():
     # plt.show()
     # plt.close()
 
-    # model = UNet(
-    #     spatial_dims=3,
-    #     in_channels=2,
-    #     out_channels=2,
-    #     channels=(32, 64, 128, 256),
-    #     strides=(2, 2, 2),
-    #     num_res_units=2,
-    #     norm=Norm.BATCH,
-    # ).to(rank)
-    model = AttentionUnet(
+    model = UNet(
         spatial_dims=3,
         in_channels=2,
         out_channels=2,
-        channels=(32, 64, 128, 256, 512),
-        strides=(2, 2, 2, 2),
+        channels=(32, 64, 128, 256),
+        strides=(2, 2, 2),
+        num_res_units=2,
+        norm=Norm.BATCH,
     ).to(rank)
+    # model = AttentionUnet(
+    #     spatial_dims=3,
+    #     in_channels=2,
+    #     out_channels=2,
+    #     channels=(32, 64, 128, 256, 512),
+    #     strides=(2, 2, 2, 2),
+    # ).to(rank)
 
     # model = DenseNet(
     #     spatial_dims=3,
@@ -216,6 +221,8 @@ def main():
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
+    # load existing model
+    model.load_state_dict(torch.load(existing_model))
     for epoch in range(max_epochs):
         print("-" * 10)
         print(f"epoch {epoch + 1}/{max_epochs}")
