@@ -274,8 +274,8 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         spatial_dims=3,
         in_channels=2,
         out_channels=2,
-        channels=(32, 64, 128, 256),
-        strides=(2, 2, 2)
+        channels=(32, 64, 128, 256, 512),
+        strides=(2, 2, 2, 2)
     ).to(device)
     if ddp:
         # original saved file with DataParallel
@@ -417,6 +417,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
 
     for sub in results_join['id']:
         create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
+
 
 if __name__ == '__main__':
 
