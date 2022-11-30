@@ -8,8 +8,10 @@ from monai.inferers import sliding_window_inference
 from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
 from monai.handlers import EarlyStopHandler
+from monai.handlers.utils import from_engine
 from monai.utils import first, set_determinism
 # from torchmetrics import Dice
+from monai.visualize import GradCAM
 from monai.networks.nets import UNet
 from monai.transforms import (
     AsDiscrete,
@@ -18,6 +20,8 @@ from monai.transforms import (
     EnsureChannelFirstd,
     EnsureType,
     EnsureTyped,
+    Invertd,
+    LoadImage,
     LoadImaged,
     NormalizeIntensityd,
     RandAffined,
@@ -39,6 +43,7 @@ import torch
 # import torch.multiprocessing as mp
 # from torch.nn.parallel import DistributedDataParallel as DDP
 # from torch.utils.data.distributed import DistributedSampler
+import torch.nn.functional as f
 from torch.optim import Adam
 from recursive_data import get_semi_dataset
 
@@ -68,8 +73,8 @@ def main():
 
     train_files = BuildDataset(directory, 'train').images_dict
     val_files = BuildDataset(directory, 'validation').images_dict
-    semi_files = get_semi_dataset()
-    train_files = train_files + semi_files
+    test_files = BuildDataset(directory, 'test').images_dict
+
 
     train_transforms = Compose(
         [
@@ -182,6 +187,8 @@ def main():
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
+    model_layers = [n for n, _ in model.named_children()]
+    cam = GradCAM(nn_module=model, target_layers=model_layers[-1])
 
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -197,6 +204,8 @@ def main():
             )
             optimizer.zero_grad()
             outputs = model(inputs)
+            cam_results = cam(x=inputs)
+            # TODO: visualise this ^
             loss = loss_function(outputs, labels)
             loss.backward()
             epoch_loss += loss.item()
@@ -283,9 +292,7 @@ def main():
     time_taken_hours = int(time_taken_hours)
 
     with open(directory + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
-        myfile.write('Train dataset size:\n')
-        myfile.write(f'Manual segmentations: {len(train_files)}\n')
-        myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
+        myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
@@ -294,7 +301,6 @@ def main():
         myfile.write(f"Best metric: {best_metric:.4f}\n")
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
         myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
-
 
     # plot things
     plt.figure("train", (12, 6))
@@ -313,6 +319,58 @@ def main():
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
+
+
+    # test_transforms = Compose(
+    #     [
+    #         LoadImaged(keys=["image", "label"]),
+    #         EnsureChannelFirstd(keys="image"),
+    #         Resized(keys="image",
+    #                 mode='trilinear',
+    #                 align_corners=True,
+    #                 spatial_size=(128, 128, 128)),
+    #         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+    #         EnsureTyped(keys=["image", "label"]),
+    #     ]
+    # )
+    #
+    # post_transforms = Compose([
+    #     EnsureTyped(keys=["pred"]),
+    #     EnsureChannelFirstd(keys="label"),
+    #     Invertd(
+    #         keys="pred",
+    #         transform=test_transforms,
+    #         orig_keys="image",
+    #         meta_keys="pred_meta_dict",
+    #         orig_meta_keys="image_meta_dict",
+    #         meta_key_postfix="meta_dict",
+    #         nearest_interp=False,
+    #         to_tensor=True,
+    #     )
+    # ])
+    # test_ds = Dataset(data=test_files, transform=test_transforms)
+    # test_loader = DataLoader(test_ds, batch_size=1, num_workers=8)
+    # loader = LoadImage(image_only=False)
+    #
+    # model.load_state_dict(torch.load(os.path.join(
+    #     directory, 'out_' + out_tag, model_name)))
+    #
+    # model.eval()
+    #
+    # with torch.no_grad():
+    #     for i, test_data in enumerate(test_loader):
+    #         test_inputs = test_data["image"].to(device)
+    #         roi_size = (64, 64, 64)
+    #         sw_batch_size = 2
+    #         test_data["pred"] = sliding_window_inference(
+    #             test_inputs, roi_size, sw_batch_size, model)
+    #         test_data = [post_transforms(i) for i in decollate_batch(test_data)]
+    #         test_output, test_image = from_engine(["pred", "image"])(test_data)
+    #         prob = f.softmax(test_output, dim=0)
+    #
+    #         original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
+    #         volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
+    #         pixel_vol = (volx * voly * volz) / 1000
 
 
 if __name__ == "__main__":
