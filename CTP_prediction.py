@@ -59,22 +59,32 @@ def main():
     elif os.path.exists('/media/fwerdiger'):
         directory = '/media/fwerdiger/Storage/CTP_DL_Data/'
 
+    ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv')
+    # HOME MANY TRAINING FILES ARE MANUALLY SEGMENTED
+    train_df = ctp_dl_df[ctp_dl_df.apply(lambda x: 'train' in x.dl_id, axis=1)]
+    num_semi_train = len(train_df[train_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
+
+    val_df = ctp_dl_df[ctp_dl_df.apply(lambda x: 'val' in x.dl_id, axis=1)]
+    num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 600
-    image_size = (128, 128, 128)
-    batch_size = 2
-    val_interval = 2
-    out_tag = 'unet_semi_segmentation_patients'
+    max_epochs = 2
+    image_size = (32, 32, 32)
+    batch_size = 1
+    val_interval = 1
+    out_tag = 'unet_test'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').images_dict
-    val_files = BuildDataset(directory, 'validation').images_dict
-    test_files = BuildDataset(directory, 'test').images_dict
+    train_files = BuildDataset(directory, 'train').images_dict[:4]
+    val_files = BuildDataset(directory, 'validation').images_dict[:4]
+    test_files = BuildDataset(directory, 'test').images_dict[:4]
 
+    # IMAGES SHOULD NOT BE DOWNSAMPLED
+    # RANDOM SAMPLE OF PATCHES BETTER
+    # IMAGES ARE ORIGINALLY 512X512X320  or so
 
     train_transforms = Compose(
         [
@@ -154,8 +164,8 @@ def main():
         spatial_dims=3,
         in_channels=4,
         out_channels=2,
-        channels=(32, 64, 128, 256),
-        strides=(2, 2, 2),
+        channels=(32, 64, 128),
+        strides=(2, 2),
         num_res_units=2,
         norm=Norm.BATCH
     ).to(device)
@@ -181,7 +191,6 @@ def main():
     dice_metric_values = []
     best_metric = -1
     best_metric_epoch = -1
-
 
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
@@ -293,7 +302,9 @@ def main():
 
     with open(directory + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
+        myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
+        myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -320,57 +331,57 @@ def main():
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
+    test_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys="image"),
+            Resized(keys="image",
+                    mode='trilinear',
+                    align_corners=True,
+                    spatial_size=(128, 128, 128)),
+            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image", "label"]),
+        ]
+    )
 
-    # test_transforms = Compose(
-    #     [
-    #         LoadImaged(keys=["image", "label"]),
-    #         EnsureChannelFirstd(keys="image"),
-    #         Resized(keys="image",
-    #                 mode='trilinear',
-    #                 align_corners=True,
-    #                 spatial_size=(128, 128, 128)),
-    #         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-    #         EnsureTyped(keys=["image", "label"]),
-    #     ]
-    # )
-    #
-    # post_transforms = Compose([
-    #     EnsureTyped(keys=["pred"]),
-    #     EnsureChannelFirstd(keys="label"),
-    #     Invertd(
-    #         keys="pred",
-    #         transform=test_transforms,
-    #         orig_keys="image",
-    #         meta_keys="pred_meta_dict",
-    #         orig_meta_keys="image_meta_dict",
-    #         meta_key_postfix="meta_dict",
-    #         nearest_interp=False,
-    #         to_tensor=True,
-    #     )
-    # ])
-    # test_ds = Dataset(data=test_files, transform=test_transforms)
-    # test_loader = DataLoader(test_ds, batch_size=1, num_workers=8)
-    # loader = LoadImage(image_only=False)
-    #
-    # model.load_state_dict(torch.load(os.path.join(
-    #     directory, 'out_' + out_tag, model_name)))
-    #
-    # model.eval()
-    #
-    # with torch.no_grad():
-    #     for i, test_data in enumerate(test_loader):
-    #         test_inputs = test_data["image"].to(device)
-    #         roi_size = (64, 64, 64)
-    #         sw_batch_size = 2
-    #         test_data["pred"] = sliding_window_inference(
-    #             test_inputs, roi_size, sw_batch_size, model)
-    #         test_data = [post_transforms(i) for i in decollate_batch(test_data)]
-    #         test_output, test_image = from_engine(["pred", "image"])(test_data)
-    #         prob = f.softmax(test_output, dim=0)
-    #
-    #         original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
-    #         volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
-    #         pixel_vol = (volx * voly * volz) / 1000
+    post_transforms = Compose([
+        EnsureTyped(keys=["pred"]),
+        EnsureChannelFirstd(keys="label"),
+        Invertd(
+            keys="pred",
+            transform=test_transforms,
+            orig_keys="image",
+            meta_keys="pred_meta_dict",
+            orig_meta_keys="image_meta_dict",
+            meta_key_postfix="meta_dict",
+            nearest_interp=False,
+            to_tensor=True,
+        )
+    ])
+    test_ds = Dataset(data=test_files, transform=test_transforms)
+    test_loader = DataLoader(test_ds, batch_size=1, num_workers=8)
+    loader = LoadImage(image_only=False)
+
+    # LOAD THE BEST MODEL
+    model.load_state_dict(torch.load(os.path.join(
+        directory, 'out_' + out_tag, model_name)))
+
+    model.eval()
+
+    with torch.no_grad():
+        for i, test_data in enumerate(test_loader):
+            test_inputs = test_data["image"].to(device)
+            roi_size = (64, 64, 64)
+            sw_batch_size = 2
+            test_data["pred"] = sliding_window_inference(
+                test_inputs, roi_size, sw_batch_size, model)
+            test_data = [post_transforms(i) for i in decollate_batch(test_data)]
+            test_output, test_image = from_engine(["pred", "image"])(test_data)
+            prob = f.softmax(test_output, dim=0)
+
+            original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
+            volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
+            pixel_vol = (volx * voly * volz) / 1000
 
 
 if __name__ == "__main__":
