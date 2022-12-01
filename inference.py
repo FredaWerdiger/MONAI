@@ -29,6 +29,7 @@ from monai.transforms import (
 )
 from torchmetrics import Dice
 import torch
+import torch.nn.functional as f
 
 
 
@@ -237,7 +238,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
                     spatial_size=(128, 128, 128)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
-            SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
+            # SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
         ]
     )
 
@@ -264,10 +265,13 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         AsDiscreted(keys="label", to_onehot=2),
         SaveImaged(keys="pred",
                    meta_keys="pred_meta_dict",
-                   output_dir=root_dir + "out_" + out_tag,
-                   output_postfix="seg", resample=False),
+                   output_dir=root_dir + "out_" + out_tag + '/pred',
+                   output_postfix="pred", resample=False,
+                   separate_folder=False),
     ])
 
+    if not os.path.exists(root_dir + "out_" + out_tag + '/pred'):
+        os.makedirs(root_dir + "out_" + out_tag + '/pred')
 
     # removing sync on step as we are running on master node
     dice_metric = Dice(ignore_index=0)
@@ -280,6 +284,15 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         out_channels=2,
         channels=(32, 64, 128, 256),
         strides=(2, 2, 2)
+    ).to(device)
+    model = UNet(
+        spatial_dims=3,
+        in_channels=2,
+        out_channels=2,
+        channels=(32, 64, 128, 256),
+        strides=(2, 2, 2),
+        num_res_units=2,
+        norm=Norm.BATCH,
     ).to(device)
     model = UNet(
         spatial_dims=3,
@@ -432,9 +445,9 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
 
 if __name__ == '__main__':
-
-    if os.path.exists('/media/fwerdiger'):
-        directory = '/media/fwerdiger/Storage/DWI_Training_Data/'
+    HOMEDIR = os.path.expanduser("~/")
+    if os.path.exists(HOMEDIR + 'mediaflux/'):
+        directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/DWI_Training_Data/'
         ctp_df = pd.read_csv(
             '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id'
@@ -450,6 +463,6 @@ if __name__ == '__main__':
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
-    model_path = 'D:/ctp_project_data/DWI_Training_Data/out_attention_unet_ddp/best_metric_model600.pth'
-    out_tag = 'attention_unet_ddp'
+    model_path = directory + 'out_unet_recursive_from_scratch/best_metric_model600.pth'
+    out_tag = 'unet_recursive_from_scratch'
     main(directory, ctp_df, model_path, out_tag)

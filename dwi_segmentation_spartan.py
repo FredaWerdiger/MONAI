@@ -72,7 +72,7 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_recursive"
+    out_tag = "unet_recursive_from_scratch"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -222,7 +222,7 @@ def main():
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     # load existing model
-    model.load_state_dict(torch.load(existing_model))
+    # model.load_state_dict(torch.load(existing_model))
     for epoch in range(max_epochs):
         print("-" * 10)
         print(f"epoch {epoch + 1}/{max_epochs}")
@@ -328,6 +328,10 @@ def main():
 
     # save model results in a separate file
     with open(root_dir + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
+        myfile.write('Train dataset size:\n')
+        myfile.write(f'Manual segmentations: {len(train_files)}\n')
+        myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
+        myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
