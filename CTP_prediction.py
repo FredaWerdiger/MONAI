@@ -244,8 +244,8 @@ def main():
             #     f"train_loss: {loss.item():.4f}")
             if (epoch + 1) % vis_interval == 0 and step == 1:
                 cam_results = cam(x=inputs)
-                visual.append(cam_results[0][0][:, :, int(np.ceil(image_size[1]/2))])
-                visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(image_size[1]/2))].numpy())
+                visual.append(cam_results[0][0][:, :, int(np.ceil(patch_size[1]/2))])
+                visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(patch_size[1]/2))].numpy())
         lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
