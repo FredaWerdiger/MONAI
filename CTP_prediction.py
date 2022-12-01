@@ -74,6 +74,7 @@ def main():
     # model parameters
     max_epochs = 10
     image_size = (64, 64, 64)
+    patch_size = (16, 16, 16)
     batch_size = 1
     val_interval = 2
     vis_interval = 2
@@ -103,7 +104,7 @@ def main():
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(16, 16, 16),
+                spatial_size=patch_size,
                 pos=0.75,
                 neg=0.25,
                 num_samples=4,
@@ -330,6 +331,7 @@ def main():
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
+        myfile.write(f'Patch size: {patch_size}\n')
         myfile.write(f'channels: {channels}\n')
         myfile.write(f'Validation interval: {val_interval}\n')
         myfile.write(f"Best metric: {best_metric:.4f}\n")
