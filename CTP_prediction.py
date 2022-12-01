@@ -78,7 +78,7 @@ def main():
     batch_size = 1
     val_interval = 2
     vis_interval = 3
-    out_tag = 'unet_test'
+    out_tag = 'unet_test_ddp'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
