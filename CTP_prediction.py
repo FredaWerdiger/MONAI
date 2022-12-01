@@ -238,9 +238,9 @@ def main():
             epoch_loss += loss.item()
             optimizer.step()
             # commenting out print function
-            print(
-                f"{step}/{len(train_dataset) // train_loader.batch_size}, "
-                f"train_loss: {loss.item():.4f}")
+            # print(
+            #     f"{step}/{len(train_dataset) // train_loader.batch_size}, "
+            #     f"train_loss: {loss.item():.4f}")
             if (epoch + 1) % vis_interval == 0 and step == 1:
                 cam_results = cam(x=inputs)
                 visual.append(cam_results[0][0][:, :, int(np.ceil(image_size[1]/2))])
