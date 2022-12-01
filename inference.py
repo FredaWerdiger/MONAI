@@ -260,12 +260,15 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         ),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
         AsDiscreted(keys="label", to_onehot=2),
-        # SaveImaged(keys="pred",
-        #            meta_keys="pred_meta_dict",
-        #            output_dir=root_dir + "out_" + out_tag,
-        #            output_postfix="seg", resample=False),
+        SaveImaged(keys="pred",
+                   meta_keys="pred_meta_dict",
+                   output_dir=root_dir + "out_" + out_tag + '/pred',
+                   output_postfix="pred", resample=False,
+                   separate_folder=False),
     ])
 
+    if not os.path.exists(root_dir + "out_" + out_tag + '/pred'):
+        os.makedirs(root_dir + "out_" + out_tag + '/pred')
 
     # removing sync on step as we are running on master node
     dice_metric = Dice(ignore_index=0)
@@ -431,9 +434,9 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
 
 
 if __name__ == '__main__':
-
-    if os.path.exists('/media/fwerdiger'):
-        directory = '/media/fwerdiger/Storage/DWI_Training_Data/'
+    HOMEDIR = os.path.expanduser("~/")
+    if os.path.exists(HOMEDIR + 'mediaflux/'):
+        directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/DWI_Training_Data/'
         ctp_df = pd.read_csv(
             '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id'
@@ -449,6 +452,6 @@ if __name__ == '__main__':
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
-    model_path = '/home/unimelb.edu.au/fwerdiger/mediaflux/data_freda/ctp_project/DWI_Training_Data/out_unet_recursive/best_metric_model600.pth'
-    out_tag = 'unet_recursive'
+    model_path = directory + 'out_unet_recursive_from_scratch/best_metric_model600.pth'
+    out_tag = 'unet_recursive_from_scratch'
     main(directory, ctp_df, model_path, out_tag)
