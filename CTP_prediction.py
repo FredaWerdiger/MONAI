@@ -29,6 +29,7 @@ from monai.transforms import (
     RandScaleIntensityd,
     RandShiftIntensityd,
     Resized,
+    SaveImaged
 )
 
 import pandas as pd
@@ -70,19 +71,20 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 2
-    image_size = (32, 32, 32)
+    max_epochs = 10
+    image_size = (128, 128, 128)
     batch_size = 1
-    val_interval = 1
+    val_interval = 2
+    vis_interval = 10
     out_tag = 'unet_test'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').images_dict[:4]
-    val_files = BuildDataset(directory, 'validation').images_dict[:4]
-    test_files = BuildDataset(directory, 'test').images_dict[:4]
+    train_files = BuildDataset(directory, 'train').images_dict
+    val_files = BuildDataset(directory, 'validation').images_dict
+    test_files = BuildDataset(directory, 'test').no_seg_dict
 
     # IMAGES SHOULD NOT BE DOWNSAMPLED
     # RANDOM SAMPLE OF PATCHES BETTER
@@ -199,7 +201,11 @@ def main():
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     model_layers = [n for n, _ in model.named_children()]
+
+    # set up visualisation
     cam = GradCAM(nn_module=model, target_layers=model_layers[-1])
+    visual = []
+    visual_orig = []
 
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -215,16 +221,18 @@ def main():
             )
             optimizer.zero_grad()
             outputs = model(inputs)
-            cam_results = cam(x=inputs)
-            # TODO: visualise this ^
             loss = loss_function(outputs, labels)
             loss.backward()
             epoch_loss += loss.item()
             optimizer.step()
             # commenting out print function
-            # print(
-            #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
-            #     f"train_loss: {loss.item():.4f}")
+            print(
+                f"{step}/{len(train_dataset) // train_loader.batch_size}, "
+                f"train_loss: {loss.item():.4f}")
+            if (epoch + 1) % vis_interval == 0 and step == 1:
+                cam_results = cam(x=inputs)
+                visual.append(cam_results[0][0][:, :, int(np.ceil(image_size[1]/2))])
+                visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(image_size[1]/2))].numpy())
         lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
@@ -333,22 +341,39 @@ def main():
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
+    fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
+    for i, vis in enumerate(visual):
+        ax[1, i].imshow(visual_orig[i], cmap='gray')
+        ax[1, i].axis('off')
+        ax[0, i].imshow(vis)
+        ax[0, i].axis('off')
+        ax[0, i].set_title(f"epoch {(i * vis_interval) + vis_interval}", fontsize='8')
+    plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
+                bbox_inches='tight', dpi=300, format='png')
+    plt.close()
+
+    # TESTING
+
+    # LOCATION TO SAVE OUTPUT
+    prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
+    if not os.path.exists(prob_dir):
+        os.makedirs(prob_dir)
+
     test_transforms = Compose(
         [
-            LoadImaged(keys=["image", "label"]),
+            LoadImaged(keys=["image"]),
             EnsureChannelFirstd(keys="image"),
             Resized(keys="image",
                     mode='trilinear',
                     align_corners=True,
-                    spatial_size=(128, 128, 128)),
+                    spatial_size=image_size),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            EnsureTyped(keys=["image", "label"]),
+            EnsureTyped(keys=["image"]),
         ]
     )
 
     post_transforms = Compose([
         EnsureTyped(keys=["pred"]),
-        EnsureChannelFirstd(keys="label"),
         Invertd(
             keys="pred",
             transform=test_transforms,
@@ -358,11 +383,17 @@ def main():
             meta_key_postfix="meta_dict",
             nearest_interp=False,
             to_tensor=True,
-        )
+        ),
+        SaveImaged(
+            keys="proba",
+            meta_keys="pred_meta_dict",
+            output_dir=prob_dir,
+            output_postfix="proba",
+            resample=False,
+            separate_folder=False)
     ])
     test_ds = Dataset(data=test_files, transform=test_transforms)
     test_loader = DataLoader(test_ds, batch_size=1, num_workers=8)
-    loader = LoadImage(image_only=False)
 
     # LOAD THE BEST MODEL
     model.load_state_dict(torch.load(os.path.join(
@@ -377,14 +408,9 @@ def main():
             sw_batch_size = 2
             test_data["pred"] = sliding_window_inference(
                 test_inputs, roi_size, sw_batch_size, model)
+            prob = f.softmax(test_data["pred"], dim=1) # probability of infarct
+            test_data["proba"] = prob
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
-            test_output, test_image = from_engine(["pred", "image"])(test_data)
-            prob = f.softmax(test_output, dim=0)
-
-            original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
-            volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
-            pixel_vol = (volx * voly * volz) / 1000
-
 
 if __name__ == "__main__":
     # Environment variables which need to be
