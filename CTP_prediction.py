@@ -72,21 +72,21 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 600
+    max_epochs = 6
     image_size = (64, 64, 64)
     patch_size = (16, 16, 16)
     batch_size = 1
     val_interval = 2
-    vis_interval = 60
+    vis_interval = 3
     out_tag = 'unet_test'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').images_dict
-    val_files = BuildDataset(directory, 'validation').images_dict
-    test_files = BuildDataset(directory, 'test').no_seg_dict
+    train_files = BuildDataset(directory, 'train').images_dict[:4]
+    val_files = BuildDataset(directory, 'validation').images_dict[:4]
+    test_files = BuildDataset(directory, 'test').no_seg_dict[:4]
 
     # IMAGES SHOULD NOT BE DOWNSAMPLED
     # RANDOM SAMPLE OF PATCHES BETTER
@@ -185,7 +185,10 @@ def main():
         strides=(2, 2),
         num_res_units=2,
         norm=Norm.BATCH
-    ).to(device)
+    )
+
+    model = torch.nn.DataParallel(model)
+    model.to(device)
 
     loss_function = DiceLoss(smooth_dr=1e-5,
                              smooth_nr=0,
