@@ -9,7 +9,8 @@ from collections import OrderedDict
 from monai.data import Dataset, DataLoader, decollate_batch
 from monai.handlers.utils import from_engine
 from monai.inferers import sliding_window_inference
-from monai.networks.nets import AttentionUnet
+from monai.networks.nets import AttentionUnet, UNet
+from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
 from monai.transforms import (
     AsDiscreted,
@@ -74,6 +75,8 @@ def define_dvalues_big(dwi_img):
 def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250):
     dwi_lesion_img = np.rot90(dwi_lesion_img)
     dwi_img = np.rot90(dwi_img)
+    dwi_img, dwi_lesion_img = [np.fliplr(img) for img in [dwi_img, dwi_lesion_img]]
+
     mask = dwi_lesion_img < 1
     masked_im = np.ma.array(dwi_img, mask=~mask)
 
@@ -83,8 +86,9 @@ def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250
     axs = axs.ravel()
 
     for i in range(len(d)):
-        axs[i].imshow(dwi_lesion_img[:, :,d[i]], cmap='Wistia', vmin=0.5, vmax=1)
-        axs[i].imshow(masked_im[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
+        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
+        axs[i].imshow(dwi_lesion_img[:, :,d[i]],  cmap='Reds', interpolation='hanning', alpha=0.5, vmin=-2, vmax=1)
+        axs[i].imshow(masked_im[:, :, d[i]], cmap='gray', interpolation='hanning', alpha=1, vmin=0, vmax=300)
         axs[i].axis('off')
     # plt.show()
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
@@ -274,8 +278,17 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         spatial_dims=3,
         in_channels=2,
         out_channels=2,
-        channels=(32, 64, 128, 256, 512),
-        strides=(2, 2, 2, 2)
+        channels=(32, 64, 128, 256),
+        strides=(2, 2, 2)
+    ).to(device)
+    model = UNet(
+        spatial_dims=3,
+        in_channels=2,
+        out_channels=2,
+        channels=(32, 64, 128, 256),
+        strides=(2, 2, 2),
+        num_res_units=2,
+        norm=Norm.BATCH,
     ).to(device)
     if ddp:
         # original saved file with DataParallel
@@ -417,7 +430,6 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
 
     for sub in results_join['id']:
         create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
-
 
 if __name__ == '__main__':
 
