@@ -9,7 +9,8 @@ from collections import OrderedDict
 from monai.data import Dataset, DataLoader, decollate_batch
 from monai.handlers.utils import from_engine
 from monai.inferers import sliding_window_inference
-from monai.networks.nets import AttentionUnet
+from monai.networks.nets import AttentionUnet, UNet
+from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
 from monai.transforms import (
     AsDiscreted,
@@ -28,6 +29,7 @@ from monai.transforms import (
 )
 from torchmetrics import Dice
 import torch
+import torch.nn.functional as f
 
 
 
@@ -233,7 +235,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
                     spatial_size=(128, 128, 128)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
-            SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
+            # SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
         ]
     )
 
@@ -258,10 +260,10 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         ),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
         AsDiscreted(keys="label", to_onehot=2),
-        SaveImaged(keys="pred",
-                   meta_keys="pred_meta_dict",
-                   output_dir=root_dir + "out_" + out_tag,
-                   output_postfix="seg", resample=False),
+        # SaveImaged(keys="pred",
+        #            meta_keys="pred_meta_dict",
+        #            output_dir=root_dir + "out_" + out_tag,
+        #            output_postfix="seg", resample=False),
     ])
 
 
@@ -276,6 +278,15 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         out_channels=2,
         channels=(32, 64, 128, 256, 512),
         strides=(2, 2, 2, 2)
+    ).to(device)
+    model = UNet(
+        spatial_dims=3,
+        in_channels=2,
+        out_channels=2,
+        channels=(32, 64, 128, 256),
+        strides=(2, 2, 2),
+        num_res_units=2,
+        norm=Norm.BATCH,
     ).to(device)
     if ddp:
         # original saved file with DataParallel
@@ -438,6 +449,6 @@ if __name__ == '__main__':
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
-    model_path = 'D:/ctp_project_data/DWI_Training_Data/out_attention_unet_ddp/best_metric_model600.pth'
-    out_tag = 'attention_unet_ddp'
+    model_path = '/home/unimelb.edu.au/fwerdiger/mediaflux/data_freda/ctp_project/DWI_Training_Data/out_unet_recursive/best_metric_model600.pth'
+    out_tag = 'unet_recursive'
     main(directory, ctp_df, model_path, out_tag)

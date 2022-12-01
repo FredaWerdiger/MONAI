@@ -75,7 +75,7 @@ def main():
     image_size = (128, 128, 128)
     batch_size = 1
     val_interval = 2
-    vis_interval = 10
+    vis_interval = 2
     out_tag = 'unet_test'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
