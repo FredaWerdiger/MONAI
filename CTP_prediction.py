@@ -175,11 +175,12 @@ def main():
     # plt.close()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    channels = (16, 32, 64)
     model = UNet(
         spatial_dims=3,
         in_channels=4,
         out_channels=2,
-        channels=(32, 64, 128),
+        channels=channels,
         strides=(2, 2),
         num_res_units=2,
         norm=Norm.BATCH
@@ -329,6 +330,7 @@ def main():
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
+        myfile.write(f'channels: {channels}\n')
         myfile.write(f'Validation interval: {val_interval}\n')
         myfile.write(f"Best metric: {best_metric:.4f}\n")
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
