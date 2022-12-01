@@ -52,14 +52,16 @@ def main():
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv')
     elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
+        ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv')
     elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/CTP_DL_Data/'
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv')
     elif os.path.exists('/media/fwerdiger'):
         directory = '/media/fwerdiger/Storage/CTP_DL_Data/'
-
-    ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv')
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv')
     # HOME MANY TRAINING FILES ARE MANUALLY SEGMENTED
     train_df = ctp_dl_df[ctp_dl_df.apply(lambda x: 'train' in x.dl_id, axis=1)]
     num_semi_train = len(train_df[train_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
