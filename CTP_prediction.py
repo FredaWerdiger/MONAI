@@ -73,7 +73,7 @@ def main():
 
     # model parameters
     max_epochs = 10
-    image_size = (128, 128, 128)
+    image_size = (64, 64, 64)
     batch_size = 1
     val_interval = 2
     vis_interval = 2
@@ -103,7 +103,7 @@ def main():
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
-                spatial_size=(64, 64, 64),
+                spatial_size=(16, 16, 16),
                 pos=0.75,
                 neg=0.25,
                 num_samples=4,
