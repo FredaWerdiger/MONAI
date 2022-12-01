@@ -161,7 +161,7 @@ def main():
     # plt.show()
     # plt.close()
 
-    device = 'cuda'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = UNet(
         spatial_dims=3,
         in_channels=4,
