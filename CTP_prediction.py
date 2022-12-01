@@ -72,12 +72,12 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 10
+    max_epochs = 600
     image_size = (64, 64, 64)
     patch_size = (16, 16, 16)
     batch_size = 1
     val_interval = 2
-    vis_interval = 2
+    vis_interval = 60
     out_tag = 'unet_test'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
@@ -323,7 +323,7 @@ def main():
     time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
     time_taken_hours = int(time_taken_hours)
 
-    with open(directory + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
+    with open(directory + 'out_' + out_tag + '/model_info' + str(max_epochs) + '.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
