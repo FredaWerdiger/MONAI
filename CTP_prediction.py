@@ -74,7 +74,7 @@ def main():
     # model parameters
     max_epochs = 100
     image_size = (128, 128, 128)
-    patch_size = (16, 16, 16)
+    patch_size = (32, 32, 32)
     batch_size = 2
     val_interval = 2
     vis_interval = 10
@@ -146,10 +146,12 @@ def main():
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
-                              shuffle=True)
+                              shuffle=True,
+                              pin_memory=True)
 
     val_loader = DataLoader(val_dataset,
-                            batch_size=batch_size)
+                            batch_size=batch_size,
+                            pin_memory=True)
 
     # Uncomment to display data
     #
