@@ -74,7 +74,7 @@ def main():
     # model parameters
     max_epochs = 6
     image_size = (128, 128, 128)
-    patch_size = (32, 32, 32)
+    patch_size = (16, 16, 16)
     batch_size = 1
     val_interval = 2
     vis_interval = 3
