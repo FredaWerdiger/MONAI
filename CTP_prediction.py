@@ -72,12 +72,12 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 6
+    max_epochs = 100
     image_size = (128, 128, 128)
     patch_size = (16, 16, 16)
     batch_size = 2
     val_interval = 2
-    vis_interval = 3
+    vis_interval = 10
     out_tag = 'unet_test_ddp'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
@@ -137,16 +137,12 @@ def main():
     train_dataset = CacheDataset(
         data=train_files,
         transform=train_transforms,
-        cache_rate=1.0,
-        num_workers=8
-    )
+        cache_rate=1.0)
 
     val_dataset = CacheDataset(
         data=val_files,
         transform=val_transforms,
-        cache_rate=1.0,
-        num_workers=8
-    )
+        cache_rate=1.0)
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
@@ -411,7 +407,7 @@ def main():
             separate_folder=False)
     ])
     test_ds = Dataset(data=test_files, transform=test_transforms)
-    test_loader = DataLoader(test_ds, batch_size=1, num_workers=8)
+    test_loader = DataLoader(test_ds, batch_size=1)
 
     # LOAD THE BEST MODEL
     model.load_state_dict(torch.load(os.path.join(
