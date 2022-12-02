@@ -243,10 +243,10 @@ def main():
             # print(
             #     f"{step}/{len(train_dataset) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
-            if (epoch + 1) % vis_interval == 0 and step == 1:
-                cam_results = cam(x=inputs).cpu().numpy()
-                visual.append(cam_results[0][0][:, :, int(np.ceil(patch_size[1]/2))])
-                visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(patch_size[1]/2))])
+            # if (epoch + 1) % vis_interval == 0 and step == 1:
+            #     cam_results = cam(x=inputs).cpu().numpy()
+            #     visual.append(cam_results[0][0][:, :, int(np.ceil(patch_size[1]/2))])
+            #     visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(patch_size[1]/2))])
         lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
@@ -357,16 +357,16 @@ def main():
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
-    fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
-    for i, vis in enumerate(visual):
-        ax[1, i].imshow(visual_orig[i], cmap='gray')
-        ax[1, i].axis('off')
-        ax[0, i].imshow(vis)
-        ax[0, i].axis('off')
-        ax[0, i].set_title(f"epoch {(i * vis_interval) + vis_interval}", fontsize='8')
-    plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
-                bbox_inches='tight', dpi=300, format='png')
-    plt.close()
+    # fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
+    # for i, vis in enumerate(visual):
+    #     ax[1, i].imshow(visual_orig[i], cmap='gray')
+    #     ax[1, i].axis('off')
+    #     ax[0, i].imshow(vis)
+    #     ax[0, i].axis('off')
+    #     ax[0, i].set_title(f"epoch {(i * vis_interval) + vis_interval}", fontsize='8')
+    # plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
+    #             bbox_inches='tight', dpi=300, format='png')
+    # plt.close()
 
     # TESTING
 
