@@ -72,9 +72,9 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 100
+    max_epochs = 300
     image_size = (128, 128, 128)
-    patch_size = (32, 32, 32)
+    patch_size = (64, 64, 64)
     batch_size = 2
     val_interval = 2
     vis_interval = 10
