@@ -73,8 +73,8 @@ def main():
 
     # model parameters
     max_epochs = 6
-    image_size = (64, 64, 64)
-    patch_size = (16, 16, 16)
+    image_size = (128, 128, 128)
+    patch_size = (32, 32, 32)
     batch_size = 1
     val_interval = 2
     vis_interval = 3
@@ -84,9 +84,9 @@ def main():
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').images_dict[:4]
-    val_files = BuildDataset(directory, 'validation').images_dict[:4]
-    test_files = BuildDataset(directory, 'test').no_seg_dict[:4]
+    train_files = BuildDataset(directory, 'train').images_dict
+    val_files = BuildDataset(directory, 'validation').images_dict
+    test_files = BuildDataset(directory, 'test').no_seg_dict
 
     # IMAGES SHOULD NOT BE DOWNSAMPLED
     # RANDOM SAMPLE OF PATCHES BETTER
