@@ -75,7 +75,7 @@ def main():
     max_epochs = 6
     image_size = (128, 128, 128)
     patch_size = (16, 16, 16)
-    batch_size = 1
+    batch_size = 2
     val_interval = 2
     vis_interval = 3
     out_tag = 'unet_test_ddp'
