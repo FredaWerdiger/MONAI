@@ -73,7 +73,7 @@ def main():
 
     # model parameters
     max_epochs = 100
-    image_size = (128, 128, 128)
+    image_size = (96, 96, 96)
     patch_size = (32, 32, 32)
     batch_size = 2
     val_interval = 2
@@ -316,7 +316,7 @@ def main():
                 #         plt.show()
                 #         if i == 2:
                 #             break
-                #
+        del loss, outputs     # get rid of memory
     end = time.time()
     time_taken = end - start
     print(f"Time taken: {round(time_taken, 0)} seconds")
