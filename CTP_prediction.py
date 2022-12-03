@@ -72,13 +72,13 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 300
+    max_epochs = 600
     image_size = (128, 128, 128)
-    patch_size = (64, 64, 64)
+    patch_size = None
     batch_size = 2
     val_interval = 2
     vis_interval = 10
-    out_tag = 'unet_test_ddp'
+    out_tag = 'unet_ddp_no_patch'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -101,16 +101,16 @@ def main():
                     align_corners=[True, None],
                     spatial_size=image_size),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            RandCropByPosNegLabeld(
-                keys=["image", "label"],
-                label_key="label",
-                spatial_size=patch_size,
-                pos=0.75,
-                neg=0.25,
-                num_samples=4,
-                image_key="image",
-                image_threshold=0,
-            ),
+            # RandCropByPosNegLabeld(
+            #     keys=["image", "label"],
+            #     label_key="label",
+            #     spatial_size=patch_size,
+            #     pos=0.75,
+            #     neg=0.25,
+            #     num_samples=4,
+            #     image_key="image",
+            #     image_threshold=0,
+            # ),
             RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
