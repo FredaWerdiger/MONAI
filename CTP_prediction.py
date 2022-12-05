@@ -78,7 +78,7 @@ def main():
     batch_size = 2
     val_interval = 2
     vis_interval = 10
-    out_tag = 'unet_ddp_no_patch'
+    out_tag = 'unet_ddp_no_patch_2'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -174,7 +174,7 @@ def main():
     # plt.close()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    channels = (16, 32, 64)
+    channels = (32, 64, 128)
     model = UNet(
         spatial_dims=3,
         in_channels=4,
