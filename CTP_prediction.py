@@ -174,13 +174,13 @@ def main():
     # plt.close()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    channels = (32, 64, 128)
+    channels = (16, 32, 64, 128)
     model = UNet(
         spatial_dims=3,
         in_channels=4,
         out_channels=2,
         channels=channels,
-        strides=(2, 2),
+        strides=(2, 2, 2),
         num_res_units=2,
         norm=Norm.BATCH
     )
@@ -414,7 +414,6 @@ def main():
     # LOAD THE BEST MODEL
     model.load_state_dict(torch.load(os.path.join(
         directory, 'out_' + out_tag, model_name)))
-    # loader = LoadImage(image_only=False)
     model.eval()
 
     with torch.no_grad():
