@@ -391,14 +391,14 @@ def main():
     post_transforms = Compose([
         EnsureTyped(keys=["pred"]),
         Invertd(
-            keys="pred",
+            keys=["pred", "proba"],
             transform=test_transforms,
-            orig_keys="image",
-            meta_keys="pred_meta_dict",
-            orig_meta_keys="image_meta_dict",
+            orig_keys=["image", "image"],
+            meta_keys=["pred_meta_dict", "pred_meta_dict"],
+            orig_meta_keys=["image_meta_dict", "image_meta_dict"],
             meta_key_postfix="meta_dict",
-            nearest_interp=False,
-            to_tensor=True,
+            nearest_interp=[False, False],
+            to_tensor=[True, True],
         ),
         SaveImaged(
             keys="proba",
@@ -408,13 +408,13 @@ def main():
             resample=False,
             separate_folder=False)
     ])
-    test_ds = Dataset(data=test_files, transform=test_transforms)
+    test_ds = Dataset(data=test_files, transform=test_transforms)[:1]
     test_loader = DataLoader(test_ds, batch_size=1)
 
     # LOAD THE BEST MODEL
     model.load_state_dict(torch.load(os.path.join(
         directory, 'out_' + out_tag, model_name)))
-
+    # loader = LoadImage(image_only=False)
     model.eval()
 
     with torch.no_grad():
@@ -427,6 +427,9 @@ def main():
             prob = f.softmax(test_data["pred"], dim=1) # probability of infarct
             test_data["proba"] = prob
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
+            # test_pred, test_proba= from_engine(["pred", "proba"])(test_data)
+            #
+            # original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
 
 if __name__ == "__main__":
     # Environment variables which need to be
