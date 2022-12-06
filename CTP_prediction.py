@@ -138,6 +138,19 @@ def main():
         ]
     )
 
+    test_transforms = Compose(
+        [
+            LoadImaged(keys=["image"]),
+            EnsureChannelFirstd(keys="image"),
+            Resized(keys="image",
+                    mode='trilinear',
+                    align_corners=True,
+                    spatial_size=image_size),
+            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image"]),
+        ]
+    )
+
     train_dataset = CacheDataset(
         data=train_files,
         transform=train_transforms,
@@ -156,6 +169,9 @@ def main():
     val_loader = DataLoader(val_dataset,
                             batch_size=batch_size,
                             pin_memory=True)
+
+    test_ds = Dataset(data=test_files, transform=test_transforms)[:1]
+    test_loader = DataLoader(test_ds, batch_size=1)
 
     # Uncomment to display data
     #
@@ -231,7 +247,7 @@ def main():
         epoch_loss = 0
         step = 0
         model.train()
-        for batch_data in train_loader:
+        for batch_data in test_loader:
             step += 1
             inputs, labels = (
                 batch_data["image"].to(device),
@@ -418,7 +434,7 @@ def main():
     # ])
     # test_ds = Dataset(data=test_files, transform=test_transforms)[:1]
     # test_loader = DataLoader(test_ds, batch_size=1)
-    #
+
     # # LOAD THE BEST MODEL
     # model.load_state_dict(torch.load(os.path.join(
     #     directory, 'out_' + out_tag, model_name)))
