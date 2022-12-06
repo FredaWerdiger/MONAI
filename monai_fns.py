@@ -5,6 +5,7 @@ import torch
 from monai.data import Dataset, DataLoader, DistributedSampler
 from numba import cuda
 from GPUtil import showUtilization as gpu_usage
+from collections import OrderedDict
 
 
 def prepare(dataset,
@@ -54,6 +55,18 @@ def setup(rank, world_size):
 
 def cleanup():
     dist.destroy_process_group()
+
+
+def ddp_state_dict(model_path):
+    # original saved file with DataParallel
+    state_dict = torch.load(model_path)
+    # create new OrderedDict that does not contain `module.`
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:]  # remove `module.`
+        new_state_dict[name] = v
+    # load params
+    return(new_state_dict)
 
 
 class DDPSetUp():
