@@ -255,3 +255,4 @@ if __name__ == '__main__':
     out_tag ='unet_ddp_no_patch'
     model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model600.pth'
     dwi_dir = directory + 'no_seg/dwi_ctp/'
+    main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True)
