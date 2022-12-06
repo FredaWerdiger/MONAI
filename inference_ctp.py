@@ -24,6 +24,7 @@ from monai.transforms import (
     LoadImaged,
     NormalizeIntensityd,
     Resized,
+    SaveImage,
     SaveImaged,
 )
 import torch
@@ -38,7 +39,7 @@ def define_zvalues(ct_img):
 
     if steps == 0:
         z_min = 0
-        z_max = ct_img.shape[0]
+        z_max = ct_img.shape[2]
         steps = 1
 
     z = list(range(z_min, z_max))
@@ -81,6 +82,8 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
     fig, axs = plt.subplots(6, 6, facecolor='k')
     fig.subplots_adjust(hspace=-0.1, wspace=-0.3)
     axs = axs.ravel()
+    for ax in axs:
+        ax.axis("off")
     for i in range(6):
         print(i)
 
@@ -89,36 +92,45 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
         axs[i+6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                       interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
         axs[i+6].imshow(proba[:, :, z[i]], cmap='YlOrRd',
-                      interpolation='hanning', vmin=-0.3, vmax=1.2)
+                      interpolation='hanning', alpha=0.6, vmin=-0.3, vmax=1.2)
         axs[i+6].imshow(masked_dwi[:, :, z[i]],
                       cmap='gray', interpolation='hanning',
                       alpha=1, vmin=10, vmax=dwi_ct_img.max())
-    for i in range(6, 12):
+    if 12 > len(z):
+        max2 = len(z)
+    else:
+        max2 = 12
+    for i in range(6, max2):
         print(i)
         axs[i + 6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                       interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
         axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                           interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
         im = axs[i + 12].imshow(proba[:, :, z[i]], cmap='YlOrRd',
-                          interpolation='hanning', vmin=-0.3, vmax=1.2)
+                          interpolation='hanning', alpha=0.6, vmin=-0.3, vmax=1.2)
         axs[i + 12].imshow(masked_dwi[:, :, z[i]],
                           cmap='gray', interpolation='hanning',
                           alpha=1, vmin=10, vmax=dwi_ct_img.max())
-
-    for i in range(12, len(z)):
-        print(i)
-        axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
-                      interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
-        axs[i + 18].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+    if not 12 > len(z):
+        if len(z) > 18:
+            max3 = 18
+        else:
+            max3 = len(z)
+        for i in range(12, max3):
+            print(i)
+            axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                           interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
-        axs[i + 18].imshow(proba[:, :, z[i]], cmap='YlOrRd',
-                          interpolation='hanning', vmin=-0.3, vmax=1.2)
-        axs[i + 18].imshow(masked_dwi[:, :, z[i]],
-                          cmap='gray', interpolation='hanning',
-                          alpha=1, vmin=10, vmax=dwi_ct_img.max())
-    cbar = plt.colorbar(im, ax=axs.ravel().tolist(), shrink=0.6, boundaries=[0,0.5, 1])
+            axs[i + 18].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+                              interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+            axs[i + 18].imshow(proba[:, :, z[i]], cmap='YlOrRd',
+                              interpolation='hanning', alpha=0.6, vmin=-0.3, vmax=1.2)
+            axs[i + 18].imshow(masked_dwi[:, :, z[i]],
+                              cmap='gray', interpolation='hanning',
+                              alpha=1, vmin=10, vmax=dwi_ct_img.max())
+    cbar = plt.colorbar(im, ax=axs.ravel().tolist(), shrink=0.6, boundaries=[0,0.5, 1], label='Probability of Infarct')
     cbar.set_ticks(np.arange(0, 1.5, 0.5))
     cbar.ax.yaxis.set_tick_params(color='white')
+    cbar.ax.set_ylabel('Probability of Infarct', rotation=270)
     plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
     cbar.outline.set_edgecolor('white')
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
@@ -134,6 +146,9 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
     png_dir = os.path.join(directory + 'out_' + out_tag, "proba_pngs")
     if not os.path.exists(png_dir):
         os.makedirs(png_dir)
+    cam_dir = os.path.join(directory + 'out_' + out_tag, "cam_pngs")
+    if not os.path.exists(cam_dir):
+        os.makedirs(cam_dir)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # test on external data
@@ -154,7 +169,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
             Resized(keys="image",
                     mode='trilinear',
                     align_corners=True,
-                    spatial_size=(128, 128, 128)),
+                    spatial_size=(32, 32, 32)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys="image"),
         ]
@@ -193,9 +208,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
     else:
         model.load_state_dict(torch.load(model_path))
 
-    from monai.visualize import GradCAM
-    cam = GradCAM(nn_module=model, target_layers="model.2.0.adn.A")
-    loader = LoadImage(image_only=False)
+    loader = LoadImage(image_only=True)
     model.eval()
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
@@ -220,7 +233,8 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
 
             dwi_img = [os.path.join(dwi_dir, img) for img in os.listdir(dwi_dir) if subject in img][0]
             dwi_img = loader(dwi_img)
-            dwi_img = dwi_img[0].detach().numpy()
+            # spartan giving an error
+            dwi_img = dwi_img.detach().numpy()
 
 
             save_loc = png_dir+ '/' + subject + '_proba.png'

@@ -54,16 +54,20 @@ def main():
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
-        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv')
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+                                usecols=['subject', 'segmentation_type', 'dl_id'])
     elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
-        ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv')
+        ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv',
+                                usecols=['subject', 'segmentation_type', 'dl_id'])
     elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/CTP_DL_Data/'
-        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv')
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+                                usecols=['subject', 'segmentation_type', 'dl_id'])
     elif os.path.exists('/media/fwerdiger'):
         directory = '/media/fwerdiger/Storage/CTP_DL_Data/'
-        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv')
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+                                usecols=['subject', 'segmentation_type', 'dl_id'])
     # HOME MANY TRAINING FILES ARE MANUALLY SEGMENTED
     train_df = ctp_dl_df[ctp_dl_df.apply(lambda x: 'train' in x.dl_id, axis=1)]
     num_semi_train = len(train_df[train_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
@@ -72,13 +76,13 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 600
+    max_epochs = 1
     image_size = (128, 128, 128)
     patch_size = None
-    batch_size = 2
-    val_interval = 2
-    vis_interval = 10
-    out_tag = 'unet_ddp_no_patch_2'
+    batch_size = 1
+    val_interval = 1
+    vis_interval = 1
+    out_tag = 'unet_cam'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -173,14 +177,14 @@ def main():
     # plt.show()
     # plt.close()
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    channels = (16, 32, 64, 128)
+    device = 'cpu'
+    channels = (16, 32, 64)
     model = UNet(
         spatial_dims=3,
         in_channels=4,
         out_channels=2,
         channels=channels,
-        strides=(2, 2, 2),
+        strides=(2, 2),
         num_res_units=2,
         norm=Norm.BATCH
     )
@@ -219,6 +223,7 @@ def main():
     cam = GradCAM(nn_module=model, target_layers="model.2.0.adn.A")
     visual = []
     visual_orig = []
+    visual_names = []
 
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -242,54 +247,58 @@ def main():
             # print(
             #     f"{step}/{len(train_dataset) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
-            # if (epoch + 1) % vis_interval == 0 and step == 1:
-            #     cam_results = cam(x=inputs).cpu().numpy()
-            #     visual.append(cam_results[0][0][:, :, int(np.ceil(patch_size[1]/2))])
-            #     visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(patch_size[1]/2))])
+            if (epoch + 1) % vis_interval == 0 and step == 1:
+                cam_results = cam(x=inputs).cpu().numpy()
+                visual.append(cam_results[0][0][:, :, int(np.ceil(image_size[1]/2))])
+                visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(image_size[1]/2))])
+                name = "test_" + os.path.basename(batch_data["image_meta_dict"]["filename_or_obj"][0]).split('.nii.gz')[0].split('_')[1]
+                print(name)
+                subject = ctp_dl_df.loc[ctp_dl_df.dl_id == name, "subject"].values[0]
+                visual_names.append(subject)
         lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
         print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
 
-        if (epoch + 1) % val_interval == 0:
-            model.eval()
-            print("Evaluating...")
-            with torch.no_grad():
-                for val_data in val_loader:
-                    val_inputs, val_labels = (
-                        val_data["image"].to(device),
-                        val_data["label"].to(device),
-                    )
-                    # unsure how to optimize this
-                    roi_size = image_size
-                    sw_batch_size = 1
-                    val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model)
-
-                    # compute metric for current iteration
-                    # dice_metric_torch_macro(val_outputs, val_labels.long())
-                    # now to for the MONAI dice metric
-                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
-                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
-                    dice_metric(val_outputs, val_labels)
-
-                mean_dice = dice_metric.aggregate().item()
-                dice_metric.reset()
-                dice_metric_values.append(mean_dice)
-
-                if mean_dice > best_metric:
-                    best_metric = mean_dice
-                    best_metric_epoch = epoch + 1
-                    torch.save(model.state_dict(), os.path.join(
-                        directory, 'out_' + out_tag, model_name))
-                    print("saved new best metric model")
-
-                print(
-                    f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
-                    f"\nbest mean dice: {best_metric:.4f} "
-                    f"at epoch: {best_metric_epoch}"
-                )
-                # # evaluate during training process
+        # if (epoch + 1) % val_interval == 0:
+        #     model.eval()
+        #     print("Evaluating...")
+        #     with torch.no_grad():
+        #         for val_data in val_loader:
+        #             val_inputs, val_labels = (
+        #                 val_data["image"].to(device),
+        #                 val_data["label"].to(device),
+        #             )
+        #             # unsure how to optimize this
+        #             roi_size = image_size
+        #             sw_batch_size = 1
+        #             val_outputs = sliding_window_inference(
+        #                 val_inputs, roi_size, sw_batch_size, model)
+        #
+        #             # compute metric for current iteration
+        #             # dice_metric_torch_macro(val_outputs, val_labels.long())
+        #             # now to for the MONAI dice metric
+        #             val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+        #             val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+        #             dice_metric(val_outputs, val_labels)
+        #
+        #         mean_dice = dice_metric.aggregate().item()
+        #         dice_metric.reset()
+        #         dice_metric_values.append(mean_dice)
+        #
+        #         if mean_dice > best_metric:
+        #             best_metric = mean_dice
+        #             best_metric_epoch = epoch + 1
+        #             torch.save(model.state_dict(), os.path.join(
+        #                 directory, 'out_' + out_tag, model_name))
+        #             print("saved new best metric model")
+        #
+        #         print(
+        #             f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
+        #             f"\nbest mean dice: {best_metric:.4f} "
+        #             f"at epoch: {best_metric_epoch}"
+        #         )
+        #         # # evaluate during training process
                 # model.load_state_dict(torch.load(
                 #     os.path.join(directory, 'out_' + out_tag, model_name)))
                 # model.eval()
@@ -356,78 +365,78 @@ def main():
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
-    # fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
-    # for i, vis in enumerate(visual):
-    #     ax[1, i].imshow(visual_orig[i], cmap='gray')
-    #     ax[1, i].axis('off')
-    #     ax[0, i].imshow(vis)
-    #     ax[0, i].axis('off')
-    #     ax[0, i].set_title(f"epoch {(i * vis_interval) + vis_interval}", fontsize='8')
-    # plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
-    #             bbox_inches='tight', dpi=300, format='png')
-    # plt.close()
+    fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
+    for i, vis, name in zip(enumerate(visual), visual_names):
+        ax[1, i].imshow(visual_orig[i], cmap='gray')
+        ax[1, i].axis('off')
+        ax[0, i].imshow(vis)
+        ax[0, i].axis('off')
+        ax[0, i].set_title(f"{name}: epoch {(i * vis_interval) + vis_interval}", fontsize='6')
+    plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
+                bbox_inches='tight', dpi=300, format='png')
+    plt.close()
 
-    # TESTING
-
-    # LOCATION TO SAVE OUTPUT
-    prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
-    if not os.path.exists(prob_dir):
-        os.makedirs(prob_dir)
-
-    test_transforms = Compose(
-        [
-            LoadImaged(keys=["image"]),
-            EnsureChannelFirstd(keys="image"),
-            Resized(keys="image",
-                    mode='trilinear',
-                    align_corners=True,
-                    spatial_size=image_size),
-            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            EnsureTyped(keys=["image"]),
-        ]
-    )
-
-    post_transforms = Compose([
-        EnsureTyped(keys=["pred"]),
-        Invertd(
-            keys=["pred", "proba"],
-            transform=test_transforms,
-            orig_keys=["image", "image"],
-            meta_keys=["pred_meta_dict", "pred_meta_dict"],
-            orig_meta_keys=["image_meta_dict", "image_meta_dict"],
-            meta_key_postfix="meta_dict",
-            nearest_interp=[False, False],
-            to_tensor=[True, True],
-        ),
-        SaveImaged(
-            keys="proba",
-            meta_keys="pred_meta_dict",
-            output_dir=prob_dir,
-            output_postfix="proba",
-            resample=False,
-            separate_folder=False)
-    ])
-    test_ds = Dataset(data=test_files, transform=test_transforms)[:1]
-    test_loader = DataLoader(test_ds, batch_size=1)
-
-    # LOAD THE BEST MODEL
-    model.load_state_dict(torch.load(os.path.join(
-        directory, 'out_' + out_tag, model_name)))
-    model.eval()
-
-    with torch.no_grad():
-        for i, test_data in enumerate(test_loader):
-            test_inputs = test_data["image"].to(device)
-            roi_size = (64, 64, 64)
-            sw_batch_size = 2
-            test_data["pred"] = sliding_window_inference(
-                test_inputs, roi_size, sw_batch_size, model)
-            prob = f.softmax(test_data["pred"], dim=1) # probability of infarct
-            test_data["proba"] = prob
-            test_data = [post_transforms(i) for i in decollate_batch(test_data)]
-            # test_pred, test_proba= from_engine(["pred", "proba"])(test_data)
-            #
-            # original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
+    # # TESTING
+    #
+    # # LOCATION TO SAVE OUTPUT
+    # prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
+    # if not os.path.exists(prob_dir):
+    #     os.makedirs(prob_dir)
+    #
+    # test_transforms = Compose(
+    #     [
+    #         LoadImaged(keys=["image"]),
+    #         EnsureChannelFirstd(keys="image"),
+    #         Resized(keys="image",
+    #                 mode='trilinear',
+    #                 align_corners=True,
+    #                 spatial_size=image_size),
+    #         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+    #         EnsureTyped(keys=["image"]),
+    #     ]
+    # )
+    #
+    # post_transforms = Compose([
+    #     EnsureTyped(keys=["pred"]),
+    #     Invertd(
+    #         keys=["pred", "proba"],
+    #         transform=test_transforms,
+    #         orig_keys=["image", "image"],
+    #         meta_keys=["pred_meta_dict", "pred_meta_dict"],
+    #         orig_meta_keys=["image_meta_dict", "image_meta_dict"],
+    #         meta_key_postfix="meta_dict",
+    #         nearest_interp=[False, False],
+    #         to_tensor=[True, True],
+    #     ),
+    #     SaveImaged(
+    #         keys="proba",
+    #         meta_keys="pred_meta_dict",
+    #         output_dir=prob_dir,
+    #         output_postfix="proba",
+    #         resample=False,
+    #         separate_folder=False)
+    # ])
+    # test_ds = Dataset(data=test_files, transform=test_transforms)[:1]
+    # test_loader = DataLoader(test_ds, batch_size=1)
+    #
+    # # LOAD THE BEST MODEL
+    # model.load_state_dict(torch.load(os.path.join(
+    #     directory, 'out_' + out_tag, model_name)))
+    # model.eval()
+    #
+    # with torch.no_grad():
+    #     for i, test_data in enumerate(test_loader):
+    #         test_inputs = test_data["image"].to(device)
+    #         roi_size = (64, 64, 64)
+    #         sw_batch_size = 2
+    #         test_data["pred"] = sliding_window_inference(
+    #             test_inputs, roi_size, sw_batch_size, model)
+    #         prob = f.softmax(test_data["pred"], dim=1) # probability of infarct
+    #         test_data["proba"] = prob
+    #         test_data = [post_transforms(i) for i in decollate_batch(test_data)]
+    #         # test_pred, test_proba= from_engine(["pred", "proba"])(test_data)
+    #         #
+    #         # original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
 
 if __name__ == "__main__":
     # Environment variables which need to be
