@@ -220,7 +220,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
 
             dwi_img = [os.path.join(dwi_dir, img) for img in os.listdir(dwi_dir) if subject in img][0]
             dwi_img = loader(dwi_img)
-            dwi_img = dwi_img.detach().numpy()
+            dwi_img = dwi_img[0].detach().numpy()
 
 
             save_loc = png_dir+ '/' + subject + '_proba.png'
