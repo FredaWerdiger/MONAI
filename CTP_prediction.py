@@ -214,10 +214,9 @@ def main():
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
-    model_layers = [n for n, _ in model.named_children()]
 
     # set up visualisation
-    cam = GradCAM(nn_module=model, target_layers=model_layers[-1])
+    cam = GradCAM(nn_module=model, target_layers="model.2.0.adn.A")
     visual = []
     visual_orig = []
 
