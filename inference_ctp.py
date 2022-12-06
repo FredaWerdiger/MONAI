@@ -135,7 +135,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
     if not os.path.exists(png_dir):
         os.makedirs(png_dir)
 
-    device = 'cuda'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # test on external data
     model = UNet(
         spatial_dims=3,
