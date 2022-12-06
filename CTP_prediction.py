@@ -193,7 +193,7 @@ def main():
     # plt.show()
     # plt.close()
 
-    device = 'cpu'
+    device = 'cuda'
     channels = (16, 32, 64)
     model = UNet(
         spatial_dims=3,
