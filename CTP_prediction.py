@@ -270,7 +270,6 @@ def main():
                 visual.append(cam_results[0][0][:, :, int(np.ceil(image_size[1]/2))])
                 visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(image_size[1]/2))])
                 name = "train_" + os.path.basename(batch_data["image_meta_dict"]["filename_or_obj"][0]).split('.nii.gz')[0].split('_')[1]
-                print(name)
                 subject = ctp_dl_df.loc[ctp_dl_df.dl_id == name, "subject"].values[0]
                 visual_names.append(subject)
         lr_scheduler.step()
