@@ -383,7 +383,8 @@ def main():
     plt.close()
 
     fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
-    for i, vis, name in zip(enumerate(visual), visual_names):
+    for i, vis_name in enumerate(zip(visual, visual_names)):
+        vis, name = vis_name
         ax[1, i].imshow(visual_orig[i], cmap='gray')
         ax[1, i].axis('off')
         ax[0, i].imshow(vis)
