@@ -154,12 +154,14 @@ def main():
     train_dataset = CacheDataset(
         data=train_files,
         transform=train_transforms,
-        cache_rate=1.0)
+        cache_rate=1.0,
+        num_workers=8)
 
     val_dataset = CacheDataset(
         data=val_files,
         transform=val_transforms,
-        cache_rate=1.0)
+        cache_rate=1.0,
+        num_workers=8)
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
@@ -170,8 +172,8 @@ def main():
                             batch_size=batch_size,
                             pin_memory=True)
 
-    test_ds = Dataset(data=test_files, transform=test_transforms)[:1]
-    test_loader = DataLoader(test_ds, batch_size=1)
+    # test_ds = Dataset(data=test_files, transform=test_transforms)[:1]
+    # test_loader = DataLoader(test_ds, batch_size=1)
 
     # Uncomment to display data
     #
@@ -193,7 +195,7 @@ def main():
     # plt.show()
     # plt.close()
 
-    device = 'cpu'
+    device = 'cuda'
     channels = (16, 32, 64)
     model = UNet(
         spatial_dims=3,
@@ -205,7 +207,7 @@ def main():
         norm=Norm.BATCH
     )
 
-    model = torch.nn.DataParallel(model)
+    # model = torch.nn.DataParallel(model)
     model.to(device)
 
     loss_function = DiceLoss(smooth_dr=1e-5,
