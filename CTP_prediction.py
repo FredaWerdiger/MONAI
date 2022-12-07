@@ -76,12 +76,12 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 1
-    image_size = (128, 128, 128)
+    max_epochs = 300
+    image_size = (32, 32, 32)
     patch_size = None
-    batch_size = 1
-    val_interval = 1
-    vis_interval = 1
+    batch_size = 2
+    val_interval = 2
+    vis_interval = 100
     out_tag = 'unet_cam'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
@@ -278,45 +278,45 @@ def main():
         epoch_loss_values.append(epoch_loss)
         print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
 
-        # if (epoch + 1) % val_interval == 0:
-        #     model.eval()
-        #     print("Evaluating...")
-        #     with torch.no_grad():
-        #         for val_data in val_loader:
-        #             val_inputs, val_labels = (
-        #                 val_data["image"].to(device),
-        #                 val_data["label"].to(device),
-        #             )
-        #             # unsure how to optimize this
-        #             roi_size = image_size
-        #             sw_batch_size = 1
-        #             val_outputs = sliding_window_inference(
-        #                 val_inputs, roi_size, sw_batch_size, model)
-        #
-        #             # compute metric for current iteration
-        #             # dice_metric_torch_macro(val_outputs, val_labels.long())
-        #             # now to for the MONAI dice metric
-        #             val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
-        #             val_labels = [post_label(i) for i in decollate_batch(val_labels)]
-        #             dice_metric(val_outputs, val_labels)
-        #
-        #         mean_dice = dice_metric.aggregate().item()
-        #         dice_metric.reset()
-        #         dice_metric_values.append(mean_dice)
-        #
-        #         if mean_dice > best_metric:
-        #             best_metric = mean_dice
-        #             best_metric_epoch = epoch + 1
-        #             torch.save(model.state_dict(), os.path.join(
-        #                 directory, 'out_' + out_tag, model_name))
-        #             print("saved new best metric model")
-        #
-        #         print(
-        #             f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
-        #             f"\nbest mean dice: {best_metric:.4f} "
-        #             f"at epoch: {best_metric_epoch}"
-        #         )
-        #         # # evaluate during training process
+        if (epoch + 1) % val_interval == 0:
+            model.eval()
+            print("Evaluating...")
+            with torch.no_grad():
+                for val_data in val_loader:
+                    val_inputs, val_labels = (
+                        val_data["image"].to(device),
+                        val_data["label"].to(device),
+                    )
+                    # unsure how to optimize this
+                    roi_size = image_size
+                    sw_batch_size = 1
+                    val_outputs = sliding_window_inference(
+                        val_inputs, roi_size, sw_batch_size, model)
+
+                    # compute metric for current iteration
+                    # dice_metric_torch_macro(val_outputs, val_labels.long())
+                    # now to for the MONAI dice metric
+                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    dice_metric(val_outputs, val_labels)
+
+                mean_dice = dice_metric.aggregate().item()
+                dice_metric.reset()
+                dice_metric_values.append(mean_dice)
+
+                if mean_dice > best_metric:
+                    best_metric = mean_dice
+                    best_metric_epoch = epoch + 1
+                    torch.save(model.state_dict(), os.path.join(
+                        directory, 'out_' + out_tag, model_name))
+                    print("saved new best metric model")
+
+                print(
+                    f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
+                    f"\nbest mean dice: {best_metric:.4f} "
+                    f"at epoch: {best_metric_epoch}"
+                )
+                # # evaluate during training process
                 # model.load_state_dict(torch.load(
                 #     os.path.join(directory, 'out_' + out_tag, model_name)))
                 # model.eval()
