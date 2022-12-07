@@ -385,11 +385,11 @@ def main():
     fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
     for i, vis_name in enumerate(zip(visual, visual_names)):
         vis, name = vis_name
-        ax[1, i].imshow(visual_orig[i], cmap='gray')
-        ax[1, i].axis('off')
-        ax[0, i].imshow(vis, cmap='YlOrRd')
-        ax[0, i].axis('off')
-        ax[0, i].set_title(f"{name})", fontsize='4')
+        ax[1].imshow(visual_orig[i], cmap='gray')
+        ax[1].axis('off')
+        ax[0].imshow(vis, cmap='YlOrRd')
+        ax[0].axis('off')
+        ax[0].set_title(f"{name})", fontsize='4')
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
