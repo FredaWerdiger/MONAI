@@ -127,7 +127,7 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
             axs[i + 18].imshow(masked_dwi[:, :, z[i]],
                               cmap='gray', interpolation='hanning',
                               alpha=1, vmin=10, vmax=dwi_ct_img.max())
-    cbar = plt.colorbar(im, ax=axs.ravel().tolist(), shrink=0.6, boundaries=[0,0.5, 1], label='Probability of Infarct')
+    cbar = plt.colorbar(im, ax=axs.ravel().tolist(), shrink=0.6, boundaries=[0,0.5, 1])
     cbar.set_ticks(np.arange(0, 1.5, 0.5))
     cbar.ax.yaxis.set_tick_params(color='white')
     cbar.ax.set_ylabel('Probability of Infarct', rotation=270)

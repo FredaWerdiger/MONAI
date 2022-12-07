@@ -76,7 +76,7 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 300
+    max_epochs = 100
     image_size = (32, 32, 32)
     patch_size = None
     batch_size = 2
@@ -387,10 +387,9 @@ def main():
         vis, name = vis_name
         ax[1, i].imshow(visual_orig[i], cmap='gray')
         ax[1, i].axis('off')
-        im_1 = ax[0, i].imshow(vis, cmap='jet')
+        ax[0, i].imshow(vis, cmap='YlOrRd')
         ax[0, i].axis('off')
-        ax[0, i].set_title(f"{name}: epoch {(i * vis_interval) + vis_interval}", fontsize='4')
-        fig.colorbar(im_1, ax=ax.ravel().tolist(), shrink=0.25)
+        ax[0, i].set_title(f"{name})", fontsize='4')
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()

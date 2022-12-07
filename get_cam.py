@@ -29,7 +29,7 @@ model =  UNet(
         norm=Norm.BATCH
 ).cuda()
 
-log = model.load_state_dict(ddp_state_dict('D:/ctp_project_data/CTP_DL_Data/out_unet_ddp_no_patch/best_metric_model600.pth'))
+log = model.load_state_dict(torch.load('D:/ctp_project_data/CTP_DL_Data/out_unet_cam/best_metric_model300.pth'))
 
 cam = GradCAM(nn_module=model, target_layers='model.2.0.adn.A')
 
