@@ -115,12 +115,12 @@ def main():
             #     image_key="image",
             #     image_threshold=0,
             # ),
-            RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+            # RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            # RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            # RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
             EnsureTyped(keys=["image", "label"]),
         ]
     )
@@ -387,7 +387,7 @@ def main():
         vis, name = vis_name
         ax[1].imshow(visual_orig[i], cmap='gray')
         ax[1].axis('off')
-        ax[0].imshow(vis, cmap='YlOrRd')
+        ax[0].imshow(vis, cmap='YlOrRd',vmin=-0.3, vmax=1.2)
         ax[0].axis('off')
         ax[0].set_title(f"{name})", fontsize='4')
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
