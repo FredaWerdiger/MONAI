@@ -387,9 +387,10 @@ def main():
         vis, name = vis_name
         ax[1, i].imshow(visual_orig[i], cmap='gray')
         ax[1, i].axis('off')
-        ax[0, i].imshow(vis)
+        im_1 = ax[0, i].imshow(vis, cmap='jet')
         ax[0, i].axis('off')
-        ax[0, i].set_title(f"{name}: epoch {(i * vis_interval) + vis_interval}", fontsize='6')
+        ax[0, i].set_title(f"{name}: epoch {(i * vis_interval) + vis_interval}", fontsize='4')
+        fig.colorbar(im_1, ax=ax.ravel, shrink=0.25)
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
