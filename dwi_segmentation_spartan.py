@@ -37,7 +37,8 @@ from monai.transforms import (
     EnsureTyped,
     EnsureType,
     Resized,
-    SaveImaged
+    SaveImaged,
+    SplitDimd
 )
 
 from monai.utils import first, set_determinism
@@ -72,7 +73,7 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_recursive_from_scratch"
+    out_tag = "unet_recursive_from_scratch_dwi_only"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -90,20 +91,21 @@ def main():
         [
             LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys=["image", "label"]),
-            Resized(keys=["image", "label"],
-                    mode=['trilinear', "nearest"],
-                    align_corners=[True, None],
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['b1000', 'adc']),
+            Resized(keys=["image", "image_b1000",  "image_adc", "label"],
+                    mode=['trilinear', 'trilinear', 'trilinear', "nearest"],
+                    align_corners=[True, True, True, None],
                     spatial_size=image_size),
-
-            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+            NormalizeIntensityd(keys="image_b1000", nonzero=True, channel_wise=True),
+            RandAffined(keys=['image_b1000', 'label'], prob=0.5, translate_range=10),
+            RandFlipd(keys=["image_b1000", "label"], prob=0.5, spatial_axis=0),
+            RandFlipd(keys=["image_b1000", "label"], prob=0.5, spatial_axis=1),
+            RandFlipd(keys=["image_b1000", "label"], prob=0.5, spatial_axis=2),
+            RandScaleIntensityd(keys=["image_b1000"], factors=0.1, prob=1.0),
+            RandShiftIntensityd(keys=["image_b1000"], offsets=0.1, prob=1.0),
             # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
-            EnsureTyped(keys=["image", "label"]),
+            EnsureTyped(keys=["image_b1000", "label"]),
         ]
     )
 
@@ -111,12 +113,14 @@ def main():
         [
             LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys=["image", "label"]),
-            Resized(keys=["image", "label"],
-                    mode=['trilinear', "nearest"],
-                    align_corners=[True, None],
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['b1000', 'adc']),
+            Resized(keys=["image", "image_b1000", "image_adc", "label"],
+                    mode=['trilinear', 'trilinear', 'trilinear', "nearest"],
+                    align_corners=[True, True, True, None],
                     spatial_size=image_size),
-            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            EnsureTyped(keys=["image", "label"]),
+            NormalizeIntensityd(keys="image_b1000", nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image_b1000", "label"]),
         ]
     )
 
@@ -128,9 +132,15 @@ def main():
         num_workers=4
     )
 
+    def my_collate(batch):
+        data = [item["image_b1000"] for item in batch]
+        target = [item["label"] for item in batch]
+        return data, target
+
     train_loader = DataLoader(train_ds,
                               batch_size=batch_size,
-                              shuffle=True)
+                              shuffle=True,
+                              pin_memory=True)
 
     val_ds = CacheDataset(
         data=val_files,
@@ -139,22 +149,23 @@ def main():
         num_workers=4)
 
     val_loader = DataLoader(val_ds,
-                            batch_size=batch_size)
+                            batch_size=batch_size,
+                            pin_memory=True)
 
     rank = 'cuda'
 
     # Uncomment to display data
-    #
-    # import random
-    # m = random.randint(0, 50)
-    # s = random.randint(0, 63)
-    # val_data_example = val_ds[m]
-    # print(f"image shape: {val_data_example['image'].shape}")
+
+    import random
+    m = random.randint(0, 50)
+    s = random.randint(0, 63)
+    val_data_example = val_ds[m]
+    # print(f"image shape: {val_data_example['image_b1000'].shape}")
     # plt.figure("image", (18, 6))
-    # for i in range(2):
+    # for i in range(1):
     #     plt.subplot(1, 3, i + 1)
     #     plt.title(f"image channel {i}")
-    #     plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
+    #     plt.imshow(val_data_example["image_b1000"][i, :, :, s].detach().cpu(), cmap="gray")
     # # also visualize the 3 channels label corresponding to this image
     # print(f"label shape: {val_data_example['label'].shape}")
     # plt.subplot(1, 3, 3)
@@ -165,7 +176,7 @@ def main():
 
     model = UNet(
         spatial_dims=3,
-        in_channels=2,
+        in_channels=1,
         out_channels=2,
         channels=(32, 64, 128, 256),
         strides=(2, 2, 2),
@@ -232,7 +243,7 @@ def main():
         for batch_data in train_loader:
             step += 1
             inputs, labels = (
-                batch_data["image"].to(rank),
+                batch_data["image_b1000"].to(rank),
                 batch_data["label"].to(rank),
             )
             optimizer.zero_grad()
@@ -242,9 +253,9 @@ def main():
             epoch_loss += loss.item()
             optimizer.step()
             # commenting out print function
-            # print(
-            #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
-            #     f"train_loss: {loss.item():.4f}")
+            print(
+                f"{step}/{len(train_ds) // train_loader.batch_size}, "
+                f"train_loss: {loss.item():.4f}")
         lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
@@ -256,7 +267,7 @@ def main():
             with torch.no_grad():
                 for val_data in val_loader:
                     val_inputs, val_labels = (
-                        val_data["image"].to(rank),
+                        val_data["image_b1000"].to(rank),
                         val_data["label"].to(rank),
                     )
                     # unsure how to optimize this
