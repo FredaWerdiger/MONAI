@@ -81,13 +81,13 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 100
-    image_size = (32, 32, 32)
+    max_epochs = 200
+    image_size = (128, 128, 128)
     patch_size = None
     batch_size = 2
     val_interval = 2
     vis_interval = 100
-    out_tag = 'unet_cam'
+    out_tag = 'unet_simple'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -159,14 +159,12 @@ def main():
     train_dataset = CacheDataset(
         data=train_files,
         transform=train_transforms,
-        cache_rate=1.0,
-        num_workers=8)
+        cache_rate=1.0)
 
     val_dataset = CacheDataset(
         data=val_files,
         transform=val_transforms,
-        cache_rate=1.0,
-        num_workers=8)
+        cache_rate=1.0)
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
@@ -214,7 +212,7 @@ def main():
     #
     model = U_Net(img_ch=4,output_ch=2)
 
-    # model = torch.nn.DataParallel(model)
+    model = torch.nn.DataParallel(model)
     model.to(device)
 
     loss_function = DiceLoss(smooth_dr=1e-5,
@@ -272,13 +270,13 @@ def main():
             # print(
             #     f"{step}/{len(train_dataset) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
-            if (epoch + 1) % vis_interval == 0 and step == 1:
-                cam_results = cam(x=inputs).cpu().numpy()
-                visual.append(cam_results[0][0][:, :, int(np.ceil(image_size[1]/2))])
-                visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(image_size[1]/2))])
-                name = "train_" + os.path.basename(batch_data["image_meta_dict"]["filename_or_obj"][0]).split('.nii.gz')[0].split('_')[1]
-                subject = ctp_dl_df.loc[ctp_dl_df.dl_id == name, "subject"].values[0]
-                visual_names.append(subject)
+            # if (epoch + 1) % vis_interval == 0 and step == 1:
+            #     cam_results = cam(x=inputs).cpu().numpy()
+            #     visual.append(cam_results[0][0][:, :, int(np.ceil(image_size[1]/2))])
+            #     visual_orig.append(batch_data["image"][0][1][:, :, int(np.ceil(image_size[1]/2))])
+            #     name = "train_" + os.path.basename(batch_data["image_meta_dict"]["filename_or_obj"][0]).split('.nii.gz')[0].split('_')[1]
+            #     subject = ctp_dl_df.loc[ctp_dl_df.dl_id == name, "subject"].values[0]
+            #     visual_names.append(subject)
         lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
@@ -389,17 +387,17 @@ def main():
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
-    fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
-    for i, vis_name in enumerate(zip(visual, visual_names)):
-        vis, name = vis_name
-        ax[1].imshow(visual_orig[i], cmap='gray')
-        ax[1].axis('off')
-        ax[0].imshow(vis, cmap='YlOrRd',vmin=-0.3, vmax=1.2)
-        ax[0].axis('off')
-        ax[0].set_title(f"{name})", fontsize='4')
-    plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
-                bbox_inches='tight', dpi=300, format='png')
-    plt.close()
+    # fig, ax = plt.subplots(2, len(visual), figsize=(len(visual), 2))
+    # for i, vis_name in enumerate(zip(visual, visual_names)):
+    #     vis, name = vis_name
+    #     ax[1].imshow(visual_orig[i], cmap='gray')
+    #     ax[1].axis('off')
+    #     ax[0].imshow(vis, cmap='YlOrRd',vmin=-0.3, vmax=1.2)
+    #     ax[0].axis('off')
+    #     ax[0].set_title(f"{name})", fontsize='4')
+    # plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'visuals.png'),
+    #             bbox_inches='tight', dpi=300, format='png')
+    # plt.close()
 
     # # TESTING
     #
