@@ -48,6 +48,7 @@ import torch
 import torch.nn.functional as f
 from torch.optim import Adam
 from recursive_data import get_semi_dataset
+from models import U_Net
 
 
 def main():
@@ -66,6 +67,10 @@ def main():
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
     elif os.path.exists('/media/fwerdiger'):
         directory = '/media/fwerdiger/Storage/CTP_DL_Data/'
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+                                usecols=['subject', 'segmentation_type', 'dl_id'])
+    elif os.path.exists('D:/ctp_project_data/CTP_DL_Data/'):
+        directory = 'D:/ctp_project_data/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
     # HOME MANY TRAINING FILES ARE MANUALLY SEGMENTED
@@ -115,12 +120,12 @@ def main():
             #     image_key="image",
             #     image_threshold=0,
             # ),
-            # RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
-            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-            # RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            # RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-            # RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+            RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
             EnsureTyped(keys=["image", "label"]),
         ]
     )
@@ -197,15 +202,17 @@ def main():
 
     device = 'cuda'
     channels = (16, 32, 64)
-    model = UNet(
-        spatial_dims=3,
-        in_channels=4,
-        out_channels=2,
-        channels=channels,
-        strides=(2, 2),
-        num_res_units=2,
-        norm=Norm.BATCH
-    )
+    # model = UNet(
+    #     spatial_dims=3,
+    #     in_channels=4,
+    #     out_channels=2,
+    #     channels=channels,
+    #     strides=(2, 2),
+    #     num_res_units=2,
+    #     norm=Norm.BATCH
+    # )
+    #
+    model = U_Net(img_ch=4,output_ch=2)
 
     # model = torch.nn.DataParallel(model)
     model.to(device)

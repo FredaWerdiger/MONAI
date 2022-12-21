@@ -1,243 +1,20 @@
-import os
-import math
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from jinja2 import Environment, FileSystemLoader
-import glob
-from monai.data import Dataset, DataLoader, decollate_batch
-from monai.handlers.utils import from_engine
-from monai.inferers import sliding_window_inference
-from monai.networks.nets import AttentionUnet, UNet
-from monai.networks.layers import Norm
-from monai.metrics import DiceMetric
-from monai.transforms import (
-    AsDiscreted,
-    Compose,
-    EnsureChannelFirst,
-    EnsureChannelFirstd,
-    EnsureType,
-    EnsureTyped,
-    Invertd,
-    LoadImage,
-    LoadImaged,
-    NormalizeIntensityd,
-    Resized,
-    SaveImaged,
-
-)
-from torchmetrics import Dice
-import torch
-import torch.nn.functional as f
-from monai_fns import *
-
-
-
-def define_dvalues(dwi_img):
-    steps = int(dwi_img.shape[2]/18)
-    rem = int(dwi_img.shape[2]/steps)-18
-
-    if rem % 2 == 0:
-        d_min = 0 + int(rem/2*steps) + 1
-        d_max = dwi_img.shape[2] - int(rem/2*steps) + 1
-
-    elif rem % 2 != 0:
-        d_min = 0 + math.ceil(rem*steps/2)
-        d_max = dwi_img.shape[2] - math.ceil(rem/2*steps) + 1
-
-    d = range(d_min, d_max, steps)
-
-    if len(d) == 19:
-
-        d = d[1:]
-    return d
-
-
-def define_dvalues_big(dwi_img):
-    dwi_img_small = dwi_img[10:120]
-    steps = int(dwi_img_small.shape[0]/18)
-    rem = int(dwi_img_small.shape[0]/steps)-18
-
-    if rem % 2 == 0:
-        d_min = 0 + int(rem/2*steps) + 1
-        d_max = dwi_img_small.shape[0] - int(rem/2*steps)
-
-    elif rem % 2 != 0:
-        d_min = 0 + math.ceil(rem*steps/2)
-        d_max = dwi_img_small.shape[0] - math.ceil(rem/2*steps)
-
-    d = range(d_min + 10, d_max + 10, steps)
-
-    if len(d) == 19:
-        d = range(d_min + steps + 10, d_max + 10, steps)
-    return d
-
-
-def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250):
-    dwi_lesion_img = np.rot90(dwi_lesion_img)
-    dwi_img = np.rot90(dwi_img)
-    dwi_img, dwi_lesion_img = [np.fliplr(img) for img in [dwi_img, dwi_lesion_img]]
-
-    mask = dwi_lesion_img < 1
-    masked_im = np.ma.array(dwi_img, mask=~mask)
-
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-
-    axs = axs.ravel()
-
-    for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
-        axs[i].imshow(dwi_lesion_img[:, :,d[i]],  cmap='Reds', interpolation='hanning', alpha=0.5, vmin=-2, vmax=1)
-        axs[i].imshow(masked_im[:, :, d[i]], cmap='gray', interpolation='hanning', alpha=1, vmin=0, vmax=300)
-        axs[i].axis('off')
-    # plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-
-def create_mr_img(dwi_img, savefile, d, ext='png', dpi=250):
-    dwi_img = np.rot90(dwi_img)
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-    axs = axs.ravel()
-    for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
-        axs[i].axis('off')
-    # plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-
-def create_mr_big_img(dwi_img, savefile, d, ext='png', dpi=250):
-    dwi_img = np.rot90(dwi_img)
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-    axs = axs.ravel()
-    for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray')
-        axs[i].axis('off')
-    # plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-
-def create_adc_img(dwi_img, savefile, d, ext='png', dpi=250):
-    dwi_img = np.rot90(dwi_img)
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-    axs = axs.ravel()
-    for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=1500)
-        axs[i].axis('off')
-    #plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-
-def create_paper_img(dwi_img, gt, pred, savefile, d, ext='png', dpi=250):
-    dwi_img, gt, pred = [np.rot90(im) for im in [dwi_img, gt, pred]]
-    lesions = gt + pred
-    mask = lesions == 0
-    masked_img = np.ma.array(dwi_img, mask=~mask)
-
-    false_neg = np.ma.masked_where(
-        np.logical_and(pred == 0, gt == 1), gt) * gt
-    true_pos = np.ma.masked_where(np.logical_and(pred == 1, gt == 1),
-                                  gt) * gt
-    false_pos = np.ma.masked_where(
-        np.logical_and(pred == 1, gt == 0), pred) * pred
-
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-    axs = axs.ravel()
-    for i in range(len(d)):
-        axs[i].imshow(false_neg[:,:,d[i]], cmap='gist_rainbow', vmin=0, vmax=1)
-        axs[i].imshow(false_pos[:, :, d[i]], cmap='brg', vmin=0, vmax=1)
-        # axs[i].imshow(true_pos[:,:,d[i]], cmap='tab10', vmin=0, vmax=1)
-        axs[i].imshow(masked_img[:,:,d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
-        axs[i].axis('off')
-    # plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-def create_overviewhtml(subject_id, df, outdir):
-    '''
-    Function that creates a HTML file with clinical information and imaging.
-    '''
-    templateLoader = FileSystemLoader(
-        searchpath='./')
-    templateEnv = Environment(loader=templateLoader)
-    TEMPLATE_FILE = "template.html"
-    template = templateEnv.get_template(TEMPLATE_FILE)
-
-    savefolder = outdir + 'htmls'
-    if not os.path.exists(savefolder):
-        os.makedirs(savefolder)
-
-    ptData = df.set_index('id').loc[subject_id, :]
-    treat = ptData['Treatment type(0=no treatment,1=iv only, 2=IA only, 3= Both ia +iv, 4=iv only IA planned but not delivery,5=no information)']
-    if treat == 0:
-        treat = "No treatment"
-    elif treat == 1:
-        treat = "IV only"
-    elif treat == 2:
-        treat = "IA only"
-    elif treat == 3:
-        treat = "IV and IA"
-
-    small = ptData['small lesion']
-    small = 'yes' if small == 1 else 'no'
-    thickness = ptData['dwi_slice_thickness']
-    make = str(ptData['dwi_Manufacturer']) + ' ' + str(ptData['dwi_Model'])
-    day = ptData['day']
-    cause = ptData['Stroke Mechanism']
-
-    output = template.render(subject_id=subject_id,
-                             inspire_id=ptData['subject'],
-                             dice=round(ptData['dice'], 4),
-                             folder=outdir + 'images',
-                             treatment=treat,
-                             make=make,
-                             thickness=thickness,
-                             small=small,
-                             day=day,
-                             cause=cause
-                             )
-    # populate template
-
-    # save html file
-
-    with open(os.path.join(savefolder, subject_id + '.html'), 'w') as f:
-        f.write(output)
-
-
-def make_dict(root, string):
-    images = sorted(
-        glob.glob(os.path.join(root, string, 'images', '*.nii.gz'))
-    )
-    labels = sorted(
-        glob.glob(os.path.join(root, string, 'masks', '*.nii.gz'))
-    )
-    return [
-        {"image": image_name, "label": label_name}
-        for image_name, label_name in zip(images, labels)
-    ]
-
+from inference import *
+from monai.transforms import SplitDimd
 def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
-
 
     # test on external data
     test_transforms = Compose(
         [
             LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys="image"),
-            Resized(keys="image",
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['b1000', 'adc']),
+            Resized(keys=["image", "image_b1000", "image_adc"],
                     mode='trilinear',
                     align_corners=True,
                     spatial_size=(128, 128, 128)),
-            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            EnsureTyped(keys=["image", "label"]),
+            NormalizeIntensityd(keys="image_b1000", nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image_b1000", "label"]),
             # SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
         ]
     )
@@ -278,17 +55,9 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
     dice_metric = DiceMetric(include_background=False, reduction="mean")
     loader = LoadImage(image_only=False)
     device = 'cpu' if not torch.cuda.is_available() else 'cuda'
-    model = AttentionUnet(
-        spatial_dims=3,
-        in_channels=2,
-        out_channels=2,
-        channels=(32, 64, 128, 256),
-        strides=(2, 2, 2)
-    ).to(device)
-
     model = UNet(
         spatial_dims=3,
-        in_channels=2,
+        in_channels=1,
         out_channels=2,
         channels=(32, 64, 128, 256),
         strides=(2, 2, 2),
@@ -306,7 +75,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
 
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
-            test_inputs = test_data["image"].to(device)
+            test_inputs = test_data["image_b1000"].to(device)
 
             roi_size = (64, 64, 64)
             sw_batch_size = 2
@@ -315,7 +84,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
 
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
-            test_output, test_label, test_image = from_engine(["pred", "label", "image"])(test_data)
+            test_output, test_label, test_image = from_engine(["pred", "label", "image_b1000"])(test_data)
 
             a = dice_metric(y_pred=test_output, y=test_label)
 

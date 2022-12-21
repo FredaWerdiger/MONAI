@@ -1,39 +1,13 @@
-import os
-import sys
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-import tempfile
-import glob
-from monai.networks.nets import UNet
-from monai.inferers import sliding_window_inference
-from monai.data import Dataset, DataLoader, decollate_batch
-from monai.handlers.utils import from_engine
-from monai.networks.layers import Norm
-from monai.transforms import (
-    AsDiscreted,
-    Compose,
-    Invertd,
-    LoadImage,
-    LoadImaged,
-    CropForegroundd,
-    NormalizeIntensityd,
-    ScaleIntensityRangePercentilesd,
-    EnsureChannelFirstd,
-    EnsureTyped,
-    Resized,
-    SaveImaged
-)
-import pandas as pd
-import torch
-from monai_fns import *
-from inference import create_mrlesion_img, define_dvalues
+from inference import *
+import sys
+from monai.transforms import SplitDimd
 
 def main(directory, model_file):
 
     test_files = BuildDataset(directory, "no_seg").no_seg_dict
-    # remove this file for now which doesn't load ###RESOLVED
-    # remove = 'image_INSP_CN020302'
-    # test_files = [name for name in test_files if remove not in name["image"]]
+    # running on scans from CN13 site
+    test_files = [name for name in test_files if 'CN13' in name["image"]]
 
     # replace with path
     out_dir = directory + "no_seg/masks"
@@ -48,20 +22,21 @@ def main(directory, model_file):
         [
             LoadImaged(keys="image"),
             EnsureChannelFirstd(keys="image"),
-            Resized(keys="image",
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['b1000', 'adc']),
+            Resized(keys=["image", "image_b1000", "image_adc"],
                     mode='trilinear',
                     align_corners=True,
                     spatial_size=(128, 128, 128)),
-            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            EnsureTyped(keys="image"),
-            SaveImaged(keys="image",
+            NormalizeIntensityd(keys="image_b1000", nonzero=True, channel_wise=True),
+            EnsureTyped(keys="image_b1000"),
+            SaveImaged(keys="image_b1000",
                        output_dir=trans_dir,
                        output_postfix="transform",
                        resample=False,
                        separate_folder=False)
         ]
     )
-
 
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
@@ -73,7 +48,7 @@ def main(directory, model_file):
         Invertd(
             keys="pred",
             transform=test_transforms,
-            orig_keys="image",
+            orig_keys="image_b1000",
             meta_keys="pred_meta_dict",
             orig_meta_keys="image_meta_dict",
             meta_key_postfix="meta_dict",
@@ -91,7 +66,7 @@ def main(directory, model_file):
     device = torch.device("cuda:0")
     model = UNet(
         spatial_dims=3,
-        in_channels=2,
+        in_channels=1,
         out_channels=2,
         channels=(32, 64, 128, 256),
         strides=(2, 2, 2),
@@ -106,7 +81,7 @@ def main(directory, model_file):
 
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
-            test_inputs = test_data["image"].to(device)
+            test_inputs = test_data["image_b1000"].to(device)
             roi_size = (64, 64, 64)
             sw_batch_size = 4
             test_data["pred"] = sliding_window_inference(
@@ -126,7 +101,7 @@ def main(directory, model_file):
             original_image = original_image[:, :, :, 0]
             prediction = test_output[0][0].detach().numpy()
 
-            save_loc = directory + "no_seg/pred_images/" + name + "_pred.png"
+            # save_loc = directory + "no_seg/pred_images/" + name + "_pred.png"
 
             # create_mrlesion_img(
             #     original_image,
