@@ -90,6 +90,9 @@ class BuildDataset():
         labels = sorted(
             glob.glob(os.path.join(directory, string, 'masks', '*.nii.gz'))
         )
+        nccts = sorted(
+            glob.glob(os.path.join(directory, string, 'ncct', '*.nii.gz'))
+        )
         self.images_dict = [
             {"image": image_name, "label": label_name}
             for image_name, label_name in zip(images, labels)
@@ -97,5 +100,10 @@ class BuildDataset():
         self.no_seg_dict = [
             {"image": image_name} for image_name in images
                             ]
+        self.ncct_dict = [
+            {"image": image_name, "ncct":ncct_name, "label": label_name}
+            for image_name, ncct_name, label_name in zip(images, nccts, labels)
+        ]
+
 
 
