@@ -169,6 +169,7 @@ class U_NetCT(nn.Module):
 
         self.Up2 = up_conv(ch_in=32, ch_out=16)
         self.Up_conv2 = conv_block(ch_in=32, ch_out=16)
+        self.Up4 = nn.Upsample(scale_factor=4)
 
         self.Conv_1x1_1 = nn.Conv3d(32, 16, kernel_size=1, stride=1, padding=0)
         self.Conv_1x1_2 = nn.Conv3d(16, output_ch, kernel_size=1, stride=1, padding=0)
@@ -209,10 +210,9 @@ class U_NetCT(nn.Module):
         d2 = self.Up_conv2(d2)
         # add the features from the ncct
         y1 = self.ConvCT(y) # 8 features now
-        print(y1.shape)
         z = self.Maxpool4(y)
         z1 = self.ConvCT(z) # 8 features now
-        print(z1.shape)
+        z1 = self.Up4(z1)
         c1 = torch.cat((d2, y1, z1), dim=1) # 32
         c2 = self.Conv_1x1_1(c1) # 16 filters
         c3 = self.Conv_1x1_2(c2) # classfication
