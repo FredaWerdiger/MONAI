@@ -96,10 +96,10 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 200
+    max_epochs = 400
     image_size = (128, 128, 128)
     patch_size = None
-    batch_size = 2
+    batch_size = 1
     val_interval = 2
     out_tag = 'unet_simple_ncct_threshold'
     if not os.path.exists(directory + 'out_' + out_tag):
@@ -107,8 +107,8 @@ def main():
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').ncct_dict[:1]
-    val_files = BuildDataset(directory, 'validation').ncct_dict[:1]
+    train_files = BuildDataset(directory, 'train').ncct_dict
+    val_files = BuildDataset(directory, 'validation').ncct_dict
 
     transform_dir = os.path.join(directory, 'train', 'ncct_trans')
     if not os.path.exists(transform_dir):
@@ -346,3 +346,4 @@ if __name__ == "__main__":
     # set when using c10d's default "env"
     # initialization mode.
     main()
+
