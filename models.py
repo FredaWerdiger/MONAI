@@ -175,9 +175,8 @@ class U_NetCT(nn.Module):
         self.Conv_1x1_2 = nn.Conv3d(16, output_ch, kernel_size=1, stride=1, padding=0)
 
 
-    def forward(self, x):
+    def forward(self, x, y):
         # encoding path
-        x, y = x # splitting off image from ncct
         x1 = self.Conv1(x)
 
         x2 = self.Maxpool(x1)
