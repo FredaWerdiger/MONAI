@@ -173,12 +173,14 @@ def main():
     train_dataset = CacheDataset(
         data=train_files,
         transform=train_transforms,
-        cache_rate=1.0)
+        cache_rate=1.0,
+        num_workers=8)
 
     val_dataset = CacheDataset(
         data=val_files,
         transform=val_transforms,
-        cache_rate=1.0)
+        cache_rate=1.0,
+        num_workers=8)
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
