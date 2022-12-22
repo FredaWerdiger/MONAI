@@ -21,6 +21,7 @@ from monai.transforms import (
     EnsureType,
     EnsureTyped,
     Invertd,
+    GaussianSmoothd,
     LoadImage,
     LoadImaged,
     NormalizeIntensityd,
@@ -31,7 +32,10 @@ from monai.transforms import (
     RandShiftIntensityd,
     RepeatChannelD,
     Resized,
-    SaveImaged
+    SaveImaged,
+    ScaleIntensityd,
+    ThresholdIntensityd,
+    SplitDimd,
 )
 
 import pandas as pd
@@ -50,6 +54,16 @@ import torch.nn.functional as f
 from torch.optim import Adam
 from recursive_data import get_semi_dataset
 from models import U_Net, U_NetCT
+from monai.utils import (
+    BlendMode,
+    PytorchPadMode,
+    convert_data_type,
+    convert_to_dst_type,
+    ensure_tuple,
+    fall_back_tuple,
+    look_up_option,
+    optional_import,
+)
 
 
 def main():
@@ -87,15 +101,30 @@ def main():
     patch_size = None
     batch_size = 2
     val_interval = 2
-    vis_interval = 100
-    out_tag = 'unet_simple_ncct_multiscale'
+    out_tag = 'unet_simple_ncct_threshold'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').ncct_dict
-    val_files = BuildDataset(directory, 'validation').ncct_dict
+    train_files = BuildDataset(directory, 'train').ncct_dict[:1]
+    val_files = BuildDataset(directory, 'validation').ncct_dict[:1]
+
+    transform_dir = os.path.join(directory, 'train', 'ncct_trans')
+    if not os.path.exists(transform_dir):
+        os.makedirs(transform_dir)
+
+    atrophy_transforms = [
+        ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+        ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+        GaussianSmoothd(keys="ncct", sigma=1),
+        NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
+        SaveImaged(keys="ncct",
+                   output_dir=transform_dir,
+                   meta_keys="ncct_meta_dict",
+                   output_postfix="transform",
+                   resample=False,
+                   separate_folder=False)]
 
     train_transforms = Compose(
         [
@@ -105,7 +134,16 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
+            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+            GaussianSmoothd(keys="ncct", sigma=1),
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
+            SaveImaged(keys="ncct",
+                       output_dir=transform_dir,
+                       meta_keys="ncct_meta_dict",
+                       output_postfix="transform",
+                       resample=False,
+                       separate_folder=False),
             RandAffined(keys=['image', "ncct", 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "ncct", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "ncct", "label"], prob=0.5, spatial_axis=1),
@@ -124,6 +162,9 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
+            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+            GaussianSmoothd(keys="ncct", sigma=1),
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "ncct", "label"]),
         ]
@@ -154,7 +195,7 @@ def main():
 
     model = U_NetCT(img_ch=4,output_ch=2)
 
-    model = torch.nn.DataParallel(model)
+    # model = torch.nn.DataParallel(model)
     model.to(device)
 
     loss_function = DiceLoss(smooth_dr=1e-5,
@@ -211,15 +252,27 @@ def main():
             print("Evaluating...")
             with torch.no_grad():
                 for val_data in val_loader:
-                    val_inputs, val_labels = (
+                    val_inputs, val_nccts, val_labels = (
                         val_data["image"].to(device),
+                        val_data["ncct"].to(device),
                         val_data["label"].to(device),
                     )
                     # unsure how to optimize this
                     roi_size = image_size
                     sw_batch_size = 1
+                    args = [val_nccts]
                     val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model)
+                        val_inputs, roi_size, sw_batch_size, model,
+                        0.25,
+                        BlendMode.CONSTANT,
+                        0.125,
+                        PytorchPadMode.CONSTANT,
+                        0.0,
+                        None,
+                        None,
+                        False,
+                        None,
+                        *args)
 
                     # compute metric for current iteration
                     # dice_metric_torch_macro(val_outputs, val_labels.long())
