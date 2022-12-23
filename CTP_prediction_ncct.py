@@ -261,7 +261,7 @@ def main():
                     )
                     # unsure how to optimize this
                     roi_size = (128, 128, 128)
-                    sw_batch_size = 2
+                    sw_batch_size = batch_size
                     args = [val_nccts]
                     val_outputs = sliding_window_inference(
                         val_inputs, roi_size, sw_batch_size, model,
