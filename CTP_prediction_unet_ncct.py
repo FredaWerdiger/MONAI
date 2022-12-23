@@ -96,7 +96,7 @@ def main():
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').ncct_dict[:2]
+    train_files = BuildDataset(directory, 'train').ncct_dict
     val_files = BuildDataset(directory, 'validation').ncct_dict
 
     transform_dir = os.path.join(directory, 'train', 'ncct_trans')
