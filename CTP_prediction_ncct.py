@@ -110,7 +110,7 @@ def main():
     train_files = BuildDataset(directory, 'train').ncct_dict
     val_files = BuildDataset(directory, 'validation').ncct_dict
 
-    transform_dir = os.path.join(directory, 'train', 'ncct_trans')
+    transform_dir = os.path.join(directory, 'out_' + out_tag, 'ncct_trans')
     if not os.path.exists(transform_dir):
         os.makedirs(transform_dir)
 
