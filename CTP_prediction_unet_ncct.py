@@ -155,8 +155,9 @@ def main():
             ThresholdIntensityd(keys="ncct", threshold=40, above=False),
             ThresholdIntensityd(keys="ncct", threshold=0, above=True),
             GaussianSmoothd(keys="ncct", sigma=1),
-            NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
-            EnsureTyped(keys=["image", "ncct", "label"]),
+            ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
+            NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image", "label"]),
         ]
     )
 
