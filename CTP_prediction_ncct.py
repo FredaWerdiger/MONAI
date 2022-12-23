@@ -99,7 +99,7 @@ def main():
     max_epochs = 400
     image_size = (128, 128, 128)
     patch_size = None
-    batch_size = 1
+    batch_size = 2
     val_interval = 2
     out_tag = 'unet_simple_ncct_threshold'
     if not os.path.exists(directory + 'out_' + out_tag):
@@ -260,8 +260,8 @@ def main():
                         val_data["label"].to(device),
                     )
                     # unsure how to optimize this
-                    roi_size = image_size
-                    sw_batch_size = 1
+                    roi_size = (128, 128, 128)
+                    sw_batch_size = 2
                     args = [val_nccts]
                     val_outputs = sliding_window_inference(
                         val_inputs, roi_size, sw_batch_size, model,
