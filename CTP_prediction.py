@@ -200,17 +200,17 @@ def main():
 
     device = 'cuda'
     channels = (16, 32, 64)
-    # model = UNet(
-    #     spatial_dims=3,
-    #     in_channels=4,
-    #     out_channels=2,
-    #     channels=channels,
-    #     strides=(2, 2),
-    #     num_res_units=2,
-    #     norm=Norm.BATCH
-    # )
+    model = UNet(
+        spatial_dims=3,
+        in_channels=4,
+        out_channels=2,
+        channels=channels,
+        strides=(2, 2),
+        num_res_units=2,
+        norm=Norm.BATCH
+    )
     #
-    model = U_Net(img_ch=4,output_ch=2)
+    # model = U_Net(img_ch=4,output_ch=2)
 
     model = torch.nn.DataParallel(model)
     model.to(device)
