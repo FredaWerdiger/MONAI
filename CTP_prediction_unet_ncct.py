@@ -85,12 +85,12 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 800
+    max_epochs = 400
     image_size = (128, 128, 128)
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'unet_5_channel_atrophy'
+    out_tag = 'unet_5_channel_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -99,7 +99,7 @@ def main():
     train_files = BuildDataset(directory, 'train').ncct_dict
     val_files = BuildDataset(directory, 'validation').ncct_dict
 
-    transform_dir = os.path.join(directory, 'train', 'features')
+    transform_dir = os.path.join(directory, 'train', 'ncct_trans')
     if not os.path.exists(transform_dir):
         os.makedirs(transform_dir)
 
@@ -123,10 +123,9 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
-            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            GaussianSmoothd(keys="ncct", sigma=1),
-            NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
+            # ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            # ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+            # GaussianSmoothd(keys="ncct", sigma=1),
             # SaveImaged(keys="ncct",
             #            output_dir=transform_dir,
             #            meta_keys="ncct_meta_dict",
@@ -134,6 +133,7 @@ def main():
             #            resample=False,
             #            separate_folder=False),
             ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
+            NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
@@ -152,9 +152,9 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
-            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            GaussianSmoothd(keys="ncct", sigma=1),
+            # ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            # ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+            # GaussianSmoothd(keys="ncct", sigma=1),
             ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
@@ -182,20 +182,20 @@ def main():
                             batch_size=batch_size,
                             pin_memory=True)
 
-    # sanity check to see everything is there
+    # # sanity check to see everything is there
     # s = 50
-    # data_example = train_dataset[1]
+    # data_example = val_dataset[1]
     # print(f"image shape: {data_example['image'].shape}")
     # plt.figure("image", (18, 4))
     # for i in range(5):
     #     plt.subplot(1, 6, i + 1)
     #     plt.title(f"image channel {i}")
-    #     plt.imshow(data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
+    #     plt.imshow(data_example["image"][i, :, :, s].detach().cpu(), cmap="jet")
     # # also visualize the 3 channels label corresponding to this image
     # print(f"label shape: {data_example['label'].shape}")
     # plt.subplot(1, 6, 6)
     # plt.title("label")
-    # plt.imshow(data_example["label"][0, :, :, s].detach().cpu())
+    # plt.imshow(data_example["label"][0, :, :, s].detach().cpu(), cmap="jet")
     # plt.show()
     # plt.close()
     device = 'cuda'
