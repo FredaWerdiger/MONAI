@@ -56,13 +56,7 @@ from recursive_data import get_semi_dataset
 from models import U_Net, U_NetCT
 from monai.utils import (
     BlendMode,
-    PytorchPadMode,
-    convert_data_type,
-    convert_to_dst_type,
-    ensure_tuple,
-    fall_back_tuple,
-    look_up_option,
-    optional_import,
+    PytorchPadMode
 )
 
 
@@ -191,6 +185,24 @@ def main():
                             batch_size=batch_size,
                             pin_memory=True)
 
+    # # sanity check to see everything is there
+    # s = 50
+    # data_example = train_dataset[1]
+    # print(f"image shape: {data_example['image'].shape}")
+    # plt.figure("image", (18, 4))
+    # for i in range(4):
+    #     plt.subplot(1, 6, i + 1)
+    #     plt.title(f"image channel {i}")
+    #     plt.imshow(data_example["image"][i, :, :, s].detach().cpu(), cmap="jet")
+    # plt.subplot(1, 6, 5)
+    # plt.imshow(data_example["ncct"][0,:, :, s].detach().cpu(), cmap="jet")
+    # plt.title("ncct")
+    # print(f"label shape: {data_example['label'].shape}")
+    # plt.subplot(1, 6, 6)
+    # plt.title("label")
+    # plt.imshow(data_example["label"][0, :, :, s].detach().cpu(), cmap="jet")
+    # plt.show()
+    # plt.close()
 
     device = 'cuda'
     channels = (16, 32, 64)
@@ -211,7 +223,7 @@ def main():
                      weight_decay=1e-5)
 
     dice_metric = DiceMetric(include_background=False, reduction='mean')
-    dice_metric_train = dice_metric
+    dice_metric_train = DiceMetric(include_background=False, reduction='mean')
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
 
