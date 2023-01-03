@@ -134,12 +134,6 @@ def main():
             #            resample=False,
             #            separate_folder=False),
             ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
-            SaveImaged(keys="image",
-                       output_dir=transform_dir,
-                       meta_keys="ncct_meta_dict",
-                       output_postfix="concat",
-                       resample=False,
-                       separate_folder=False),
             RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
@@ -188,8 +182,23 @@ def main():
                             batch_size=batch_size,
                             pin_memory=True)
 
-
-    device = 'cuda'
+    # sanity check to see everything is there
+    # s = 50
+    # data_example = train_dataset[1]
+    # print(f"image shape: {data_example['image'].shape}")
+    # plt.figure("image", (18, 4))
+    # for i in range(5):
+    #     plt.subplot(1, 6, i + 1)
+    #     plt.title(f"image channel {i}")
+    #     plt.imshow(data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
+    # # also visualize the 3 channels label corresponding to this image
+    # print(f"label shape: {data_example['label'].shape}")
+    # plt.subplot(1, 6, 6)
+    # plt.title("label")
+    # plt.imshow(data_example["label"][0, :, :, s].detach().cpu())
+    # plt.show()
+    # plt.close()
+    # device = 'cuda'
     channels = (16, 32, 64)
 
     model = UNet(
