@@ -198,7 +198,7 @@ def main():
     # plt.imshow(data_example["label"][0, :, :, s].detach().cpu())
     # plt.show()
     # plt.close()
-    # device = 'cuda'
+    device = 'cuda'
     channels = (16, 32, 64)
 
     model = UNet(
