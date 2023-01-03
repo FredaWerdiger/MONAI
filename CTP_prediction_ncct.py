@@ -96,7 +96,7 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 400
+    max_epochs = 300
     image_size = (128, 128, 128)
     patch_size = None
     batch_size = 2
@@ -138,12 +138,12 @@ def main():
             ThresholdIntensityd(keys="ncct", threshold=0, above=True),
             GaussianSmoothd(keys="ncct", sigma=1),
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
-            SaveImaged(keys="ncct",
-                       output_dir=transform_dir,
-                       meta_keys="ncct_meta_dict",
-                       output_postfix="transform",
-                       resample=False,
-                       separate_folder=False),
+            # SaveImaged(keys="ncct",
+            #            output_dir=transform_dir,
+            #            meta_keys="ncct_meta_dict",
+            #            output_postfix="transform",
+            #            resample=False,
+            #            separate_folder=False),
             RandAffined(keys=['image', "ncct", 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "ncct", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "ncct", "label"], prob=0.5, spatial_axis=1),
@@ -211,12 +211,13 @@ def main():
                      weight_decay=1e-5)
 
     dice_metric = DiceMetric(include_background=False, reduction='mean')
-
+    dice_metric_train = dice_metric
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
 
     epoch_loss_values = []
     dice_metric_values = []
+    dice_metric_values_train = []
     best_metric = -1
     best_metric_epoch = -1
 
@@ -282,10 +283,42 @@ def main():
                     val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     dice_metric(val_outputs, val_labels)
+                for val_data in train_loader:
+                    val_inputs, val_nccts, val_labels = (
+                        val_data["image"].to(device),
+                        val_data["ncct"].to(device),
+                        val_data["label"].to(device),
+                    )
+                    # unsure how to optimize this
+                    roi_size = (128, 128, 128)
+                    sw_batch_size = batch_size
+                    args = [val_nccts]
+                    val_outputs = sliding_window_inference(
+                        val_inputs, roi_size, sw_batch_size, model,
+                        0.25,
+                        BlendMode.CONSTANT,
+                        0.125,
+                        PytorchPadMode.CONSTANT,
+                        0.0,
+                        None,
+                        None,
+                        False,
+                        None,
+                        *args)
+
+                    # compute metric for current iteration
+                    # dice_metric_torch_macro(val_outputs, val_labels.long())
+                    # now to for the MONAI dice metric
+                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    dice_metric_train(val_outputs, val_labels)
 
                 mean_dice = dice_metric.aggregate().item()
                 dice_metric.reset()
                 dice_metric_values.append(mean_dice)
+                mean_dice_train = dice_metric_train.aggregate().item()
+                dice_metric_train.reset()
+                dice_metric_values_train.append(mean_dice_train)
 
                 if mean_dice > best_metric:
                     best_metric = mean_dice
@@ -335,7 +368,10 @@ def main():
     x = [val_interval * (i + 1) for i in range(len(dice_metric_values))]
     y = dice_metric_values
     plt.xlabel("epoch")
-    plt.plot(x, y, 'b', label="Dice")
+    plt.plot(x, y, 'b', label="Validation Dice")
+    y = dice_metric_values_train
+    plt.plot(x, y, 'k', label="Train Dice")
+    plt.legend(loc="upper right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
