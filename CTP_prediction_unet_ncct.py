@@ -85,12 +85,12 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 400
+    max_epochs = 800
     image_size = (128, 128, 128)
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'unet_5_channel_raw_ncct'
+    out_tag = 'unet_5_channel_atrophy'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -123,10 +123,10 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
-            # ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-            # ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            # GaussianSmoothd(keys="ncct", sigma=1),
-            # NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
+            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+            GaussianSmoothd(keys="ncct", sigma=1),
+            NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
             # SaveImaged(keys="ncct",
             #            output_dir=transform_dir,
             #            meta_keys="ncct_meta_dict",
