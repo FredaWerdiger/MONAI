@@ -1,4 +1,5 @@
-import os
+import sys
+
 from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
@@ -55,7 +56,7 @@ import torch.nn.functional as f
 from torch.optim import Adam
 
 
-def main():
+def main(atrophy=True):
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
@@ -90,7 +91,6 @@ def main():
     patch_size = None
     batch_size = 2
     val_interval = 2
-    atrophy = True
     out_tag = 'unet_5_channel'
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
 
@@ -307,7 +307,7 @@ def main():
 
                 mean_dice_train = dice_metric_train.aggregate().item()
                 dice_metric_train.reset()
-                dice_metric_values_train.append(mean_dice)
+                dice_metric_values_train.append(mean_dice_train)
 
                 if mean_dice > best_metric:
                     best_metric = mean_dice
@@ -336,9 +336,9 @@ def main():
         myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
         myfile.write("Atrophy filter used? ")
         if atrophy:
-            myfile.write("yes")
+            myfile.write("yes\n")
         else:
-            myfile.write("no")
+            myfile.write("no\n")
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -375,5 +375,6 @@ if __name__ == "__main__":
     # Environment variables which need to be
     # set when using c10d's default "env"
     # initialization mode.
-    main()
+    args = sys.argv[1:]
+    main(*args)
 
