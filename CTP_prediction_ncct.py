@@ -3,7 +3,7 @@ from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
 from monai.data import CacheDataset, DataLoader, decollate_batch
-from monai.losses import DiceLoss
+from monai.losses import DiceLoss, DiceCELoss
 from monai.inferers import sliding_window_inference
 from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
@@ -96,7 +96,7 @@ def main():
     batch_size = 2
     val_interval = 2
     atrophy = True
-    out_tag = 'unet_simple'
+    out_tag = 'unet_simple_DiceCE'
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
@@ -202,19 +202,27 @@ def main():
     device = 'cuda'
     channels = (16, 32, 64)
 
-    model = U_NetCT(img_ch=4,output_ch=2)
+    model = U_NetCT(img_ch=4, output_ch=2)
 
     # model = torch.nn.DataParallel(model)
     model.to(device)
 
-    loss_function = DiceLoss(smooth_dr=1e-5,
-                             smooth_nr=0,
-                             to_onehot_y=True,
-                             softmax=True,
-                             include_background=False)
+    # loss_function = DiceLoss(smooth_dr=1e-5,
+    #                          smooth_nr=0,
+    #                          to_onehot_y=True,
+    #                          softmax=True,
+    #                          include_background=False)
+    loss_function = DiceCELoss(smooth_dr=1e-5,
+                               smooth_nr=0,
+                               to_onehot_y=True,
+                               softmax=True,
+                               include_background=False,
+                               squared_pred=True,
+                               lambda_dice=1,
+                               lambda_ce=1)
 
     optimizer = Adam(model.parameters(),
-                     1e-4,
+                     1e-3,
                      weight_decay=1e-5)
 
     dice_metric = DiceMetric(include_background=False, reduction='mean')
