@@ -370,19 +370,19 @@ def main():
     # plot things
     plt.figure("train", (12, 6))
     plt.subplot(1, 2, 1)
-    plt.title("Epoch Average Loss")
+    plt.title("Average Loss per Epoch")
     x = [i + 1 for i in range(len(epoch_loss_values))]
     y = epoch_loss_values
     plt.xlabel("epoch")
     plt.plot(x, y)
     plt.subplot(1, 2, 2)
-    plt.title("Val Mean Dice")
+    plt.title("Mean Dice (Accuracy)")
     x = [val_interval * (i + 1) for i in range(len(dice_metric_values))]
     y = dice_metric_values
     plt.xlabel("epoch")
-    plt.plot(x, y, 'b', label="Validation Dice")
+    plt.plot(x, y, 'b', label="Dice on training data")
     y = dice_metric_values_train
-    plt.plot(x, y, 'k', label="Train Dice")
+    plt.plot(x, y, 'k', label="Dice of validation data")
     plt.legend(loc="center right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
