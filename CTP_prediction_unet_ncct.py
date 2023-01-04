@@ -85,12 +85,15 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 400
+    max_epochs = 800
     image_size = (128, 128, 128)
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'unet_5_channel_raw_ncct'
+    atrophy = False
+    out_tag = 'unet_5_channel'
+    out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
+
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -103,17 +106,13 @@ def main():
     if not os.path.exists(transform_dir):
         os.makedirs(transform_dir)
 
-    atrophy_transforms = [
-        ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-        ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-        GaussianSmoothd(keys="ncct", sigma=1),
-        NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
-        SaveImaged(keys="ncct",
-                   output_dir=transform_dir,
-                   meta_keys="ncct_meta_dict",
-                   output_postfix="transform",
-                   resample=False,
-                   separate_folder=False)]
+    if atrophy:
+        atrophy_transforms = [
+            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+            GaussianSmoothd(keys="ncct", sigma=1)]
+    else:
+        atrophy_transforms = []
 
     train_transforms = Compose(
         [
@@ -123,9 +122,7 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
-            # ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-            # ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            # GaussianSmoothd(keys="ncct", sigma=1),
+            *atrophy_transforms,
             # SaveImaged(keys="ncct",
             #            output_dir=transform_dir,
             #            meta_keys="ncct_meta_dict",
@@ -152,9 +149,7 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
-            # ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-            # ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            # GaussianSmoothd(keys="ncct", sigma=1),
+            *atrophy_transforms,
             ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
@@ -198,6 +193,7 @@ def main():
     # plt.imshow(data_example["label"][0, :, :, s].detach().cpu(), cmap="jet")
     # plt.show()
     # plt.close()
+
     device = 'cuda'
     channels = (16, 32, 64)
 
@@ -225,12 +221,14 @@ def main():
                      weight_decay=1e-5)
 
     dice_metric = DiceMetric(include_background=False, reduction='mean')
+    dice_metric_train = DiceMetric(include_background=False, reduction='mean')
 
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
 
     epoch_loss_values = []
     dice_metric_values = []
+    dice_metric_values_train = []
     best_metric = -1
     best_metric_epoch = -1
 
@@ -288,6 +286,29 @@ def main():
                 dice_metric.reset()
                 dice_metric_values.append(mean_dice)
 
+                # repeating the process for training data to check for overfitting
+                for val_data in train_loader:
+                    val_inputs, val_labels = (
+                        val_data["image"].to(device),
+                        val_data["label"].to(device),
+                    )
+                    # unsure how to optimize this
+                    roi_size = image_size
+                    sw_batch_size = 2
+                    val_outputs = sliding_window_inference(
+                        val_inputs, roi_size, sw_batch_size, model)
+
+                    # compute metric for current iteration
+                    # dice_metric_torch_macro(val_outputs, val_labels.long())
+                    # now to for the MONAI dice metric
+                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    dice_metric_train(val_outputs, val_labels)
+
+                mean_dice_train = dice_metric_train.aggregate().item()
+                dice_metric_train.reset()
+                dice_metric_values_train.append(mean_dice)
+
                 if mean_dice > best_metric:
                     best_metric = mean_dice
                     best_metric_epoch = epoch + 1
@@ -313,6 +334,11 @@ def main():
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
+        myfile.write("Atrophy filter used? ")
+        if atrophy:
+            myfile.write("yes")
+        else:
+            myfile.write("no")
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -326,17 +352,20 @@ def main():
     # plot things
     plt.figure("train", (12, 6))
     plt.subplot(1, 2, 1)
-    plt.title("Epoch Average Loss")
+    plt.title("Average Loss per Epoch")
     x = [i + 1 for i in range(len(epoch_loss_values))]
     y = epoch_loss_values
     plt.xlabel("epoch")
     plt.plot(x, y)
     plt.subplot(1, 2, 2)
-    plt.title("Val Mean Dice")
+    plt.title("Mean Dice (Accuracy)")
     x = [val_interval * (i + 1) for i in range(len(dice_metric_values))]
     y = dice_metric_values
     plt.xlabel("epoch")
-    plt.plot(x, y, 'b', label="Dice")
+    plt.plot(x, y, 'b', label="Dice on validation data")
+    y = dice_metric_values_train
+    plt.plot(x, y, 'k', label="Dice on training data")
+    plt.legend(loc="center right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
