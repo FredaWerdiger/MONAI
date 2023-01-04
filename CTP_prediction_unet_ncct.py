@@ -90,7 +90,7 @@ def main():
     patch_size = None
     batch_size = 2
     val_interval = 2
-    atrophy = False
+    atrophy = True
     out_tag = 'unet_5_channel'
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
 
