@@ -90,12 +90,14 @@ def main():
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 300
+    max_epochs = 400
     image_size = (128, 128, 128)
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'unet_simple_ncct_threshold'
+    atrophy = True
+    out_tag = 'unet_simple'
+    out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -107,19 +109,19 @@ def main():
     transform_dir = os.path.join(directory, 'out_' + out_tag, 'ncct_trans')
     if not os.path.exists(transform_dir):
         os.makedirs(transform_dir)
-
-    atrophy_transforms = [
-        ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-        ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-        GaussianSmoothd(keys="ncct", sigma=1),
-        NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
-        SaveImaged(keys="ncct",
-                   output_dir=transform_dir,
-                   meta_keys="ncct_meta_dict",
-                   output_postfix="transform",
-                   resample=False,
-                   separate_folder=False)]
-
+    if atrophy:
+        atrophy_transforms = [
+            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+            GaussianSmoothd(keys="ncct", sigma=1)]
+            # SaveImaged(keys="ncct",
+            #            output_dir=transform_dir,
+            #            meta_keys="ncct_meta_dict",
+            #            output_postfix="transform",
+            #            resample=False,
+            #            separate_folder=False)]
+    else:
+        atrophy_transforms = []
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "ncct", "label"]),
@@ -128,16 +130,8 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
-            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            GaussianSmoothd(keys="ncct", sigma=1),
+            *atrophy_transforms,
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
-            # SaveImaged(keys="ncct",
-            #            output_dir=transform_dir,
-            #            meta_keys="ncct_meta_dict",
-            #            output_postfix="transform",
-            #            resample=False,
-            #            separate_folder=False),
             RandAffined(keys=['image', "ncct", 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "ncct", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "ncct", "label"], prob=0.5, spatial_axis=1),
@@ -156,9 +150,7 @@ def main():
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
-            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
-            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            GaussianSmoothd(keys="ncct", sigma=1),
+            *atrophy_transforms,
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "ncct", "label"]),
         ]
@@ -187,19 +179,22 @@ def main():
 
     # # sanity check to see everything is there
     # s = 50
-    # data_example = train_dataset[1]
+    # data_example = val_dataset[1]
     # print(f"image shape: {data_example['image'].shape}")
     # plt.figure("image", (18, 4))
     # for i in range(4):
     #     plt.subplot(1, 6, i + 1)
     #     plt.title(f"image channel {i}")
     #     plt.imshow(data_example["image"][i, :, :, s].detach().cpu(), cmap="jet")
+    #     plt.axis('off')
     # plt.subplot(1, 6, 5)
     # plt.imshow(data_example["ncct"][0,:, :, s].detach().cpu(), cmap="jet")
     # plt.title("ncct")
+    # plt.axis('off')
     # print(f"label shape: {data_example['label'].shape}")
     # plt.subplot(1, 6, 6)
     # plt.title("label")
+    # plt.axis('off')
     # plt.imshow(data_example["label"][0, :, :, s].detach().cpu(), cmap="jet")
     # plt.show()
     # plt.close()
@@ -357,6 +352,11 @@ def main():
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
+        myfile.write("Atrophy filter used? ")
+        if atrophy:
+            myfile.write("yes")
+        else:
+            myfile.write("no")
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -383,7 +383,7 @@ def main():
     plt.plot(x, y, 'b', label="Validation Dice")
     y = dice_metric_values_train
     plt.plot(x, y, 'k', label="Train Dice")
-    plt.legend(loc="upper right")
+    plt.legend(loc="center right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
