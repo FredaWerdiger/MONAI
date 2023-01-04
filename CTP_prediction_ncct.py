@@ -380,9 +380,9 @@ def main():
     x = [val_interval * (i + 1) for i in range(len(dice_metric_values))]
     y = dice_metric_values
     plt.xlabel("epoch")
-    plt.plot(x, y, 'b', label="Dice on training data")
+    plt.plot(x, y, 'b', label="Dice on validation data")
     y = dice_metric_values_train
-    plt.plot(x, y, 'k', label="Dice of validation data")
+    plt.plot(x, y, 'k', label="Dice of train data")
     plt.legend(loc="center right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
