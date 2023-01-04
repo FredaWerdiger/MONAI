@@ -382,7 +382,7 @@ def main():
     plt.xlabel("epoch")
     plt.plot(x, y, 'b', label="Dice on validation data")
     y = dice_metric_values_train
-    plt.plot(x, y, 'k', label="Dice of train data")
+    plt.plot(x, y, 'k', label="Dice on training data")
     plt.legend(loc="center right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
