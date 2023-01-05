@@ -71,13 +71,13 @@ class conv_block_final(nn.Module):
     def __init__(self, ch_in, ch_out, output_ch):
         super(conv_block_final, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv3d(ch_in, ch_out, kernel_size=1, stride=1, padding=1, bias=True),
+            nn.Conv3d(ch_in, ch_out, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm3d(ch_out),
             nn.ReLU(inplace=True),
-            nn.Conv3d(ch_out, ch_out, kernel_size=1, stride=1, padding=1, bias=True),
+            nn.Conv3d(ch_out, ch_out, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm3d(ch_out),
             nn.ReLU(inplace=True),
-            nn.Conv3d(ch_out, output_ch, kernel_size=1, stride=1, padding=1, bias=True)
+            nn.Conv3d(ch_out, output_ch, kernel_size=1, stride=1, padding=0, bias=True)
         )
 
     def forward(self, x):
@@ -88,10 +88,10 @@ class conv_block_final_double(nn.Module):
     def __init__(self, ch_in, ch_out, output_ch):
         super(conv_block_final_double, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv3d(ch_in, ch_out, kernel_size=1, stride=1, padding=1, bias=True),
+            nn.Conv3d(ch_in, ch_out, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm3d(ch_out),
             nn.ReLU(inplace=True),
-            nn.Conv3d(ch_out, output_ch, kernel_size=1, stride=1, padding=1, bias=True),
+            nn.Conv3d(ch_out, output_ch, kernel_size=1, stride=1, padding=0, bias=True),
         )
 
     def forward(self, x):
@@ -272,13 +272,10 @@ class CTPNet(nn.Module):
     def __init__(self, img_ch=4, output_ch=1):
         super(CTPNet, self).__init__()
 
-        self.Maxpool2 = nn.MaxPool3d(kernel_size=2, stride=2)
         self.Maxpool4 = nn.MaxPool3d(kernel_size=4, stride=4)
 
-        self.Conv1 = conv_block3(ch_in=img_ch, ch_out=48)
-        self.Conv2 = conv_block(ch_in=16, ch_out=32)
-        self.Conv3 = conv_block(ch_in=32, ch_out=64)
-        self.ConvCT = conv_block(ch_in=1, ch_out=8)
+        self.Conv1 = conv_block3(ch_in=img_ch, ch_out=64)
+
         # self.Conv4 = conv_block(ch_in=256, ch_out=512)
         # self.Conv5 = conv_block(ch_in=512, ch_out=1024)
 
@@ -295,7 +292,7 @@ class CTPNet(nn.Module):
         self.Up_conv2 = conv_block(ch_in=32, ch_out=16)
         self.Up4 = nn.Upsample(scale_factor=4)
 
-        self.Conv_1x1_1 = nn.Conv3d(32, 16, kernel_size=1, stride=1, padding=0)
+        self.Conv_final3 = nn.Conv3d(64, 16, kernel_size=1, stride=1, padding=0)
         self.Conv_1x1_2 = nn.Conv3d(16, output_ch, kernel_size=1, stride=1, padding=0)
 
 
