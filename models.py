@@ -263,7 +263,7 @@ class U_NetCT(nn.Module):
         z1 = self.ConvCT(z) # 8 features now
         z1 = self.Up4(z1)
         c1 = torch.cat((d2, y1, z1), dim=1) # 32
-        c2 = self.Conv_1x1_1(c1) # 16 filters
+        c2 = self.Conv_1x1(c1) # 16 filters
 
         return c2
 
