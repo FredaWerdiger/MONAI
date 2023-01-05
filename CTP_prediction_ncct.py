@@ -1,4 +1,6 @@
 import os
+import sys
+
 from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
@@ -60,7 +62,7 @@ from monai.utils import (
 )
 
 
-def main():
+def main(notes='', atrophy=True):
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
@@ -95,7 +97,6 @@ def main():
     patch_size = None
     batch_size = 2
     val_interval = 2
-    atrophy = True
     out_tag = 'unet_simple_DiceCE'
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
@@ -106,9 +107,9 @@ def main():
     train_files = BuildDataset(directory, 'train').ncct_dict
     val_files = BuildDataset(directory, 'validation').ncct_dict
 
-    transform_dir = os.path.join(directory, 'out_' + out_tag, 'ncct_trans')
-    if not os.path.exists(transform_dir):
-        os.makedirs(transform_dir)
+    # transform_dir = os.path.join(directory, 'out_' + out_tag, 'ncct_trans')
+    # if not os.path.exists(transform_dir):
+    #     os.makedirs(transform_dir)
     if atrophy:
         atrophy_transforms = [
             ThresholdIntensityd(keys="ncct", threshold=40, above=False),
@@ -362,9 +363,9 @@ def main():
         myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
         myfile.write("Atrophy filter used? ")
         if atrophy:
-            myfile.write("yes")
+            myfile.write("yes\n")
         else:
-            myfile.write("no")
+            myfile.write("no\n")
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -374,6 +375,7 @@ def main():
         myfile.write(f"Best metric: {best_metric:.4f}\n")
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
         myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
+        myfile.write(notes)
 
     # plot things
     plt.figure("train", (12, 6))
@@ -401,5 +403,6 @@ if __name__ == "__main__":
     # Environment variables which need to be
     # set when using c10d's default "env"
     # initialization mode.
-    main()
+    # usage: python CTP_prediction_unet_ncct.py add_notes do_atrophy_filter_or_not
+    main(*sys.argv[1:])
 
