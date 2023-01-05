@@ -269,77 +269,33 @@ class U_NetCT(nn.Module):
 
 
 class CTPNet(nn.Module):
-    def __init__(self, img_ch=4, output_ch=1):
+    def __init__(self, img_ch=4, output_ch=2):
         super(CTPNet, self).__init__()
 
         self.Maxpool4 = nn.MaxPool3d(kernel_size=4, stride=4)
-
         self.Conv1 = conv_block3(ch_in=img_ch, ch_out=64)
-
-        # self.Conv4 = conv_block(ch_in=256, ch_out=512)
-        # self.Conv5 = conv_block(ch_in=512, ch_out=1024)
-
-        # self.Up5 = up_conv(ch_in=1024, ch_out=512)
-        # self.Up_conv5 = conv_block(ch_in=1024, ch_out=512)
-        #
-        # self.Up4 = up_conv(ch_in=512, ch_out=256)
-        # self.Up_conv4 = conv_block(ch_in=512, ch_out=256)
-
-        self.Up3 = up_conv(ch_in=64, ch_out=32)
-        self.Up_conv3 = conv_block(ch_in=64, ch_out=32)
-
-        self.Up2 = up_conv(ch_in=32, ch_out=16)
-        self.Up_conv2 = conv_block(ch_in=32, ch_out=16)
+        self.Conv2 = conv_block3(ch_in=1, ch_out=64)
         self.Up4 = nn.Upsample(scale_factor=4)
-
-        self.Conv_final3 = nn.Conv3d(64, 16, kernel_size=1, stride=1, padding=0)
-        self.Conv_1x1_2 = nn.Conv3d(16, output_ch, kernel_size=1, stride=1, padding=0)
-
-
+        self.Conv_final = conv_block_final(ch_in=256, ch_out=150, output_ch=output_ch)
 
     def forward(self, x, y):
-        # encoding path
-        x1 = self.Conv1(x)
+        # regular resolution ctp
+        x_1 = self.Conv1(x) # 64 features
+        # downsampled ctp
+        x1 = self.Maxpool4(x)
+        x1_1 = self.Conv1(x1) # 64 features
+        x1_2 = self.Up4(x1_1) # 64 features
+        # regular resolution ncct
+        y_1 = self.Conv2(y)
+        # downsampled ncct
+        y1 = self.Maxpool4(y)
+        y1_1 = self.Conv2(y1)
+        y1_2 = self.Up4(y1_1)
+        # concatenate
+        c1 = torch.cat((x_1, x1_2, y_1, y1_2), dim=1) # 256 filters
+        c2 = self.Conv_final(c1)
 
-        x2 = self.Maxpool(x1)
-        x2 = self.Conv2(x2)
-
-        x3 = self.Maxpool(x2)
-        x3 = self.Conv3(x3)
-
-        # x4 = self.Maxpool(x3)
-        # x4 = self.Conv4(x4)
-        #
-        # x5 = self.Maxpool(x4)
-        # x5 = self.Conv5(x5)
-
-        # decoding + concat path
-        # d5 = self.Up5(x5)
-        # d5 = torch.cat((x4, d5), dim=1)
-        #
-        # d5 = self.Up_conv5(d5)
-        #
-        # d4 = self.Up4(d5)
-        # d4 = torch.cat((x3, d4), dim=1)
-        # d4 = self.Up_conv4(d4)
-
-        d3 = self.Up3(x3)
-        d3 = torch.cat((x2, d3), dim=1)
-        d3 = self.Up_conv3(d3)
-
-        d2 = self.Up2(d3)
-        d2 = torch.cat((x1, d2), dim=1)
-        d2 = self.Up_conv2(d2)
-        # add the features from the ncct
-        y1 = self.ConvCT(y) # 8 features now
-        z = self.Maxpool4(y)
-        z1 = self.ConvCT(z) # 8 features now
-        z1 = self.Up4(z1)
-        c1 = torch.cat((d2, y1, z1), dim=1) # 32
-        c2 = self.Conv_1x1_1(c1) # 16 filters
-        c3 = self.Conv_1x1_2(c2) # classfication
-
-        return c3
+        return c2
 
 
 
