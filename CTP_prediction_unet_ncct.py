@@ -56,7 +56,7 @@ import torch.nn.functional as f
 from torch.optim import Adam
 
 
-def main(atrophy=True):
+def main(notes='', atrophy=True):
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
@@ -348,6 +348,8 @@ def main(atrophy=True):
         myfile.write(f"Best metric: {best_metric:.4f}\n")
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
         myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
+        myfile.write(notes)
+
 
     # plot things
     plt.figure("train", (12, 6))
@@ -375,6 +377,5 @@ if __name__ == "__main__":
     # Environment variables which need to be
     # set when using c10d's default "env"
     # initialization mode.
-    args = sys.argv[1:]
-    main(*args)
+    main(*sys.argv[1:])
 
