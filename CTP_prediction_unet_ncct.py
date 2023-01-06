@@ -4,7 +4,7 @@ from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
 from monai.data import CacheDataset, DataLoader, decollate_batch
-from monai.losses import DiceLoss
+from monai.losses import DiceLoss, DiceCELoss
 from monai.inferers import sliding_window_inference
 from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
@@ -86,7 +86,7 @@ def main(notes='', atrophy=True):
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     # model parameters
-    max_epochs = 800
+    max_epochs = 400
     image_size = (128, 128, 128)
     patch_size = None
     batch_size = 2
@@ -215,6 +215,15 @@ def main(notes='', atrophy=True):
                              to_onehot_y=True,
                              softmax=True,
                              include_background=False)
+    loss_function = DiceCELoss(smooth_dr=1e-5,
+                               smooth_nr=0,
+                               to_onehot_y=True,
+                               softmax=True,
+                               include_background=False,
+                               squared_pred=True,
+                               lambda_dice=1,
+                               lambda_ce=1)
+
 
     optimizer = Adam(model.parameters(),
                      1e-4,
@@ -329,11 +338,16 @@ def main(notes='', atrophy=True):
     time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
     time_taken_hours = int(time_taken_hours)
 
-    with open(directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '.txt', 'w') as myfile:
+    model_name = model._get_name()
+    loss_name = loss_function._get_name()
+    with open(
+            directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
+        myfile.write(f'Model: {model_name}\n')
+        myfile.write(f'Loss function: {loss_name}\n')
         myfile.write("Atrophy filter used? ")
         if atrophy:
             myfile.write("yes\n")

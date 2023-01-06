@@ -356,11 +356,16 @@ def main(notes='', atrophy=True):
     time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
     time_taken_hours = int(time_taken_hours)
 
-    with open(directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '.txt', 'w') as myfile:
+    model_name = model._get_name()
+    loss_name = loss_function._get_name()
+
+    with open(directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
+        myfile.write(f'Model: {model_name}\n')
+        myfile.write(f'Loss function: {loss_name}\n')
         myfile.write("Atrophy filter used? ")
         if atrophy:
             myfile.write("yes\n")
