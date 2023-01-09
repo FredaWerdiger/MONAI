@@ -97,7 +97,7 @@ def main(notes='', atrophy=True):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'ctp_net'
+    out_tag = 'ctp_net_new_threshold'
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
@@ -106,23 +106,24 @@ def main(notes='', atrophy=True):
 
     train_files = BuildDataset(directory, 'train').ncct_dict
     val_files = BuildDataset(directory, 'validation').ncct_dict
+    test_files = BuildDataset(directory, 'test').no_seg_ncct_dict
 
-    # transform_dir = os.path.join(directory, 'out_' + out_tag, 'ncct_trans')
-    # if not os.path.exists(transform_dir):
-    #     os.makedirs(transform_dir)
+    def transform_dir(string):
+        transform_dir = os.path.join(directory, string, 'ncct_trans')
+        if not os.path.exists(transform_dir):
+            os.makedirs(transform_dir)
+        return transform_dir
+
     if atrophy:
         atrophy_transforms = [
-            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=15, above=False),
             ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            GaussianSmoothd(keys="ncct", sigma=1)]
-            # SaveImaged(keys="ncct",
-            #            output_dir=transform_dir,
-            #            meta_keys="ncct_meta_dict",
-            #            output_postfix="transform",
-            #            resample=False,
-            #            separate_folder=False)]
+            GaussianSmoothd(keys="ncct", sigma=1)
+            ]
     else:
         atrophy_transforms = []
+
+
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "ncct", "label"]),
@@ -132,6 +133,12 @@ def main(notes='', atrophy=True):
                     align_corners=[True, True, None],
                     spatial_size=image_size),
             *atrophy_transforms,
+            SaveImaged(keys="ncct",
+                       output_dir=transform_dir('train'),
+                       meta_keys="ncct_meta_dict",
+                       output_postfix="transform",
+                       resample=False,
+                       separate_folder=False),
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
             RandAffined(keys=['image', "ncct", 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "ncct", "label"], prob=0.5, spatial_axis=0),
@@ -152,8 +159,34 @@ def main(notes='', atrophy=True):
                     align_corners=[True, True, None],
                     spatial_size=image_size),
             *atrophy_transforms,
+            SaveImaged(keys="ncct",
+                       output_dir=transform_dir('validation'),
+                       meta_keys="ncct_meta_dict",
+                       output_postfix="transform",
+                       resample=False,
+                       separate_folder=False),
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "ncct", "label"]),
+        ]
+    )
+
+    test_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "ncct"]),
+            EnsureChannelFirstd(keys=["image", "ncct"]),
+            Resized(keys=["image", "ncct"],
+                    mode=['trilinear', 'trilinear'],
+                    align_corners=[True, True],
+                    spatial_size=image_size),
+            *atrophy_transforms,
+            SaveImaged(keys="ncct",
+                       output_dir=transform_dir('test'),
+                       meta_keys="ncct_meta_dict",
+                       output_postfix="transform",
+                       resample=False,
+                       separate_folder=False),
+            NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image", "ncct"]),
         ]
     )
 
@@ -168,6 +201,13 @@ def main(notes='', atrophy=True):
         transform=val_transforms,
         cache_rate=1.0,
         num_workers=8)
+
+    test_dataset = CacheDataset(
+        data=test_files,
+        transform=test_transforms,
+        cache_rate=1.0,
+        num_workers=8
+    )
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
@@ -399,7 +439,7 @@ def main(notes='', atrophy=True):
     y = dice_metric_values_train
     plt.plot(x, y, 'k', label="Dice on training data")
     plt.legend(loc="center right")
-    plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
+    plt.savefig(os.path.join(directory + 'out_' + out_tag, str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 

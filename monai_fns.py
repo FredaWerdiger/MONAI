@@ -98,7 +98,13 @@ class BuildDataset():
             for image_name, label_name in zip(images, labels)
         ]
         self.no_seg_dict = [
-            {"image": image_name} for image_name in images
+            {"image": image_name}
+            for image_name in images
+                            ]
+
+        self.no_seg_ncct_dict = [
+            {"image": image_name, "ncct": ncct_name}
+            for image_name, ncct_name in zip(images, nccts)
                             ]
         self.ncct_dict = [
             {"image": image_name, "ncct":ncct_name, "label": label_name}
