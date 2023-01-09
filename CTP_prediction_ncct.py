@@ -172,9 +172,9 @@ def main(notes='', atrophy=True):
 
     test_transforms = Compose(
         [
-            LoadImaged(keys=["image", "ncct", "label"]),
-            EnsureChannelFirstd(keys=["image", "ncct", "label"]),
-            Resized(keys=["image", "ncct", "label"],
+            LoadImaged(keys=["image", "ncct"]),
+            EnsureChannelFirstd(keys=["image", "ncct"]),
+            Resized(keys=["image", "ncct"],
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
                     spatial_size=image_size),
@@ -186,7 +186,7 @@ def main(notes='', atrophy=True):
                        resample=False,
                        separate_folder=False),
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
-            EnsureTyped(keys=["image", "ncct", "label"]),
+            EnsureTyped(keys=["image", "ncct"]),
         ]
     )
 
