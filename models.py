@@ -298,6 +298,28 @@ class CTPNet(nn.Module):
         return c2
 
 
+class multiresCTP(nn.Module):
+    def __init__(self, img_ch=4, output_ch=2):
+        super(multiresCTP, self).__init__()
+
+        self.Maxpool4 = nn.MaxPool3d(kernel_size=4, stride=4)
+        self.Conv1 = conv_block3(ch_in=img_ch, ch_out=64)
+        self.Conv2 = conv_block3(ch_in=1, ch_out=64)
+        self.Up4 = nn.Upsample(scale_factor=4)
+        self.Conv_final = conv_block_final(ch_in=256, ch_out=150, output_ch=output_ch)
+
+    def forward(self, x):
+        # regular resolution ctp
+        x_1 = self.Conv1(x) # 64 features
+        # downsampled ctp
+        x1 = self.Maxpool4(x)
+        x1_1 = self.Conv1(x1) # 64 features
+        x1_2 = self.Up4(x1_1) # 64 features
+        # concatenate
+        c1 = torch.cat((x_1, x1_2), dim=1) # 256 filters
+        c2 = self.Conv_final(c1)
+
+        return c2
 
 class U_Net(nn.Module):
     def __init__(self, img_ch=4, output_ch=1):
