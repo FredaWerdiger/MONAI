@@ -104,7 +104,7 @@ def main(notes='', atrophy=True):
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').ncct_dict
+    train_files = BuildDataset(directory, 'train').ncct_dict[:1]
     val_files = BuildDataset(directory, 'validation').ncct_dict
     test_files = BuildDataset(directory, 'test').no_seg_ncct_dict
 
@@ -117,7 +117,7 @@ def main(notes='', atrophy=True):
     if atrophy:
         atrophy_transforms = [
             ThresholdIntensityd(keys="ncct", threshold=15, above=False),
-            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
+            # ThresholdIntensityd(keys="ncct", threshold=0, above=True),
             GaussianSmoothd(keys="ncct", sigma=1)
             ]
     else:
