@@ -116,7 +116,7 @@ def main(notes='', atrophy=True):
 
     if atrophy:
         atrophy_transforms = [
-            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=30, above=False),
             ThresholdIntensityd(keys="ncct", threshold=0, above=True),
             GaussianSmoothd(keys="ncct", sigma=1)
             ]
