@@ -104,7 +104,7 @@ def main(notes='', atrophy=True):
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').ncct_dict[:1]
+    train_files = BuildDataset(directory, 'train').ncct_dict
     val_files = BuildDataset(directory, 'validation').ncct_dict
     test_files = BuildDataset(directory, 'test').no_seg_ncct_dict
 
