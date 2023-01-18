@@ -383,7 +383,8 @@ def main(notes='', atrophy=True):
     y = dice_metric_values_train
     plt.plot(x, y, 'k', label="Dice on training data")
     plt.legend(loc="center right")
-    plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
+    plt.savefig(os.path.join(directory + 'out_' + out_tag,
+                             'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
