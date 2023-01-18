@@ -370,6 +370,7 @@ def main():
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
         myfile.write(f'Model: {model._get_name()}\n')
+        myfile.write(f'Loss Function {loss_function._get_name()}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -394,7 +395,9 @@ def main():
     y = dice_metric_values
     plt.xlabel("epoch")
     plt.plot(x, y, 'b', label="Dice")
-    plt.savefig(os.path.join(directory + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
+    name = model._get_name() + '_' + loss_function._get_name()
+    plt.savefig(os.path.join(directory + 'out_' + out_tag,
+                             'loss_plot_' +  name + '.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
