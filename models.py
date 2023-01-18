@@ -306,7 +306,7 @@ class multiresCTP(nn.Module):
         self.Conv1 = conv_block3(ch_in=img_ch, ch_out=64)
         self.Conv2 = conv_block3(ch_in=1, ch_out=64)
         self.Up4 = nn.Upsample(scale_factor=4)
-        self.Conv_final = conv_block_final(ch_in=256, ch_out=150, output_ch=output_ch)
+        self.Conv_final = conv_block_final(ch_in=128, ch_out=150, output_ch=output_ch)
 
     def forward(self, x):
         # regular resolution ctp
@@ -316,7 +316,7 @@ class multiresCTP(nn.Module):
         x1_1 = self.Conv1(x1) # 64 features
         x1_2 = self.Up4(x1_1) # 64 features
         # concatenate
-        c1 = torch.cat((x_1, x1_2), dim=1) # 256 filters
+        c1 = torch.cat((x_1, x1_2), dim=1) # 128 filters
         c2 = self.Conv_final(c1)
 
         return c2
