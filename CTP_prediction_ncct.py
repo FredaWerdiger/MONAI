@@ -97,7 +97,7 @@ def main(notes='', atrophy=True):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'unet_simple_DiceCE'
+    out_tag = 'ctp_net_3_arms'
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
@@ -439,8 +439,10 @@ def main(notes='', atrophy=True):
     y = dice_metric_values_train
     plt.plot(x, y, 'k', label="Dice on training data")
     plt.legend(loc="center right")
-    plt.savefig(os.path.join(directory + 'out_' + out_tag, 'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.png'),
-                bbox_inches='tight', dpi=300, format='png')
+    plt.savefig(
+        os.path.join(directory + 'out_' + out_tag,
+                     'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.png'),
+        bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
 
