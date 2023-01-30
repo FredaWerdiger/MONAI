@@ -74,7 +74,7 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_recursive_from_scratch"
+    out_tag = "unet_recursive"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -114,7 +114,7 @@ def main():
             EnsureChannelFirstd(keys=["image", "label"]),
             Resized(keys=["image", "label"],
                     mode=['trilinear', "nearest"],
-                    align_corners=[True, True, True, None],
+                    align_corners=[True, None],
                     spatial_size=image_size),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
@@ -226,7 +226,7 @@ def main():
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     # load existing model
-    # model.load_state_dict(torch.load(existing_model))
+    model.load_state_dict(torch.load(existing_model))
 
     for epoch in range(max_epochs):
         print("-" * 10)
