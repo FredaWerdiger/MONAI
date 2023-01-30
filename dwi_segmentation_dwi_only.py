@@ -1,6 +1,7 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
 import os
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import math
 import tempfile
@@ -49,8 +50,6 @@ import os
 from recursive_data import get_semi_dataset
 
 
-
-
 def make_dict(root, string):
     images = sorted(
         glob.glob(os.path.join(root, string, 'images', '*.nii.gz'))
@@ -64,11 +63,9 @@ def make_dict(root, string):
     ]
 
 
-
 def main():
-
     directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
-    existing_model = directory + 'out_final_no_cropping/best_metric_model600.pth'
+    # existing_model = directory + 'out_final_no_cropping/best_metric_model600.pth'
 
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
@@ -92,19 +89,21 @@ def main():
         [
             LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys=["image", "label"]),
-            Resized(keys=["image", "label"],
-                    mode=['trilinear', "nearest"],
-                    align_corners=[True, None],
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['b1000', 'adc']),
+            Resized(keys=["image", "image_b1000", "image_adc", "label"],
+                    mode=['trilinear', 'trilinear', 'trilinear', "nearest"],
+                    align_corners=[True, True, True, None],
                     spatial_size=image_size),
-            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            RandScaleIntensityd(keys=["image"], factors=0.1, prob=1.0),
-            RandShiftIntensityd(keys=["image"], offsets=0.1, prob=1.0),
+            NormalizeIntensityd(keys="image_b1000", nonzero=True, channel_wise=True),
+            RandAffined(keys=['image_b1000', 'label'], prob=0.5, translate_range=10),
+            RandFlipd(keys=["image_b1000", "label"], prob=0.5, spatial_axis=0),
+            RandFlipd(keys=["image_b1000", "label"], prob=0.5, spatial_axis=1),
+            RandFlipd(keys=["image_b1000", "label"], prob=0.5, spatial_axis=2),
+            RandScaleIntensityd(keys=["image_b1000"], factors=0.1, prob=1.0),
+            RandShiftIntensityd(keys=["image_b1000"], offsets=0.1, prob=1.0),
             # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
-            EnsureTyped(keys=["image", "label"]),
+            EnsureTyped(keys=["image_b1000", "label"]),
         ]
     )
 
@@ -112,12 +111,14 @@ def main():
         [
             LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys=["image", "label"]),
-            Resized(keys=["image", "label"],
-                    mode=['trilinear', "nearest"],
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['b1000', 'adc']),
+            Resized(keys=["image", "image_b1000", "image_adc", "label"],
+                    mode=['trilinear', 'trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, True, None],
                     spatial_size=image_size),
-            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            EnsureTyped(keys=["image", "label"]),
+            NormalizeIntensityd(keys="image_b1000", nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image_b1000", "label"]),
         ]
     )
 
@@ -129,6 +130,10 @@ def main():
         num_workers=4
     )
 
+    def my_collate(batch):
+        data = [item["image_b1000"] for item in batch]
+        target = [item["label"] for item in batch]
+        return data, target
 
     train_loader = DataLoader(train_ds,
                               batch_size=batch_size,
@@ -169,7 +174,7 @@ def main():
 
     model = UNet(
         spatial_dims=3,
-        in_channels=2,
+        in_channels=1,
         out_channels=2,
         channels=(32, 64, 128, 256),
         strides=(2, 2, 2),
@@ -225,8 +230,6 @@ def main():
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
-    # load existing model
-    model.load_state_dict(torch.load(existing_model))
 
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -237,7 +240,7 @@ def main():
         for batch_data in train_loader:
             step += 1
             inputs, labels = (
-                batch_data["image"].to(rank),
+                batch_data["image_b1000"].to(rank),
                 batch_data["label"].to(rank),
             )
             optimizer.zero_grad()
@@ -261,7 +264,7 @@ def main():
             with torch.no_grad():
                 for val_data in val_loader:
                     val_inputs, val_labels = (
-                        val_data["image"].to(rank),
+                        val_data["image_b1000"].to(rank),
                         val_data["label"].to(rank),
                     )
                     # unsure how to optimize this
@@ -296,8 +299,8 @@ def main():
     end = time.time()
     time_taken = end - start
     print(f"Time taken: {round(time_taken, 0)} seconds")
-    time_taken_hours = time_taken/3600
-    time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
+    time_taken_hours = time_taken / 3600
+    time_taken_mins = np.ceil((time_taken / 3600 - int(time_taken / 3600)) * 60)
     time_taken_hours = int(time_taken_hours)
 
     model_name = model._get_name()
@@ -316,7 +319,8 @@ def main():
     y = metric_values
     plt.xlabel("epoch")
     plt.plot(x, y)
-    plt.savefig(os.path.join(root_dir + 'out_' + out_tag, str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_plot_loss.png'),
+    plt.savefig(os.path.join(root_dir + 'out_' + out_tag,
+                             str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
     # compare dice with f1
@@ -332,9 +336,9 @@ def main():
     #             bbox_inches='tight', dpi=300, format='png')
     # plt.close()
 
-
     # save model results in a separate file
-    with open(root_dir + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
+    with open(root_dir + 'out_' + out_tag + '/model_info_' + str(
+            max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
         myfile.write('Train dataset size:\n')
         myfile.write(f'Manual segmentations: {len(train_files)}\n')
         myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
@@ -562,6 +566,7 @@ def main():
     #
     #     for sub in results_join['id']:
     #         create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
+
 
 if __name__ == "__main__":
     # Environment variables which need to be

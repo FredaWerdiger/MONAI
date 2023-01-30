@@ -7,7 +7,7 @@ def main(directory, model_file):
 
     test_files = BuildDataset(directory, "no_seg").no_seg_dict
     # running on scans from CN13 site
-    test_files = [name for name in test_files if 'CN13' in name["image"]]
+    test_files = [name for name in test_files if 'CN16' in name["image"]]
 
     # replace with path
     out_dir = directory + "no_seg/masks"
