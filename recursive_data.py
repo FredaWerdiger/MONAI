@@ -12,7 +12,7 @@ def get_semi_dataset():
         semi_data = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/no_seg'
 
     masks_semi = [file for file in os.listdir(os.path.join(semi_data, 'masks_semi'))
-                 if 'exclude' not in file]
+                 if ('exclude' not in file and 'funny' not in file)]
     masks_semi.sort()
 
     subjects_semi = ['INSP_' + file.split('_')[2] for file in masks_semi]

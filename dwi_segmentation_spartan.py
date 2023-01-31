@@ -68,13 +68,13 @@ def make_dict(root, string):
 def main():
 
     directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
-    existing_model = directory + 'out_final_no_cropping/best_metric_model600.pth'
+    existing_model = directory + 'out_unet_recursive/best_metric_model600.pth'
 
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_recursive_from_scratch"
+    out_tag = "unet_recursive_round_2"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -85,7 +85,7 @@ def main():
 
     set_determinism(seed=42)
 
-    max_epochs = 600
+    max_epochs = 300
     batch_size = 2
     image_size = (128, 128, 128)
     train_transforms = Compose(
@@ -226,7 +226,7 @@ def main():
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     # load existing model
-    # model.load_state_dict(torch.load(existing_model))
+    model.load_state_dict(torch.load(existing_model))
 
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -246,10 +246,10 @@ def main():
             loss.backward()
             epoch_loss += loss.item()
             optimizer.step()
-            # commenting out print function
-            print(
-                f"{step}/{len(train_ds) // train_loader.batch_size}, "
-                f"train_loss: {loss.item():.4f}")
+            # # commenting out print function
+            # print(
+            #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
+            #     f"train_loss: {loss.item():.4f}")
         lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
