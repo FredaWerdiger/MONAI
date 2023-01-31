@@ -74,7 +74,7 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_recursive_round_2"
+    out_tag = "unet_recursive_from_scratch_round_2"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -226,7 +226,7 @@ def main():
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     # load existing model
-    model.load_state_dict(torch.load(existing_model))
+    # model.load_state_dict(torch.load(existing_model))
 
     for epoch in range(max_epochs):
         print("-" * 10)
