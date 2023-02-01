@@ -1,5 +1,7 @@
 import os
 import math
+import pathlib
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -436,18 +438,26 @@ if __name__ == '__main__':
             '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id'
         )
+        windows = False
+    elif os.path.exists('Z:'):
+        directory = 'Z:/data_freda/ctp_project/DWI_Training_Data/'
+        ctp_df = pd.read_csv(
+            HOMEDIR + 'PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            index_col='dl_id')
+        windows = True
     elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/DWI_Training_Data/'
         ctp_df = pd.read_csv(
             '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id'
         )
+        windows = False
     elif os.path.exists('D:'):
         directory = 'D:/ctp_project_data/DWI_Training_Data/'
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_unet_recursive_from_scratch_dwi_only/best_metric_model600.pth'
-    out_tag = 'unet_recursive_from_scratch_dwi_only'
+    model_path = directory + 'out_final_no_cropping/best_metric_model600.pth'
+    out_tag = 'final_no_cropping'
     main(directory, ctp_df, model_path, out_tag)

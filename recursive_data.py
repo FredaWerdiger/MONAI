@@ -8,6 +8,8 @@ def get_semi_dataset():
 
     if os.path.exists(mediaflux):
         semi_data = os.path.join(mediaflux, 'data_freda/ctp_project/CTP_DL_Data/no_seg')
+    elif os.path.exists('Z:/data_freda'):
+        semi_data = os.path.join('Z:', 'data_freda/ctp_project/CTP_DL_Data/no_seg')
     elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
         semi_data = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/no_seg'
 

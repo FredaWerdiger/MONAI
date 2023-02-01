@@ -74,7 +74,7 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_recursive_from_scratch_round_2"
+    out_tag = "unet_recursive_round_2"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -85,7 +85,7 @@ def main():
 
     set_determinism(seed=42)
 
-    max_epochs = 300
+    max_epochs = 600
     batch_size = 2
     image_size = (128, 128, 128)
     train_transforms = Compose(
@@ -226,7 +226,7 @@ def main():
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     # load existing model
-    # model.load_state_dict(torch.load(existing_model))
+    model.load_state_dict(torch.load(existing_model))
 
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -335,8 +335,7 @@ def main():
 
     # save model results in a separate file
     with open(root_dir + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
-        myfile.write('Train dataset size:\n')
-        myfile.write(f'Manual segmentations: {len(train_files)}\n')
+        myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Model: {model_name}\n')
