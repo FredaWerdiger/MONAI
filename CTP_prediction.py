@@ -57,6 +57,10 @@ def main():
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
+    elif os.path.exists('Z:/data_freda'):
+        directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+                                usecols=['subject', 'segmentation_type', 'dl_id'])
     elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv',
@@ -87,7 +91,7 @@ def main():
     batch_size = 2
     val_interval = 2
     vis_interval = 100
-    out_tag = 'multiresCTP_no_ncct'
+    out_tag = 'unet'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -209,7 +213,7 @@ def main():
         num_res_units=2,
         norm=Norm.BATCH
     )
-    model = multiresCTP(4, 2)
+    # model = multiresCTP(4, 2)
     #
     # model = U_Net(img_ch=4,output_ch=2)
 
