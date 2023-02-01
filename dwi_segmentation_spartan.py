@@ -1,6 +1,9 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
 import os
+
+import pandas as pd
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import math
 import tempfile
@@ -308,12 +311,18 @@ def main():
     plt.title("Epoch Average Loss")
     x = [i + 1 for i in range(len(epoch_loss_values))]
     y = epoch_loss_values
+    loss_values_df = pd.DataFrame(columns=["epoch", "average_loss"])
+    loss_values_df['average_loss'] = y
+    loss_values_df['epoch'] = x
     plt.xlabel("epoch")
     plt.plot(x, y)
     plt.subplot(1, 2, 2)
     plt.title("Val Mean Dice")
     x = [val_interval * (i + 1) for i in range(len(metric_values))]
     y = metric_values
+    dice_values_df = pd.DataFrame(columns=["epoch", "average_loss"])
+    dice_values_df['average_loss'] = y
+    dice_values_df['epoch'] = x
     plt.xlabel("epoch")
     plt.plot(x, y)
     plt.savefig(os.path.join(root_dir + 'out_' + out_tag, str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_plot_loss.png'),
@@ -332,6 +341,7 @@ def main():
     #             bbox_inches='tight', dpi=300, format='png')
     # plt.close()
 
+    # save epoch loss values
 
     # save model results in a separate file
     with open(root_dir + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
@@ -348,6 +358,12 @@ def main():
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
         myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
 
+    dice_values_df.to_csv(root_dir + 'out_' + out_tag + '/dice_values_' + str(
+        max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.csv',
+                          index=False)
+    loss_values_df.to_csv(root_dir + 'out_' + out_tag + '/loss_values_' + str(
+        max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.csv',
+                          index=False)
     # evaluate during training process
     # model.load_state_dict(torch.load(
     #     os.path.join(root_dir, model_name)))
