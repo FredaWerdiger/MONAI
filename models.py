@@ -204,7 +204,7 @@ class U_NetCT(nn.Module):
         self.Conv1 = conv_block(ch_in=img_ch, ch_out=16)
         self.Conv2 = conv_block(ch_in=16, ch_out=32)
         self.Conv3 = conv_block(ch_in=32, ch_out=64)
-        self.ConvCT = conv_block(ch_in=1, ch_out=8)
+        self.ConvCT = conv_block(ch_in=1, ch_out=64)
         # self.Conv4 = conv_block(ch_in=256, ch_out=512)
         # self.Conv5 = conv_block(ch_in=512, ch_out=1024)
 
@@ -221,7 +221,7 @@ class U_NetCT(nn.Module):
         self.Up_conv2 = conv_block(ch_in=32, ch_out=16)
         self.Up4 = nn.Upsample(scale_factor=4)
 
-        self.Conv_1x1 = conv_block_final_double(32, 16, output_ch)
+        self.Conv_1x1 = conv_block_final_double(144, 150, output_ch)
 
 
     def forward(self, x, y):
@@ -258,12 +258,12 @@ class U_NetCT(nn.Module):
         d2 = torch.cat((x1, d2), dim=1)
         d2 = self.Up_conv2(d2)
         # add the features from the ncct
-        y1 = self.ConvCT(y) # 8 features now
+        y1 = self.ConvCT(y) # 64 features now
         z = self.Maxpool4(y)
-        z1 = self.ConvCT(z) # 8 features now
+        z1 = self.ConvCT(z) # 64 features now
         z1 = self.Up4(z1)
-        c1 = torch.cat((d2, y1, z1), dim=1) # 32
-        c2 = self.Conv_1x1(c1) # 16 filters
+        c1 = torch.cat((d2, y1, z1), dim=1) # 144
+        c2 = self.Conv_1x1(c1) # 150 filters
 
         return c2
 
