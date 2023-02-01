@@ -97,7 +97,7 @@ def main(notes='', atrophy=True):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'ctp_net_3_arms'
+    out_tag = 'UNetCT'
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
