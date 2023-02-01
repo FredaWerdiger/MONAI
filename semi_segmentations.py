@@ -2,13 +2,14 @@ import os
 import pandas as pd
 import glob
 import SimpleITK as sitk
+from sklearn.metrics import f1_score
 
 
 HOMEDIR = os.path.expanduser('~/')
 mediaflux = HOMEDIR + 'mediaflux/'
 
 if not os.path.exists(mediaflux):
-    mediaflux = 'Z:/mediaflux/'
+    mediaflux = 'Z:/'
 
 directory = mediaflux + 'data_freda/ctp_project/CTP_DL_Data/'
 semi_masks = [file for file in glob.glob(directory + 'no_seg/masks_semi/*')
@@ -23,6 +24,7 @@ df = pd.DataFrame(columns=["subject",
                            "volume_pred",
                            "abs_diff",
                            "perc_diff",
+                           "dsc",
                            "overcall",
                            "undercall",
                            "blood",
@@ -72,16 +74,23 @@ for sub in subjects:
     df.loc[df.subject == sub, 'abs_diff'] = round(abs(diff), 1)
     df.loc[df.subject == sub, 'perc_diff'] = round(perc, 1)
 
+    # dice
+    array_semi = sitk.GetArrayFromImage(semi_mask).flatten()
+    array_mask = sitk.GetArrayFromImage(mask).flatten()
+    f1 = f1_score(array_mask, array_semi)
+    df.loc[df.subject == sub, 'dsc'] = round(f1, 3)
+
 df.sort_values(by='subject', inplace=True)
 
 df.to_csv('../study_design/study_lists/no_seg_stats.csv', index=False)
 
-keys = ["volume_gt", "volume_pred", "abs_diff", "perc_diff"]
+keys = ["volume_gt", "volume_pred", "abs_diff", "perc_diff", "dsc"]
 
 for key in keys:
     df[key] = df[key].apply(pd.to_numeric, errors='coerce')
 
 df_blood = pd.read_csv('../study_design/study_lists/no_seg_stats_with_blood.csv')
+
 
 import seaborn as sns
 
@@ -91,8 +100,9 @@ fig = plt.figure()
 ax = sns.scatterplot(
     x=df_blood.subject.to_list(),
     y=df_blood.abs_diff.to_list(),
-    hue=df_blood.blood.to_list(),
-    hue_order=["no blood", "any blood"])
-ax.set(ylim=(0, 100))
+    hue=df_blood.blood.to_list())
+plt.legend(["any blood", "no blood"])
+
+ax.set(ylabel="volume diff", ylim=(0, 100), xticks='')
 plt.show()
 
