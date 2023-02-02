@@ -16,6 +16,8 @@ from monai.networks.nets import AttentionUnet, UNet
 from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
 from monai.transforms import (
+    AsDiscrete,
+    AsDiscreted,
     Compose,
     EnsureChannelFirstd,
     EnsureTyped,
@@ -68,16 +70,19 @@ def define_zvalues(ct_img):
     return z
 
 def create_dwi_ctp_proba_image(dwi_ct_img,
+                               gt,
                                proba,
                                savefile,
                                z,
                                ext='png',
                                save=False,
                                dpi=250):
-    dwi_ct_img, proba = [np.rot90(im) for im in [dwi_ct_img, proba]]
-    dwi_ct_img, proba = [np.fliplr(im) for im in [dwi_ct_img, proba]]
+    dwi_ct_img, gt, proba = [np.rot90(im) for im in [dwi_ct_img, gt, proba]]
+    dwi_ct_img, gt, proba = [np.fliplr(im) for im in [dwi_ct_img, gt, proba]]
     proba_mask = proba == 0
     masked_dwi = np.ma.array(dwi_ct_img, mask=~proba_mask)
+    gt_mask = gt == 0
+    masked_dwi_gt = np.ma.array(dwi_ct_img, mask=~gt_mask)
 
     fig, axs = plt.subplots(6, 6, facecolor='k')
     fig.subplots_adjust(hspace=-0.1, wspace=-0.3)
@@ -89,6 +94,9 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
 
         axs[i].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                       interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+        axs[i].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
+        axs[i].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
+                      interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
         axs[i+6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                       interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
         axs[i+6].imshow(proba[:, :, z[i]], cmap='YlOrRd',
@@ -104,6 +112,9 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
         print(i)
         axs[i + 6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                       interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+        axs[i + 6].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
+        axs[i + 6].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
+                      interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
         axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                           interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
         im = axs[i + 12].imshow(proba[:, :, z[i]], cmap='YlOrRd',
@@ -120,6 +131,9 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
             print(i)
             axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                           interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+            axs[i + 12].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
+            axs[i + 12].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
+                   interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
             axs[i + 18].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                               interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
             axs[i + 18].imshow(proba[:, :, z[i]], cmap='YlOrRd',
@@ -137,7 +151,7 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
     plt.close()
 
 
-def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
+def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=True):
 
     prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
     if not os.path.exists(prob_dir):
@@ -146,9 +160,9 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
     png_dir = os.path.join(directory + 'out_' + out_tag, "proba_pngs")
     if not os.path.exists(png_dir):
         os.makedirs(png_dir)
-    cam_dir = os.path.join(directory + 'out_' + out_tag, "cam_pngs")
-    if not os.path.exists(cam_dir):
-        os.makedirs(cam_dir)
+    pred_dir = os.path.join(directory + 'out_' + out_tag, "pred")
+    if not os.path.exists(pred_dir):
+        os.makedirs(pred_dir)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # test on external data
@@ -159,31 +173,36 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
         channels=(16, 32, 64),
         strides=(2, 2),
         num_res_units=2,
-        norm=Norm.BATCH
+        norm=Norm.BATCH,
+        dropout=0.2
     ).to(device)
 
     test_transforms = Compose(
         [
-            LoadImaged(keys=["image"]),
+            LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys="image"),
             Resized(keys="image",
                     mode='trilinear',
                     align_corners=True,
                     spatial_size=(32, 32, 32)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            EnsureTyped(keys="image"),
+            EnsureTyped(keys=["image", "label"]),
         ]
     )
 
-    test_files = BuildDataset(directory, 'test').no_seg_dict
+
+    test_files = BuildDataset(directory, 'test').images_dict
 
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
 
     test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
 
+    dice_metric = DiceMetric(include_background=False, reduction="mean")
+
     post_transforms = Compose([
-        EnsureTyped(keys=["pred"]),
+        EnsureTyped(keys=["pred", "label"]),
+        EnsureChannelFirstd(keys="label"),
         Invertd(
             keys=["pred", "proba"],
             transform=test_transforms,
@@ -194,11 +213,20 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
             nearest_interp=[False, False],
             to_tensor=[True, True],
         ),
+        AsDiscreted(keys="label", to_onehot=2),
+        AsDiscreted(keys="pred", argmax=True, to_onehot=2),
         SaveImaged(
             keys="proba",
             meta_keys="pred_meta_dict",
             output_dir=prob_dir,
             output_postfix="proba",
+            resample=False,
+            separate_folder=False),
+        SaveImaged(
+            keys="pred",
+            meta_keys="pred_meta_dict",
+            output_dir=pred_dir,
+            output_postfix="seg",
             resample=False,
             separate_folder=False)
     ])
@@ -209,7 +237,20 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
         model.load_state_dict(torch.load(model_path))
 
     loader = LoadImage(image_only=True)
+    loader_meta = LoadImage(image_only=False)
     model.eval()
+
+    results = pd.DataFrame(columns=['id',
+                                    'dice',
+                                    'size',
+                                    'size_pred',
+                                    'px_x',
+                                    'px_y',
+                                    'px_z',
+                                    'size_ml',
+                                    'size_pred_ml'])
+    results['id'] = ['test_' + str(item).zfill(3) for item in range(len(test_loader))]
+
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
@@ -218,10 +259,31 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
             sw_batch_size = 2
             test_data["pred"] = sliding_window_inference(
                 test_inputs, roi_size, sw_batch_size, model)
+
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
             test_data["proba"] = prob
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
-            test_proba = from_engine(["proba"])(test_data)
+
+            test_output, test_label, test_image, test_proba = from_engine(
+                ["pred", "label", "image", "proba"])(test_data)
+
+            a = dice_metric(y_pred=test_output, y=test_label)
+            dice_score = round(a.item(), 4)
+            print(f"Dice score for image: {dice_score:.4f}")
+
+            original_image = loader_meta(test_data[0]["image_meta_dict"]["filename_or_obj"])
+            volx, voly, volz = original_image[1]['pixdim'][1:4]  # meta data
+            pixel_vol = volx * voly * volz
+
+            ground_truth = test_label[0][1].detach().numpy()
+            prediction = test_output[0][1].detach().numpy()
+
+            size = ground_truth.sum()
+            size_ml = size * pixel_vol / 1000
+
+            size_pred = prediction.sum()
+            size_pred_ml = size_pred * pixel_vol / 1000
+
             proba_image = test_proba[0][1].numpy()
             threshold = 0.01
             # mask the probability image
@@ -229,44 +291,83 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True):
 
             name = "test_" + os.path.basename(
                 test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
-            subject = ctp_df.loc[ctp_df.dl_id == name, "subject"].values[0]
+            subject = ctp_df.loc[[name], "subject"].values[0]
+            try:
+                dwi_img = [os.path.join(dwi_dir, img) for img in os.listdir(dwi_dir) if subject in img][0]
+            except IndexError:
+                if mediaflux is not None:
+                    dwi_img = glob.glob(mediaflux + 'INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/transform-DWI_followup/*__Warped.nii.gz')[0]
+                else:
+                    print("no_dwi_image")
 
-            dwi_img = [os.path.join(dwi_dir, img) for img in os.listdir(dwi_dir) if subject in img][0]
             dwi_img = loader(dwi_img)
             # spartan giving an error
             dwi_img = dwi_img.detach().numpy()
 
 
             save_loc = png_dir+ '/' + subject + '_proba.png'
-            create_dwi_ctp_proba_image(dwi_img, proba_image, save_loc,
+            create_dwi_ctp_proba_image(dwi_img, ground_truth, proba_image, save_loc,
                                        define_zvalues(dwi_img))
+            results.loc[results.id == name, 'size'] = size
+            results.loc[results.id == name, 'size_ml'] = size_ml
+            results.loc[results.id == name, 'size_pred'] = size_pred
+            results.loc[results.id == name, 'size_pred_ml'] = size_pred_ml
+            results.loc[results.id == name, 'px_x'] = volx
+            results.loc[results.id == name, 'px_y'] = voly
+            results.loc[results.id == name, 'px_z'] = volz
+            results.loc[results.id == name, 'dice'] = dice_score
 
-
+        # aggregate the final mean dice result
+        metric = dice_metric.aggregate().item()
+        # reset the status for next validation round
+        dice_metric.reset()
+    print(f"Mean dice on test set: {metric:.4f}")
+    results['mean_dice'] = metric
+    results_join = results.join(
+        ctp_df[~ctp_df.index.duplicated(keep='first')],
+        on='id',
+        how='left')
+    results_join.to_csv(directory + 'out_' + out_tag + '/results.csv', index=False)
 
 if __name__ == '__main__':
     HOMEDIR = os.path.expanduser("~/")
+    mediaflux = None
     if os.path.exists(HOMEDIR + 'mediaflux/'):
+        mediaflux= HOMEDIR + 'mediaflux/'
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
-            usecols=['subject', 'segmentation_type', 'dl_id'])
+            usecols=['subject', 'segmentation_type', 'dl_id'],
+        index_col='dl_id')
     elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/CTP_DL_Data/'
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
-            usecols=['subject', 'segmentation_type', 'dl_id'])
+            usecols=['subject', 'segmentation_type', 'dl_id'],
+        index_col='dl_id')
+    elif os.path.exists('Z:/data_freda'):
+        mediaflux = 'Z:/'
+        directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
+        ctp_df = pd.read_csv(
+            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+            usecols=['subject', 'segmentation_type', 'dl_id'],
+        index_col='dl_id')
     elif os.path.exists('D:'):
         directory = 'D:/ctp_project_data/CTP_DL_Data/'
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
-            usecols=['subject', 'segmentation_type', 'dl_id'])
+            usecols=['subject', 'segmentation_type', 'dl_id'],
+        index_col='dl_id')
     elif os.path.exists('/data/gpfs/projects/punim1086/'):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
         ctp_df = pd.read_csv(
             '/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv',
-            usecols=['subject', 'segmentation_type', 'dl_id'])
+            usecols=['subject', 'segmentation_type', 'dl_id'],
+        index_col='dl_id')
 
-    out_tag ='unet_ddp_no_patch'
-    model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model600.pth'
+    out_tag ='unet'
+    model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
+    # but all the test subjects are manual segmentations so this can be removed
+    # TODO: remove reference to no seg data
     dwi_dir = directory + 'no_seg/dwi_ctp/'
-    main(directory, ctp_df, model_path, out_tag, dwi_dir, ddp=True)
+    main(directory, ctp_df, model_path, out_tag, dwi_dir, mediaflux, ddp=False)
