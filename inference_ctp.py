@@ -178,6 +178,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
     ).to(device)
 
     model = U_Net(4, 2).to(device)
+    model = multiresCTP(4, 2).to(device)
 
     test_transforms = Compose(
         [
@@ -367,7 +368,7 @@ if __name__ == '__main__':
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
 
-    out_tag ='unet_simple'
+    out_tag ='multiresCTP_no_ncct'
     model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
     # but all the test subjects are manual segmentations so this can be removed
     # TODO: remove reference to no seg data
