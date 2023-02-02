@@ -173,8 +173,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         channels=(16, 32, 64),
         strides=(2, 2),
         num_res_units=2,
-        norm=Norm.BATCH,
-        dropout=0.2
+        norm=Norm.BATCH
     ).to(device)
 
     test_transforms = Compose(
@@ -184,7 +183,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
             Resized(keys="image",
                     mode='trilinear',
                     align_corners=True,
-                    spatial_size=(32, 32, 32)),
+                    spatial_size=(128, 128, 128)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
         ]
