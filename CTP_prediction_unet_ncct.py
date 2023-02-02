@@ -93,7 +93,10 @@ def main(notes='', atrophy=True):
     batch_size = 2
     val_interval = 2
     out_tag = 'unet_5_channel_dropout'
-    out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
+    if atrophy:
+        out_tag = out_tag + '_atrophy'
+    else:
+        out_tag = out_tag + '_raw_ncct'
     print(f"out_tag = {out_tag}")
 
     if not os.path.exists(directory + 'out_' + out_tag):
