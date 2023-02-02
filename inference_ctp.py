@@ -364,7 +364,7 @@ if __name__ == '__main__':
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
 
-    out_tag ='unet'
+    out_tag ='unet_simple'
     model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
     # but all the test subjects are manual segmentations so this can be removed
     # TODO: remove reference to no seg data
