@@ -55,7 +55,7 @@ import torch
 import torch.nn.functional as f
 from torch.optim import Adam
 from recursive_data import get_semi_dataset
-from models import U_Net, U_NetCT, CTPNet
+from models import U_Net, U_NetCT, CTPNet, lowresCTPNet
 from monai.utils import (
     BlendMode,
     PytorchPadMode
@@ -97,7 +97,7 @@ def main(notes='', atrophy=True):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'UNetCT'
+    out_tag = 'lowres_CTPNet'
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
@@ -241,9 +241,9 @@ def main(notes='', atrophy=True):
     # plt.close()
 
     device = 'cuda'
-    channels = (16, 32, 64)
+    channels = (None)
 
-    model = U_NetCT(img_ch=4, output_ch=2)
+    model = lowresCTPNet(img_ch=4, output_ch=2)
 
     # model = torch.nn.DataParallel(model)
     model.to(device)

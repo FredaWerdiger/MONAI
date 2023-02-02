@@ -48,7 +48,7 @@ import torch
 import torch.nn.functional as f
 from torch.optim import Adam
 from recursive_data import get_semi_dataset
-from models import U_Net, multiresCTP
+from models import U_Net, multiresCTP, lowresCTP
 
 
 def main():
@@ -91,7 +91,7 @@ def main():
     batch_size = 2
     val_interval = 2
     vis_interval = 100
-    out_tag = 'multiresCTP_no_ncct'
+    out_tag = 'lowresCTP_no_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -213,7 +213,7 @@ def main():
         num_res_units=2,
         norm=Norm.BATCH
     )
-    model = multiresCTP(4, 2)
+    model = lowresCTP(4, 2)
 
     # model = U_Net(img_ch=4,output_ch=2)
 
