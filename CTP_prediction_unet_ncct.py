@@ -57,6 +57,7 @@ from torch.optim import Adam
 
 
 def main(notes='', atrophy=True):
+    print(f"Atrophy = {atrophy}")
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
