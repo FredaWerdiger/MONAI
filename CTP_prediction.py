@@ -91,7 +91,7 @@ def main():
     batch_size = 2
     val_interval = 2
     vis_interval = 100
-    out_tag = 'unet'
+    out_tag = 'multiresCTP_no_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -213,8 +213,8 @@ def main():
         num_res_units=2,
         norm=Norm.BATCH
     )
-    # model = multiresCTP(4, 2)
-    #
+    model = multiresCTP(4, 2)
+
     # model = U_Net(img_ch=4,output_ch=2)
 
     # model = torch.nn.DataParallel(model)
