@@ -106,6 +106,7 @@ def main(notes='', atrophy=True):
     if not os.path.exists(transform_dir):
         os.makedirs(transform_dir)
 
+    print(f"Atrophy = {atrophy}")
     if atrophy:
         atrophy_transforms = [
             ThresholdIntensityd(keys="ncct", threshold=40, above=False),
