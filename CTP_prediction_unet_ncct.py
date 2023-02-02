@@ -56,8 +56,7 @@ import torch.nn.functional as f
 from torch.optim import Adam
 
 
-def main(notes='', atrophy=True):
-    print(f"Atrophy = {atrophy}")
+def main(notes=''):
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
@@ -93,6 +92,7 @@ def main(notes='', atrophy=True):
     batch_size = 2
     val_interval = 2
     out_tag = 'unet_5_channel_dropout'
+    atrophy = False
     if atrophy:
         out_tag = out_tag + '_atrophy'
     else:
