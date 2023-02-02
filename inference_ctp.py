@@ -31,6 +31,7 @@ from monai.transforms import (
 )
 import torch
 import torch.nn.functional as f
+from models import *
 
 
 def define_zvalues(ct_img):
@@ -175,6 +176,8 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         num_res_units=2,
         norm=Norm.BATCH
     ).to(device)
+
+    model = U_Net(4, 2).to(device)
 
     test_transforms = Compose(
         [
