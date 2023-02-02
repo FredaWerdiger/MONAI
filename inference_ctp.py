@@ -301,7 +301,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
 
             dwi_img = loader(dwi_img)
             # spartan giving an error
-            dwi_img = dwi_img.detach().numpy()
+            # dwi_img = dwi_img.detach().numpy()
 
 
             save_loc = png_dir+ '/' + subject + '_proba.png'
