@@ -349,13 +349,13 @@ if __name__ == '__main__':
         mediaflux= HOMEDIR + 'mediaflux/'
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_df = pd.read_csv(
-            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+            HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
     elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/CTP_DL_Data/'
         ctp_df = pd.read_csv(
-            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+            HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
     elif os.path.exists('Z:/data_freda'):
