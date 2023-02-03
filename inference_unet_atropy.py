@@ -200,7 +200,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
                     mode=['trilinear', 'trilinear'],
                     align_corners=[True, True],
                     spatial_size=(128, 128, 128)),
-            # *atrophy_transforms,
+            *atrophy_transforms,
             ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
@@ -379,7 +379,7 @@ if __name__ == '__main__':
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
 
-    out_tag ='unet_5_channel_dropout_raw_ncct'
+    out_tag ='unet_5_channel_dropout_atrophy'
 
     model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
     # but all the test subjects are manual segmentations so this can be removed
