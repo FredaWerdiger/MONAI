@@ -196,9 +196,9 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         [
             LoadImaged(keys=["image", "ncct", "label"]),
             EnsureChannelFirstd(keys=["image", "ncct", "label"]),
-            Resized(keys=["image", "ncct", "label"],
-                    mode=['trilinear', 'trilinear', "nearest"],
-                    align_corners=[True, True, None],
+            Resized(keys=["image", "ncct"],
+                    mode=['trilinear', 'trilinear'],
+                    align_corners=[True, True],
                     spatial_size=(128, 128, 128)),
             # *atrophy_transforms,
             ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
