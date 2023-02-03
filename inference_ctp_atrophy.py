@@ -183,15 +183,15 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
 
     test_transforms = Compose(
         [
-            LoadImaged(keys=["image", "ncct"]),
-            EnsureChannelFirstd(keys=["image", "ncct"]),
+            LoadImaged(keys=["image", "ncct", "label"]),
+            EnsureChannelFirstd(keys=["image", "ncct", "label"]),
             Resized(keys=["image", "ncct"],
                     mode=['trilinear', 'trilinear'],
                     align_corners=[True, True],
                     spatial_size=[128, 128, 128]),
             *atrophy_transforms,
             NormalizeIntensityd(keys=["image", "ncct"], nonzero=True, channel_wise=True),
-            EnsureTyped(keys=["image", "ncct"]),
+            EnsureTyped(keys=["image", "ncct", "label"]),
         ]
     )
 
@@ -206,7 +206,6 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
 
     post_transforms = Compose([
         EnsureTyped(keys=["pred", "label"]),
-        EnsureChannelFirstd(keys="label"),
         Invertd(
             keys=["pred", "proba"],
             transform=test_transforms,
