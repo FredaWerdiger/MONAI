@@ -272,6 +272,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
                 None,
                 False,
                 None,
+                None,
                 *args)
 
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
@@ -378,7 +379,7 @@ if __name__ == '__main__':
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
 
-    out_tag ='UNetCT_atrophy'
+    out_tag ='ctp_net_atrophy'
 
     model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
     # but all the test subjects are manual segmentations so this can be removed
