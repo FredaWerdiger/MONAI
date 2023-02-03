@@ -297,20 +297,19 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
             subject = ctp_df.loc[[name], "subject"].values[0]
             try:
                 dwi_img = [os.path.join(dwi_dir, img) for img in os.listdir(dwi_dir) if subject in img][0]
+                dwi_img = loader(dwi_img)
+                # spartan giving an error
+                # dwi_img = dwi_img.detach().numpy()
+
+                save_loc = png_dir + '/' + subject + '_proba.png'
+                create_dwi_ctp_proba_image(dwi_img, ground_truth, proba_image, save_loc,
+                                           define_zvalues(dwi_img))
             except IndexError:
                 if mediaflux is not None:
                     dwi_img = glob.glob(mediaflux + 'INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/transform-DWI_followup/*__Warped.nii.gz')[0]
                 else:
                     print("no_dwi_image")
 
-            dwi_img = loader(dwi_img)
-            # spartan giving an error
-            # dwi_img = dwi_img.detach().numpy()
-
-
-            save_loc = png_dir+ '/' + subject + '_proba.png'
-            create_dwi_ctp_proba_image(dwi_img, ground_truth, proba_image, save_loc,
-                                       define_zvalues(dwi_img))
             results.loc[results.id == name, 'size'] = size
             results.loc[results.id == name, 'size_ml'] = size_ml
             results.loc[results.id == name, 'size_pred'] = size_pred
