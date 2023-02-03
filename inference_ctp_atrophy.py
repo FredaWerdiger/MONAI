@@ -196,7 +196,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
     )
 
     test_files = BuildDataset(directory, 'test').ncct_dict
-    # test_files = [file for file in test_files if ("033" in file["image"] or "003" in file["image"])]
+    test_files = [file for file in test_files if ("033" in file["image"] or "003" in file["image"])]
 
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
