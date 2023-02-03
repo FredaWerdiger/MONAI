@@ -184,7 +184,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         num_res_units=2,
         norm=Norm.BATCH,
         dropout=0.2
-    )
+    ).to(device)
 
     atrophy_transforms = [
         ThresholdIntensityd(keys="ncct", threshold=15, above=False),
@@ -272,7 +272,6 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
 
             roi_size = (128, 128, 128)
             sw_batch_size = 1
-            output = model(test_inputs)
             test_data["pred"] = sliding_window_inference(
                 test_inputs, roi_size, sw_batch_size, model)
 
