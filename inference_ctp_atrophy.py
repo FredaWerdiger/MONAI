@@ -259,7 +259,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         for i, test_data in enumerate(test_loader):
             test_inputs, test_nccts = test_data["image"].to(device), test_data["ncct"].to(device),
 
-            roi_size = (32, 32, 32)
+            roi_size = (128, 128, 128)
             sw_batch_size = 1
             args = [test_nccts]
             test_data["pred"] = sliding_window_inference(
