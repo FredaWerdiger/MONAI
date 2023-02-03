@@ -272,7 +272,6 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
                 None,
                 False,
                 None,
-                None,
                 *args)
 
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
