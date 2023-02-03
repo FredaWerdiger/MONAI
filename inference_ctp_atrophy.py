@@ -173,7 +173,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # test on external data
-    model = U_NetCT(4, 2).to(device)
+    model = CTPNet(4, 2).to(device)
 
     atrophy_transforms = [
         ThresholdIntensityd(keys="ncct", threshold=15, above=False),
