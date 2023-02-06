@@ -259,21 +259,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         for i, test_data in enumerate(test_loader):
             test_inputs, test_nccts = test_data["image"].to(device), test_data["ncct"].to(device),
 
-            roi_size = (128, 128, 128)
-            sw_batch_size = 1
-            args = [test_nccts]
-            test_data["pred"] = sliding_window_inference(
-                test_inputs, roi_size, sw_batch_size, model,
-                0.25,
-                BlendMode.CONSTANT,
-                0.125,
-                PytorchPadMode.CONSTANT,
-                0.0,
-                None,
-                None,
-                False,
-                None,
-                *args)
+            test_data["pred"] = model(test_inputs, test_nccts)
 
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
             test_data["proba"] = prob

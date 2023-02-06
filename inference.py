@@ -458,6 +458,6 @@ if __name__ == '__main__':
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_final_no_cropping/best_metric_model600.pth'
-    out_tag = 'final_no_cropping'
+    model_path = directory + 'out_unet_recursive_round_2/best_metric_model300.pth'
+    out_tag = 'unet_recursive_round_2'
     main(directory, ctp_df, model_path, out_tag)

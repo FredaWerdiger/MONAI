@@ -306,10 +306,7 @@ def main():
                         val_data["label"].to(device),
                     )
                     # unsure how to optimize this
-                    roi_size = image_size
-                    sw_batch_size = 1
-                    val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model)
+                    val_outputs = model(val_inputs)
 
                     # compute metric for current iteration
                     # dice_metric_torch_macro(val_outputs, val_labels.long())

@@ -316,22 +316,7 @@ def main(notes='', atrophy=True):
                         val_data["ncct"].to(device),
                         val_data["label"].to(device),
                     )
-                    # unsure how to optimize this
-                    roi_size = (128, 128, 128)
-                    sw_batch_size = batch_size
-                    args = [val_nccts]
-                    val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model,
-                        0.25,
-                        BlendMode.CONSTANT,
-                        0.125,
-                        PytorchPadMode.CONSTANT,
-                        0.0,
-                        None,
-                        None,
-                        False,
-                        None,
-                        *args)
+                    val_outputs = model(val_inputs, val_nccts)
 
                     # compute metric for current iteration
                     # dice_metric_torch_macro(val_outputs, val_labels.long())
@@ -345,23 +330,7 @@ def main(notes='', atrophy=True):
                         val_data["ncct"].to(device),
                         val_data["label"].to(device),
                     )
-                    # unsure how to optimize this
-                    roi_size = (128, 128, 128)
-                    sw_batch_size = batch_size
-                    args = [val_nccts]
-                    val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model,
-                        0.25,
-                        BlendMode.CONSTANT,
-                        0.125,
-                        PytorchPadMode.CONSTANT,
-                        0.0,
-                        None,
-                        None,
-                        False,
-                        None,
-                        *args)
-
+                    val_outputs = model(val_inputs, val_nccts)
                     # compute metric for current iteration
                     # dice_metric_torch_macro(val_outputs, val_labels.long())
                     # now to for the MONAI dice metric
