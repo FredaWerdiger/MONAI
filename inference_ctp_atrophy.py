@@ -196,7 +196,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
     )
 
     test_files = BuildDataset(directory, 'test').ncct_dict
-    test_files = [file for file in test_files if ("033" in file["image"] or "003" in file["image"])]
+    # test_files = [file for file in test_files if ("033" in file["image"] or "003" in file["image"])]
 
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
@@ -257,9 +257,9 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
 
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
-            test_inputs, test_nccts = test_data["image"].to(device), test_data["ncct"].to(device),
-
-            test_data["pred"] = model(test_inputs, test_nccts)
+            test_inputs, test_nccts = test_data["image"].to(device), test_data["ncct"].to(device)
+            output = model(test_inputs, test_nccts)
+            test_data["pred"] = output
 
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
             test_data["proba"] = prob
