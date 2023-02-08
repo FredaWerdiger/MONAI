@@ -1,9 +1,9 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
 import os
-
 import pandas as pd
-
+import sys
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import math
 import tempfile
@@ -46,6 +46,7 @@ from monai.transforms import (
 
 from monai.utils import first, set_determinism
 from monai_fns import *
+from densenet import DenseNetFCN
 
 import torch
 import os
@@ -77,7 +78,7 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_recursive_round_2"
+    out_tag = "densenetFCN"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -179,6 +180,15 @@ def main():
         num_res_units=2,
         norm=Norm.BATCH,
     ).to(rank)
+    model = DenseNetFCN(
+        ch_in=2,
+        ch_out_init=48,
+        num_classes=2,
+        growth_rate=16,
+        layers=(4, 5, 7, 10, 12),
+        bottleneck=True,
+        bottleneck_layer=15
+    )
     # model = AttentionUnet(
     #     spatial_dims=3,
     #     in_channels=2,

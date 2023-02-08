@@ -70,7 +70,7 @@ class dense_block(nn.Module):
             cb = conv(x)
             x_list.append(cb)
             x = torch.concat((x, cb), dim=1)
-            print(x.shape)
+            # print(x.shape)
             if self.grow_nb_filters:
                 self.nb_filters += self.growth_rate # number of filters grows by growth rate in each layer
         if self.return_concat_list:
@@ -178,13 +178,13 @@ class DenseNetFCN(nn.Module):
         for i in range(self.num_transitions):
             db = self.dbs_down[i]
             x = db(x)
-            print(f'denseblock exit shape: {x.shape}')
+            # print(f'denseblock exit shape: {x.shape}')
 
             concat_list.append(x)
             td = self.tds[i]
             x = td(x)
         x, feature_list = self.db_bottleneck(x)
-        print(f'bottleneck shape: {x.shape}')
+        # print(f'bottleneck shape: {x.shape}')
         keep_features = torch.concat(feature_list[1:], dim=1)
         # reverse order of concat list
         concat_list = concat_list[::-1]
@@ -195,8 +195,14 @@ class DenseNetFCN(nn.Module):
             x = torch.concat((x, concat), dim=1)
             db = self.dbs_up[i]
             x, feature_list = db(x)
-            print(f'denseblock exit shape: {x.shape}')
+            # print(f'denseblock exit shape: {x.shape}')
             keep_features = torch.concat(feature_list[1:], dim=1)
         x = self.final_conv(x)
         return x
 
+
+model = DenseNetFCN(2)
+
+input = torch.rand(3, 2, 64, 64, 64)
+
+output = model(input)
