@@ -93,7 +93,7 @@ def main():
     batch_size = 2
     val_interval = 2
     vis_interval = 100
-    out_tag = 'multiresCTP_no_ncct'
+    out_tag = 'unet_simple'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
 
@@ -216,7 +216,7 @@ def main():
         norm=Norm.BATCH,
         dropout=0.2
     )
-    model = multiresCTP(4, 2)
+    model = UNet(4, 2)
 
     # model = U_Net(img_ch=4,output_ch=2)
 
