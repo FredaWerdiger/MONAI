@@ -98,7 +98,7 @@ def main(notes='', atrophy=True):
     val_interval = 2
     out_tag = 'UNetCT'
     atrophy = True
-    HU = 15
+    HU = 80
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)

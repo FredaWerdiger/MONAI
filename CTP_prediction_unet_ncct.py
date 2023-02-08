@@ -92,6 +92,7 @@ def main(notes=''):
     batch_size = 2
     val_interval = 2
     out_tag = 'unet_5_channel_dropout'
+    HU = 15
     atrophy = True
     if atrophy:
         out_tag = out_tag + '_atrophy'
@@ -114,7 +115,7 @@ def main(notes=''):
     print(f"Atrophy = {atrophy}")
     if atrophy:
         atrophy_transforms = [
-            ThresholdIntensityd(keys="ncct", threshold=40, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=HU, above=False),
             ThresholdIntensityd(keys="ncct", threshold=0, above=True),
             GaussianSmoothd(keys="ncct", sigma=1)]
     else:
@@ -340,7 +341,7 @@ def main(notes=''):
     model_name = model._get_name()
     loss_name = loss_function._get_name()
     with open(
-            directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
+            directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
@@ -352,6 +353,7 @@ def main(notes=''):
             myfile.write("yes\n")
         else:
             myfile.write("no\n")
+        myfile.write(f'Hounsfield unit threshold: {HU}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -382,7 +384,7 @@ def main(notes=''):
     plt.plot(x, y, 'k', label="Dice on training data")
     plt.legend(loc="center right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag,
-                             'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.png'),
+                             'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
