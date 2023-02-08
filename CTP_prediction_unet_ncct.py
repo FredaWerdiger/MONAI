@@ -92,8 +92,8 @@ def main(notes=''):
     batch_size = 2
     val_interval = 2
     out_tag = 'unet_5_channel_dropout'
-    HU = 15
-    atrophy = True
+    HU = None
+    atrophy = False
     if atrophy:
         out_tag = out_tag + '_atrophy'
     else:
