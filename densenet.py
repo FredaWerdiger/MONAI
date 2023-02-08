@@ -93,11 +93,11 @@ class transition_down(nn.Module):
 
 
 class transition_up(nn.Module):
-    def __init__(self, ch_in):
+    def __init__(self, ch_in, ch_out):
         super(transition_up, self).__init__()
         self.up_block = nn.Sequential(
             nn.Upsample(scale_factor=2),
-            nn.Conv3d(ch_in, ch_in, kernel_size=3, stride=1, padding=1, bias=False)
+            nn.Conv3d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=False)
         )
     def forward(self, x):
         x = self.up_block(x)
@@ -141,14 +141,15 @@ class DenseNetFCN(nn.Module):
             growth_rate,
             dropout_rate=0.2,
             bottleneck=True,
-            grow_nb_filters=False)
-        self.bottleneck_out = self.down_filters_in[-1] + (growth_rate * bottleneck_layer)
+            grow_nb_filters=False,
+            return_concat_list=True)
+        self.bottleneck_out = (growth_rate * bottleneck_layer)
         self.up_filters_out = [self.bottleneck_out]
         self.up_filters_in = []
         layers = list(layers)
         layers.sort(reverse=True)
         for i, num_layers in enumerate(layers):
-            tu = transition_up(self.up_filters_out[-1])
+            tu = transition_up(self.up_filters_out[-1], self.up_filters_out[-1])
             self.tus.append(tu)
             concat_filters = self.down_filters_in[-(i+1)]
             db_in = concat_filters + self.up_filters_out[-1]
@@ -163,7 +164,7 @@ class DenseNetFCN(nn.Module):
             self.dbs_up.append(db)
             db_out = num_layers * growth_rate
             self.up_filters_out.append(db_out)
-        self.final_conv = nn.Conv3d(self.up_filters_in[-1],
+        self.final_conv = nn.Conv3d(self.up_filters_out[-1],
                                     num_classes,
                                     kernel_size=1,
                                     stride=1,
@@ -175,11 +176,14 @@ class DenseNetFCN(nn.Module):
         for i in range(self.num_transitions):
             db = self.dbs_down[i]
             x = db(x)
+            print(f'denseblock exit shape: {x.shape}')
             concat_list.append(x)
             td = self.tds[i]
             x = td(x)
-        x = self.db_bottleneck(x)
-        print(f"bottleneck output shape: {x.shape}")
+        _, feature_list = self.db_bottleneck(x)
+
+        x = torch.concat(feature_list[1:], dim=1)
+        print(f'bottleneck shape: {x.shape}')
         # reverse order of concat list
         concat_list = concat_list[::-1]
         for i in range(self.num_transitions):
@@ -187,9 +191,16 @@ class DenseNetFCN(nn.Module):
             x = tu(x)
             concat = concat_list[i]
             x = torch.concat((x, concat), dim=1)
-            db, feature_concat_list = self.dbs_up[i]
+            db = self.dbs_up[i]
             _, feature_list = db(x)
-            x = torch.concat([feature_list[1:]])
+            x = torch.concat(feature_list[1:], dim=1)
+            print(f'denseblock exit shape: {x.shape}')
         x = self.final_conv(x)
+        return x
 
 
+model = DenseNetFCN(1)
+
+input = torch.rand(1, 1, 64, 64, 64)
+
+output = model(input)
