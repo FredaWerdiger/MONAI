@@ -1,6 +1,5 @@
-import os
 import sys
-
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
@@ -97,7 +96,9 @@ def main(notes='', atrophy=True):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'lowres_CTPNet'
+    out_tag = 'ctp_net'
+    atrophy = True
+    HU = 15
     out_tag = out_tag + '_atrophy' if atrophy else out_tag + '_raw_ncct'
     if not os.path.exists(directory + 'out_' + out_tag):
         os.makedirs(directory + 'out_' + out_tag)
@@ -116,7 +117,7 @@ def main(notes='', atrophy=True):
 
     if atrophy:
         atrophy_transforms = [
-            ThresholdIntensityd(keys="ncct", threshold=15, above=False),
+            ThresholdIntensityd(keys="ncct", threshold=HU, above=False),
             ThresholdIntensityd(keys="ncct", threshold=0, above=True),
             GaussianSmoothd(keys="ncct", sigma=1)
             ]
@@ -368,7 +369,7 @@ def main(notes='', atrophy=True):
     model_name = model._get_name()
     loss_name = loss_function._get_name()
 
-    with open(directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
+    with open(directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
@@ -384,6 +385,7 @@ def main(notes='', atrophy=True):
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
         myfile.write(f'Patch size: {patch_size}\n')
+        myfile.write(f'Hounsfield unit threshold: {HU}\n')
         myfile.write(f'channels: {channels}\n')
         myfile.write(f'Validation interval: {val_interval}\n')
         myfile.write(f"Best metric: {best_metric:.4f}\n")
@@ -410,7 +412,7 @@ def main(notes='', atrophy=True):
     plt.legend(loc="center right")
     plt.savefig(
         os.path.join(directory + 'out_' + out_tag,
-                     'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.png'),
+                     'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU.png'),
         bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
