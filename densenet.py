@@ -49,30 +49,27 @@ class dense_block(nn.Module):
                  ):
         super(dense_block, self).__init__()
         self.nb_layers = nb_layers
-        self.grow_nb_filters = grow_nb_filters
         self.growth_rate = growth_rate
-        self.ch_in = ch_in
         self.nb_filters = ch_in
         self.dropout = dropout_rate
         self.bottleneck = bottleneck
         self.return_concat_list = return_concat_list
-
+        self.grow_nb_filters = grow_nb_filters
+        self.cbs = []
+        for layer in range(nb_layers):
+            filter_in = ch_in + (layer * growth_rate)
+            self.cb = conv_block(filter_in, self.growth_rate, self.dropout, self.bottleneck)
+            self.cbs.append(self.cb)
 
     def forward(self, x):
         x_list = [x]
-
-        def conv_block_layer(self, layer):
-            ch_in = self.ch_in + (layer * self.growth_rate)
-            return conv_block(ch_in, self.growth_rate, self.dropout, self.bottleneck)
-
-        for i in range(self.nb_layers):
-            conv = conv_block_layer(self, i)
+        for conv in self.cbs:
             cb = conv(x)
             x_list.append(cb)
             x = torch.concat((x, cb), dim=1)
             # print(x.shape)
             if self.grow_nb_filters:
-                self.nb_filters += self.growth_rate # number of filters grows by growth rate in each layer
+                self.nb_filters += self.growth_rate  # number of filters grows by growth rate in each layer
         if self.return_concat_list:
             return x, x_list
         else:
@@ -174,6 +171,7 @@ class DenseNetFCN(nn.Module):
                                     stride=1,
                                     padding=0)
 
+
     def forward(self, x):
         x = self.init_conv(x)
         concat_list = []
@@ -204,8 +202,8 @@ class DenseNetFCN(nn.Module):
 
 
 model = DenseNetFCN(2)
-model = model.to('cuda')
+# model = model.to('cuda')
 
-input = torch.rand(3, 2, 64, 64, 64).to('cuda')
+input = torch.rand(3, 2, 64, 64, 64)
 
 output = model(input)

@@ -160,7 +160,7 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
 
 def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
     out_tag = 'ctp_net_atrophy'
-    HU = 15
+    HU = 80
     model_path = directory + 'out_' + out_tag + '/' + 'best_metric_model400' + '_' + str(HU) + '.pth'
 
     prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
