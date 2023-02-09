@@ -162,10 +162,10 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
 def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
 
 
-    out_tag = 'unet_5_channel_dropout_raw_ncct'
+    out_tag = 'unet_5_channel_dropout_atrophy'
     HU = 15
 
-    model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
+    model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400' + '_' + str(HU) + '.pth'
 
     prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
     if not os.path.exists(prob_dir):
@@ -197,7 +197,6 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         ThresholdIntensityd(keys="ncct", threshold=0, above=True),
         GaussianSmoothd(keys="ncct", sigma=1)
     ]
-    atrophy_transforms = []
 
     test_transforms = Compose(
         [
