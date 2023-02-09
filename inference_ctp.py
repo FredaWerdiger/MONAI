@@ -155,7 +155,7 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
 
 
 def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
-    out_tag = 'unet'
+    out_tag = 'unet_simple'
     model_path = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
 
     prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
@@ -181,7 +181,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         norm=Norm.BATCH
     ).to(device)
 
-    # model = U_Net(4, 2).to(device)
+    model = U_Net(4, 2).to(device)
     # model = lowresCTP(4, 2).to(device)
 
     test_transforms = Compose(
