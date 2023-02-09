@@ -104,6 +104,7 @@ class transition_up(nn.Module):
         x = self.up_block(x)
         return x
 
+
 class DenseNetFCN(nn.Module):
     def __init__(self,
                  ch_in,
@@ -130,12 +131,12 @@ class DenseNetFCN(nn.Module):
         self.tus = []
         self.down_filters_in = [ch_out_init]
         for num_layers in layers:
-            db = dense_block(self.down_filters_in[-1], num_layers, growth_rate)
-            self.dbs_down.append(db)
+            self.db = dense_block(self.down_filters_in[-1], num_layers, growth_rate)
+            self.dbs_down.append(self.db)
             db_out = self.down_filters_in[-1] + (num_layers * growth_rate)
             self.down_filters_in.append(db_out)
-            td = transition_down(db_out)
-            self.tds.append(td)
+            self.td = transition_down(db_out)
+            self.tds.append(self.td)
         self.db_bottleneck = dense_block(
             self.down_filters_in[-1],
             bottleneck_layer,
@@ -150,19 +151,20 @@ class DenseNetFCN(nn.Module):
         layers = list(layers)
         layers.sort(reverse=True)
         for i, num_layers in enumerate(layers):
-            tu = transition_up(self.up_filters_in[-1], self.up_filters_in[-1])
-            self.tus.append(tu)
+            self.tu = transition_up(self.up_filters_in[-1], self.up_filters_in[-1])
+            self.tus.append(self.tu)
             concat_filters = self.down_filters_in[-(i+1)]
             db_in = concat_filters + self.up_filters_in[-1]
             # self.up_filters_in.append(db_in)
-            db = dense_block(db_in,
+            self.db = dense_block(db_in,
                              num_layers,
                              growth_rate,
                              dropout_rate=0.2,
                              bottleneck=False,
                              grow_nb_filters=False,
                              return_concat_list=True)
-            self.dbs_up.append(db)
+
+            self.dbs_up.append(self.db)
             db_out = num_layers * growth_rate
             self.up_filters_in.append(db_out)
             self.up_filters_out.append(db_in + db_out)
@@ -202,7 +204,8 @@ class DenseNetFCN(nn.Module):
 
 
 model = DenseNetFCN(2)
+model = model.to('cuda')
 
-input = torch.rand(3, 2, 64, 64, 64)
+input = torch.rand(3, 2, 64, 64, 64).to('cuda')
 
 output = model(input)
