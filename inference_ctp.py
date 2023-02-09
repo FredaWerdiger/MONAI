@@ -1,5 +1,7 @@
 # this code is to get a probability map out instead of a binary mask
 # currently in piece
+import sys
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 from monai_fns import *
 import os
 import math
@@ -152,7 +154,9 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
     plt.close()
 
 
-def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=True):
+def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
+    out_tag = 'unet'
+    model_path = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
 
     prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
     if not os.path.exists(prob_dir):
@@ -178,7 +182,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
     ).to(device)
 
     # model = U_Net(4, 2).to(device)
-    model = lowresCTP(4, 2).to(device)
+    # model = lowresCTP(4, 2).to(device)
 
     test_transforms = Compose(
         [
@@ -218,20 +222,20 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         ),
         AsDiscreted(keys="label", to_onehot=2),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-        SaveImaged(
-            keys="proba",
-            meta_keys="pred_meta_dict",
-            output_dir=prob_dir,
-            output_postfix="proba",
-            resample=False,
-            separate_folder=False),
-        SaveImaged(
-            keys="pred",
-            meta_keys="pred_meta_dict",
-            output_dir=pred_dir,
-            output_postfix="seg",
-            resample=False,
-            separate_folder=False)
+        # SaveImaged(
+        #     keys="proba",
+        #     meta_keys="pred_meta_dict",
+        #     output_dir=prob_dir,
+        #     output_postfix="proba",
+        #     resample=False,
+        #     separate_folder=False),
+        # SaveImaged(
+        #     keys="pred",
+        #     meta_keys="pred_meta_dict",
+        #     output_dir=pred_dir,
+        #     output_postfix="seg",
+        #     resample=False,
+        #     separate_folder=False)
     ])
 
     if ddp:
@@ -364,9 +368,8 @@ if __name__ == '__main__':
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
 
-    out_tag ='lowresCTP_no_ncct'
-    model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
+
     # but all the test subjects are manual segmentations so this can be removed
     # TODO: remove reference to no seg data
     dwi_dir = directory + 'no_seg/dwi_ctp/'
-    main(directory, ctp_df, model_path, out_tag, dwi_dir, mediaflux, ddp=False)
+    main(directory, ctp_df, dwi_dir, mediaflux, ddp=False)
