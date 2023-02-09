@@ -158,7 +158,10 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
     plt.close()
 
 
-def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=True):
+def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
+    out_tag = 'ctp_net_atrophy'
+    HU = 15
+    model_path = directory + 'out_' + out_tag + '/' + 'best_metric_model400' + '_' + str(HU) + '.pth'
 
     prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
     if not os.path.exists(prob_dir):
@@ -176,7 +179,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
     model = CTPNet(4, 2).to(device)
 
     atrophy_transforms = [
-        ThresholdIntensityd(keys="ncct", threshold=15, above=False),
+        ThresholdIntensityd(keys="ncct", threshold=HU, above=False),
         ThresholdIntensityd(keys="ncct", threshold=0, above=True),
         GaussianSmoothd(keys="ncct", sigma=1)
     ]
@@ -219,20 +222,20 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         ),
         AsDiscreted(keys="label", to_onehot=2),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-        SaveImaged(
-            keys="proba",
-            meta_keys="pred_meta_dict",
-            output_dir=prob_dir,
-            output_postfix="proba",
-            resample=False,
-            separate_folder=False),
-        SaveImaged(
-            keys="pred",
-            meta_keys="pred_meta_dict",
-            output_dir=pred_dir,
-            output_postfix="seg",
-            resample=False,
-            separate_folder=False)
+        # SaveImaged(
+        #     keys="proba",
+        #     meta_keys="pred_meta_dict",
+        #     output_dir=prob_dir,
+        #     output_postfix="proba",
+        #     resample=False,
+        #     separate_folder=False),
+        # SaveImaged(
+        #     keys="pred",
+        #     meta_keys="pred_meta_dict",
+        #     output_dir=pred_dir,
+        #     output_postfix="seg",
+        #     resample=False,
+        #     separate_folder=False)
     ])
 
     if ddp:
@@ -327,7 +330,7 @@ def main(directory, ctp_df, model_path, out_tag, dwi_dir,  mediaflux=None, ddp=T
         ctp_df[~ctp_df.index.duplicated(keep='first')],
         on='id',
         how='left')
-    results_join.to_csv(directory + 'out_' + out_tag + '/results.csv', index=False)
+    results_join.to_csv(directory + 'out_' + out_tag + '/results_' + str(HU) + '.csv', index=False)
 
 if __name__ == '__main__':
     HOMEDIR = os.path.expanduser("~/")
@@ -365,10 +368,8 @@ if __name__ == '__main__':
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
 
-    out_tag ='ctp_net_atrophy'
 
-    model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400.pth'
     # but all the test subjects are manual segmentations so this can be removed
     # TODO: remove reference to no seg data
     dwi_dir = directory + 'no_seg/dwi_ctp/'
-    main(directory, ctp_df, model_path, out_tag, dwi_dir, mediaflux, ddp=False)
+    main(directory, ctp_df, dwi_dir, mediaflux, ddp=False)
