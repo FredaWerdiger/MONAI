@@ -12,14 +12,11 @@ class conv_block(nn.Module):
                  dropout_rate,
                  bottleneck=False):
         super(conv_block, self).__init__()
-        self.conv = nn.Sequential(
-            nn.BatchNorm3d(ch_in),
-            nn.ReLU(inplace=True),
-            nn.Conv3d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.Dropout(p=dropout_rate),
-        )
-        self.bottleneck = bottleneck
-        self.bottleneck_block = nn.Sequential(
+        self.conv = self._make_conv(ch_in, ch_out, dropout_rate, bottleneck)
+
+    def _make_conv(self, ch_in, ch_out, dropout_rate, bottleneck):
+        if bottleneck:
+            conv = nn.Sequential(
             nn.BatchNorm3d(ch_in),
             nn.ReLU(inplace=True),
             nn.Conv3d(ch_in, ch_out * 4, kernel_size=1, stride=1, padding=0, bias=False),
@@ -28,12 +25,17 @@ class conv_block(nn.Module):
             nn.Conv3d(ch_out * 4, ch_out, kernel_size=3, stride=1, padding=1, bias=False),
             nn.Dropout(p=dropout_rate)
         )
+        else:
+            conv = nn.Sequential(
+                nn.BatchNorm3d(ch_in),
+                nn.ReLU(inplace=True),
+                nn.Conv3d(ch_in, ch_out, kernel_size=3, stride=1, padding=1, bias=False),
+                nn.Dropout(p=dropout_rate),
+            )
+        return conv
 
     def forward(self, x):
-        if self.bottleneck:
-            x = self.bottleneck_block(x)
-        else:
-            x = self.conv(x)
+        x = self.conv(x)
         return x
 
 
@@ -48,23 +50,27 @@ class dense_block(nn.Module):
                  return_concat_list=False
                  ):
         super(dense_block, self).__init__()
-        self.nb_layers = nb_layers
-        self.growth_rate = growth_rate
         self.nb_filters = ch_in
-        self.dropout = dropout_rate
-        self.bottleneck = bottleneck
         self.return_concat_list = return_concat_list
+        self.growth_rate = growth_rate
         self.grow_nb_filters = grow_nb_filters
-        self.cbs = []
+        self.layers = nn.ModuleList(self._make_layers(ch_in, nb_layers, growth_rate, dropout_rate, bottleneck))
+
+    def _make_layers(self, ch_in, nb_layers, growth_rate, dropout, bottleneck):
+        layers = []
         for layer in range(nb_layers):
             filter_in = ch_in + (layer * growth_rate)
-            self.cb = conv_block(filter_in, self.growth_rate, self.dropout, self.bottleneck)
-            self.cbs.append(self.cb)
+            cb = conv_block(filter_in, growth_rate, dropout, bottleneck)
+            layers.append(cb)
+        return layers
+
 
     def forward(self, x):
         x_list = [x]
-        for conv in self.cbs:
+        for conv in self.layers:
+            print(conv)
             cb = conv(x)
+
             x_list.append(cb)
             x = torch.concat((x, cb), dim=1)
             # print(x.shape)
@@ -75,6 +81,8 @@ class dense_block(nn.Module):
         else:
             return x
 
+db = dense_block(48, 2, 16)
+db
 
 class transition_down(nn.Module):
     def __init__(self, ch_in):
@@ -122,18 +130,21 @@ class DenseNetFCN(nn.Module):
         self.layers = layers
         self.bottleneck = bottleneck
 
-        self.dbs_down = []
         self.dbs_up = []
-        self.tds = []
         self.tus = []
-        self.down_filters_in = [ch_out_init]
-        for num_layers in layers:
-            self.db = dense_block(self.down_filters_in[-1], num_layers, growth_rate)
-            self.dbs_down.append(self.db)
-            db_out = self.down_filters_in[-1] + (num_layers * growth_rate)
-            self.down_filters_in.append(db_out)
-            self.td = transition_down(db_out)
-            self.tds.append(self.td)
+        self.dbs_down, self.tds, self.down_filters_in = self._make_dbs_down(
+            layers,
+            ch_out_init,
+            growth_rate)
+        self.dbs_down = nn.ModuleList(self.dbs_down)
+        self.tds = nn.ModuleList(self.tds)
+        # for num_layers in layers:
+        #     self.db = dense_block(self.down_filters_in[-1], num_layers, growth_rate)
+        #     self.dbs_down.append(self.db)
+        #     db_out = self.down_filters_in[-1] + (num_layers * growth_rate)
+        #     self.down_filters_in.append(db_out)
+        #     self.td = transition_down(db_out)
+        #     self.tds.append(self.td)
         self.db_bottleneck = dense_block(
             self.down_filters_in[-1],
             bottleneck_layer,
@@ -142,34 +153,82 @@ class DenseNetFCN(nn.Module):
             bottleneck=True,
             grow_nb_filters=False,
             return_concat_list=True)
-        self.bottleneck_out = (growth_rate * bottleneck_layer) + self.down_filters_in[-1]
-        self.up_filters_in = [(growth_rate * bottleneck_layer)]
-        self.up_filters_out = [self.bottleneck_out]
-        layers = list(layers)
-        layers.sort(reverse=True)
-        for i, num_layers in enumerate(layers):
-            self.tu = transition_up(self.up_filters_in[-1], self.up_filters_in[-1])
-            self.tus.append(self.tu)
-            concat_filters = self.down_filters_in[-(i+1)]
-            db_in = concat_filters + self.up_filters_in[-1]
-            # self.up_filters_in.append(db_in)
-            self.db = dense_block(db_in,
-                             num_layers,
-                             growth_rate,
-                             dropout_rate=0.2,
-                             bottleneck=False,
-                             grow_nb_filters=False,
-                             return_concat_list=True)
-
-            self.dbs_up.append(self.db)
-            db_out = num_layers * growth_rate
-            self.up_filters_in.append(db_out)
-            self.up_filters_out.append(db_in + db_out)
+        self.dbs_up, self.tus, self.up_filters_in, self.up_filters_out = self._make_dbs_up(
+            layers,
+            growth_rate,
+            bottleneck_layer,
+            self.down_filters_in)
+        self.dbs_up = nn.ModuleList(self.dbs_up)
+        self.tus = nn.ModuleList(self.tus)
+        # self.bottleneck_out = (growth_rate * bottleneck_layer) + self.down_filters_in[-1]
+        # self.up_filters_in = [(growth_rate * bottleneck_layer)]
+        # self.up_filters_out = [self.bottleneck_out]
+        # layers = list(layers)
+        # layers.sort(reverse=True)
+        # for i, num_layers in enumerate(layers):
+        #     self.tu = transition_up(self.up_filters_in[-1], self.up_filters_in[-1])
+        #     self.tus.append(self.tu)
+        #     concat_filters = self.down_filters_in[-(i+1)]
+        #     db_in = concat_filters + self.up_filters_in[-1]
+        #     # self.up_filters_in.append(db_in)
+        #     self.db = dense_block(db_in,
+        #                      num_layers,
+        #                      growth_rate,
+        #                      dropout_rate=0.2,
+        #                      bottleneck=False,
+        #                      grow_nb_filters=False,
+        #                      return_concat_list=True)
+        #
+        #     self.dbs_up.append(self.db)
+        #     db_out = num_layers * growth_rate
+        #     self.up_filters_in.append(db_out)
+        #     self.up_filters_out.append(db_in + db_out)
         self.final_conv = nn.Conv3d(self.up_filters_out[-1],
                                     num_classes,
                                     kernel_size=1,
                                     stride=1,
                                     padding=0)
+
+    def _make_dbs_down(self, layers, ch_out_init, growth_rate):
+        dbs_down = []
+        tds = []
+        down_filters_in = [ch_out_init]
+        for num_layers in layers:
+            db = dense_block(down_filters_in[-1], num_layers, growth_rate)
+            dbs_down.append(db)
+            db_out = down_filters_in[-1] + (num_layers * growth_rate)
+            down_filters_in.append(db_out)
+            td = transition_down(db_out)
+            tds.append(td)
+        return dbs_down, tds, down_filters_in
+
+    def _make_dbs_up(self, layers, growth_rate, bottleneck_layer, down_filters_in):
+        dbs_up = []
+        tus = []
+        bottleneck_out = (growth_rate * bottleneck_layer) + down_filters_in[-1]
+        up_filters_in = [(growth_rate * bottleneck_layer)]
+        up_filters_out = [bottleneck_out]
+        layers = list(layers)
+        layers.sort(reverse=True)
+        for i, num_layers in enumerate(layers):
+            tu = transition_up(up_filters_in[-1], up_filters_in[-1])
+            tus.append(tu)
+            concat_filters = down_filters_in[-(i + 1)]
+            db_in = concat_filters + up_filters_in[-1]
+            # self.up_filters_in.append(db_in)
+            db = dense_block(db_in,
+                          num_layers,
+                          growth_rate,
+                          dropout_rate=0.2,
+                          bottleneck=False,
+                          grow_nb_filters=False,
+                          return_concat_list=True)
+
+            dbs_up.append(db)
+            db_out = num_layers * growth_rate
+            up_filters_in.append(db_out)
+            up_filters_out.append(db_in + db_out)
+        return dbs_up, tus, up_filters_in, up_filters_out
 
 
     def forward(self, x):
@@ -201,9 +260,9 @@ class DenseNetFCN(nn.Module):
         return x
 
 
-model = DenseNetFCN(2)
-# model = model.to('cuda')
+model = DenseNetFCN(1)
+model = model.to('cuda')
 
-input = torch.rand(3, 2, 64, 64, 64)
+input = torch.rand(1, 1, 64, 64, 64).to('cuda')
 
 output = model(input)
