@@ -91,7 +91,7 @@ def main():
 
     max_epochs = 600
     batch_size = 2
-    image_size = (128, 128, 128)
+    image_size = (64, 64, 64)
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "label"]),
@@ -188,7 +188,7 @@ def main():
         layers=(4, 5, 7, 10, 12),
         bottleneck=True,
         bottleneck_layer=15
-    )
+    ).to(rank)
     # model = AttentionUnet(
     #     spatial_dims=3,
     #     in_channels=2,
