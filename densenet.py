@@ -224,7 +224,7 @@ class DenseNetFCN(nn.Module):
         return x
 
 
-model = DenseNetFCN(2)
-
-input = torch.rand(1, 2, 224, 224, 224)
-output = model(input)
+# model = DenseNetFCN(2)
+#
+# input = torch.rand(1, 2, 224, 224, 224)
+# output = model(input)
