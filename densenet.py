@@ -223,8 +223,9 @@ class DenseNetFCN(nn.Module):
         x = self.final_conv(x)
         return x
 
+device = 'cuda'
+model = DenseNetFCN(1)
+model = model.to(device)
 
-# model = DenseNetFCN(2)
-#
-# input = torch.rand(1, 2, 224, 224, 224)
-# output = model(input)
+input = torch.rand(1, 1, 64, 64, 64).to(device)
+output = model(input)
