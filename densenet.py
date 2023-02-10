@@ -1,10 +1,10 @@
-import math
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from collections import OrderedDict
 
+'''
+Implementation of Fully Convolutional Densenet for 3D images
+Based on ch
+'''
 class conv_block(nn.Module):
     def __init__(self,
                  ch_in,
@@ -68,21 +68,15 @@ class dense_block(nn.Module):
     def forward(self, x):
         x_list = [x]
         for conv in self.layers:
-            print(conv)
             cb = conv(x)
-
             x_list.append(cb)
             x = torch.concat((x, cb), dim=1)
-            # print(x.shape)
             if self.grow_nb_filters:
                 self.nb_filters += self.growth_rate  # number of filters grows by growth rate in each layer
         if self.return_concat_list:
             return x, x_list
         else:
             return x
-
-db = dense_block(48, 2, 16)
-db
 
 class transition_down(nn.Module):
     def __init__(self, ch_in):
@@ -138,13 +132,6 @@ class DenseNetFCN(nn.Module):
             growth_rate)
         self.dbs_down = nn.ModuleList(self.dbs_down)
         self.tds = nn.ModuleList(self.tds)
-        # for num_layers in layers:
-        #     self.db = dense_block(self.down_filters_in[-1], num_layers, growth_rate)
-        #     self.dbs_down.append(self.db)
-        #     db_out = self.down_filters_in[-1] + (num_layers * growth_rate)
-        #     self.down_filters_in.append(db_out)
-        #     self.td = transition_down(db_out)
-        #     self.tds.append(self.td)
         self.db_bottleneck = dense_block(
             self.down_filters_in[-1],
             bottleneck_layer,
@@ -160,29 +147,6 @@ class DenseNetFCN(nn.Module):
             self.down_filters_in)
         self.dbs_up = nn.ModuleList(self.dbs_up)
         self.tus = nn.ModuleList(self.tus)
-        # self.bottleneck_out = (growth_rate * bottleneck_layer) + self.down_filters_in[-1]
-        # self.up_filters_in = [(growth_rate * bottleneck_layer)]
-        # self.up_filters_out = [self.bottleneck_out]
-        # layers = list(layers)
-        # layers.sort(reverse=True)
-        # for i, num_layers in enumerate(layers):
-        #     self.tu = transition_up(self.up_filters_in[-1], self.up_filters_in[-1])
-        #     self.tus.append(self.tu)
-        #     concat_filters = self.down_filters_in[-(i+1)]
-        #     db_in = concat_filters + self.up_filters_in[-1]
-        #     # self.up_filters_in.append(db_in)
-        #     self.db = dense_block(db_in,
-        #                      num_layers,
-        #                      growth_rate,
-        #                      dropout_rate=0.2,
-        #                      bottleneck=False,
-        #                      grow_nb_filters=False,
-        #                      return_concat_list=True)
-        #
-        #     self.dbs_up.append(self.db)
-        #     db_out = num_layers * growth_rate
-        #     self.up_filters_in.append(db_out)
-        #     self.up_filters_out.append(db_in + db_out)
         self.final_conv = nn.Conv3d(self.up_filters_out[-1],
                                     num_classes,
                                     kernel_size=1,
@@ -237,13 +201,13 @@ class DenseNetFCN(nn.Module):
         for i in range(self.num_transitions):
             db = self.dbs_down[i]
             x = db(x)
-            # print(f'denseblock exit shape: {x.shape}')
+            print(f'down block {i + 1} exit shape: {x.shape}')
 
             concat_list.append(x)
             td = self.tds[i]
             x = td(x)
         x, feature_list = self.db_bottleneck(x)
-        # print(f'bottleneck shape: {x.shape}')
+        print(f'bottleneck exit shape: {x.shape}')
         keep_features = torch.concat(feature_list[1:], dim=1)
         # reverse order of concat list
         concat_list = concat_list[::-1]
@@ -254,15 +218,13 @@ class DenseNetFCN(nn.Module):
             x = torch.concat((x, concat), dim=1)
             db = self.dbs_up[i]
             x, feature_list = db(x)
-            # print(f'denseblock exit shape: {x.shape}')
+            print(f'up block {i + 1} exit shape: {x.shape}')
             keep_features = torch.concat(feature_list[1:], dim=1)
         x = self.final_conv(x)
         return x
 
 
-model = DenseNetFCN(1)
-model = model.to('cuda')
+model = DenseNetFCN(2)
 
-input = torch.rand(1, 1, 64, 64, 64).to('cuda')
-
+input = torch.rand(1, 2, 224, 224, 224)
 output = model(input)
