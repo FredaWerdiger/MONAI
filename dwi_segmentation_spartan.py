@@ -51,6 +51,7 @@ from densenet import DenseNetFCN
 import torch
 import os
 from recursive_data import get_semi_dataset
+from torch.nn import DataParallel as DDP
 
 
 
@@ -91,7 +92,7 @@ def main():
 
     max_epochs = 600
     batch_size = 2
-    image_size = (64, 64, 64)
+    image_size = (128, 128, 128)
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "label"]),
@@ -211,6 +212,8 @@ def main():
     #     out_channels=2,
     #     dropout_prob=0.2,
     # ).to(device)
+
+    model = DDP(model)
 
     loss_function = DiceLoss(
         smooth_nr=0,
