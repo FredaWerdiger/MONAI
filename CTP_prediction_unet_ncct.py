@@ -215,6 +215,7 @@ def main(notes=''):
         norm=Norm.BATCH,
         dropout=0.2
     )
+    model = U_Net(5, 2)
 
     # model = torch.nn.DataParallel(model)
     model.to(device)
