@@ -54,6 +54,7 @@ import torch
 # from torch.utils.data.distributed import DistributedSampler
 import torch.nn.functional as f
 from torch.optim import Adam
+from models import *
 
 
 def main(notes=''):
@@ -91,9 +92,9 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'unet_5_channel_dropout'
-    HU = None
-    atrophy = False
+    out_tag = 'unet_simple_5_channel'
+    HU = 15
+    atrophy = True
     if atrophy:
         out_tag = out_tag + '_atrophy'
     else:
@@ -252,7 +253,7 @@ def main(notes=''):
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
-    model_name = 'best_metric_model' + str(max_epochs) + '.pth'
+    model_name = 'best_metric_model' + str(max_epochs) + '_' + str(HU) + '.pth'
 
     for epoch in range(max_epochs):
         print("-" * 10)
