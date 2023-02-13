@@ -225,6 +225,9 @@ def main():
         model.parameters(),
         1e-4,
         weight_decay=1e-5)
+
+    # TODO: change to parameters from 100 layer tiramisu
+    # weight decay = 1e-4
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
     dice_metric = DiceMetric(include_background=False, reduction="mean")
