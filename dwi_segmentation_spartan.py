@@ -92,7 +92,7 @@ def main():
 
     max_epochs = 600
     batch_size = 2
-    image_size = (32, 32, 32)
+    image_size = (128, 64, 64)
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "label"]),
