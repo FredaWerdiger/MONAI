@@ -322,11 +322,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
-
-            roi_size = (128, 128, 128)
-            sw_batch_size = 2
-            test_data["pred"] = sliding_window_inference(
-                test_inputs, roi_size, sw_batch_size, model)
+            test_data["pred"] = model(test_inputs)
 
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
@@ -477,5 +473,5 @@ if __name__ == '__main__':
             index_col='dl_id')
 
     model_path = directory + 'out_densenetFCN/best_metric_model600_interim.pth'
-    out_tag = 'unet_densenetFCN'
+    out_tag = 'densenetFCN'
     main(directory, ctp_df, model_path, out_tag, ddp=True)
