@@ -28,7 +28,7 @@ from monai.transforms import (
     SaveImaged,
 
 )
-from torchmetrics import Dice
+# from torchmetrics import Dice
 import torch
 import torch.nn.functional as f
 from monai_fns import *
@@ -277,7 +277,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         os.makedirs(root_dir + "out_" + out_tag + '/pred')
 
     # removing sync on step as we are running on master node
-    dice_metric = Dice(ignore_index=0)
+    # dice_metric = Dice(ignore_index=0)
     dice_metric = DiceMetric(include_background=False, reduction="mean")
     loader = LoadImage(image_only=False)
     device = 'cpu' if not torch.cuda.is_available() else 'cuda'
