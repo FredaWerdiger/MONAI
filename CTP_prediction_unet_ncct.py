@@ -55,7 +55,7 @@ import torch
 import torch.nn.functional as f
 from torch.optim import Adam
 from models import *
-
+from densenet import *
 
 def main(notes=''):
     HOMEDIR = os.path.expanduser('~/')
@@ -88,11 +88,20 @@ def main(notes=''):
 
     # model parameters
     max_epochs = 400
-    image_size = (128, 128, 128)
+    image_size = [128]
+    # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct']
+    features = ['DT', 'CBF', 'CBV', 'MTT', 'ncct']
+    features_transform = ['image_' + string for string in [feature for feature in features if "ncct" not in feature]]
+    if 'ncct' in features:
+        features_transform += ['ncct']
+    features_string = ''
+    for feature in features:
+        features_string += '_'
+        features_string += feature
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'unet_simple_5_channel'
+    out_tag = 'best_model'
     HU = 15
     atrophy = True
     if atrophy:
@@ -106,8 +115,8 @@ def main(notes=''):
 
     set_determinism(seed=42)
 
-    train_files = BuildDataset(directory, 'train').ncct_dict
-    val_files = BuildDataset(directory, 'validation').ncct_dict
+    train_files = BuildDataset(directory, 'train').ncct_dict[:1]
+    val_files = BuildDataset(directory, 'validation').ncct_dict[:1]
 
     transform_dir = os.path.join(directory, 'train', 'ncct_trans')
     if not os.path.exists(transform_dir):
@@ -129,7 +138,9 @@ def main(notes=''):
             Resized(keys=["image", "ncct", "label"],
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
-                    spatial_size=image_size),
+                    spatial_size=image_size*3),
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['DT', 'CBF', 'CBV', 'MTT']),
             *atrophy_transforms,
             # SaveImaged(keys="ncct",
             #            output_dir=transform_dir,
@@ -137,7 +148,7 @@ def main(notes=''):
             #            output_postfix="transform",
             #            resample=False,
             #            separate_folder=False),
-            ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
+            ConcatItemsd(keys=features_transform, name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
@@ -156,9 +167,11 @@ def main(notes=''):
             Resized(keys=["image", "ncct", "label"],
                     mode=['trilinear', 'trilinear', "nearest"],
                     align_corners=[True, True, None],
-                    spatial_size=image_size),
+                    spatial_size=image_size*3),
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=["DT", "CBF", "CBV", "MTT"]),
             *atrophy_transforms,
-            ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
+            ConcatItemsd(keys=features_transform, name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
         ]
@@ -187,8 +200,8 @@ def main(notes=''):
 
     # # sanity check to see everything is there
     # s = 50
-    # data_example = val_dataset[1]
-    # print(f"image shape: {data_example['image'].shape}")
+    data_example = val_dataset[0]
+    ch_in = data_example['image'].shape[0]
     # plt.figure("image", (18, 4))
     # for i in range(5):
     #     plt.subplot(1, 6, i + 1)
@@ -207,7 +220,7 @@ def main(notes=''):
 
     model = UNet(
         spatial_dims=3,
-        in_channels=5,
+        in_channels=ch_in,
         out_channels=2,
         channels=channels,
         strides=(2, 2),
@@ -215,7 +228,16 @@ def main(notes=''):
         norm=Norm.BATCH,
         dropout=0.2
     )
-    model = U_Net(5, 2)
+    model = DenseNetFCN(
+        ch_in=ch_in,
+        ch_out_init=36,
+        num_classes=2,
+        growth_rate=12,
+        layers=(4, 4, 4, 4, 4),
+        bottleneck=True,
+        bottleneck_layer=4
+    )
+    model = U_Net(ch_in, 2)
 
     # model = torch.nn.DataParallel(model)
     model.to(device)
@@ -254,7 +276,7 @@ def main(notes=''):
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
-    model_name = 'best_metric_model' + str(max_epochs) + '_' + str(HU) + '.pth'
+    model_name = 'best_metric_' + model._get_name() +'_' + str(max_epochs) + '_' + str(HU) + 'HU' + features_string +'.pth'
 
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -343,11 +365,16 @@ def main(notes=''):
     model_name = model._get_name()
     loss_name = loss_function._get_name()
     with open(
-            directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU.txt', 'w') as myfile:
+            directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU' + features_string +'.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
+        myfile.write(f'Intended number of features: {len(features)}\n')
+        myfile.write(f'Actual number of features: {ch_in}\n')
+        myfile.write('Features: ')
+        myfile.write(features_string)
+        myfile.write('\n')
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
         myfile.write("Atrophy filter used? ")
@@ -386,7 +413,7 @@ def main(notes=''):
     plt.plot(x, y, 'k', label="Dice on training data")
     plt.legend(loc="center right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag,
-                             'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU.png'),
+                             'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU' + features_string +'.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
