@@ -470,6 +470,11 @@ if __name__ == '__main__':
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
+    else:
+        directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
+        ctp_df = pd.read_csv(
+            '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_inspire_dl.csv',
+            index_col='dl_id')
 
     model_path = directory + 'out_densenetFCN/best_metric_model600_interim.pth'
     out_tag = 'unet_densenetFCN'
