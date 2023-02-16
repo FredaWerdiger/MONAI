@@ -478,4 +478,4 @@ if __name__ == '__main__':
 
     model_path = directory + 'out_densenetFCN/best_metric_model600_interim.pth'
     out_tag = 'unet_densenetFCN'
-    main(directory, ctp_df, model_path, out_tag)
+    main(directory, ctp_df, model_path, out_tag, ddp=True)
