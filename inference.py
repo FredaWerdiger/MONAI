@@ -238,7 +238,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
             Resized(keys="image",
                     mode='trilinear',
                     align_corners=True,
-                    spatial_size=(128, 128, 128)),
+                    spatial_size=(128, 64, 64)),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
             # SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
