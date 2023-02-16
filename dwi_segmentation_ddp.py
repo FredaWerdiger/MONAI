@@ -1,5 +1,7 @@
 # following tutorial from BRATs segmentation
 # two classes insead of 4 classes
+import sys
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import math
