@@ -55,6 +55,9 @@ from torch.utils.data.distributed import DistributedSampler
 
 from GPUtil import showUtilization as gpu_usage
 from numba import cuda
+from recursive_data import get_semi_dataset
+from densenet import *
+
 
 
 def free_gpu_cache():
@@ -73,183 +76,6 @@ def free_gpu_cache():
 #free_gpu_cache()
 
 print_config()
-
-
-# for creating images
-def define_dvalues(dwi_img):
-    steps = int(dwi_img.shape[2]/18)
-    rem = int(dwi_img.shape[2]/steps)-18
-
-    if rem % 2 == 0:
-        d_min = 0 + int(rem/2*steps) + 1
-        d_max = dwi_img.shape[2] - int(rem/2*steps) + 1
-
-    elif rem % 2 != 0:
-        d_min = 0 + math.ceil(rem*steps/2)
-        d_max = dwi_img.shape[2] - math.ceil(rem/2*steps) + 1
-
-    d = range(d_min, d_max, steps)
-
-    if len(d) == 19:
-
-        d = d[1:]
-    return d
-
-
-def define_dvalues_big(dwi_img):
-    dwi_img_small = dwi_img[10:120]
-    steps = int(dwi_img_small.shape[0]/18)
-    rem = int(dwi_img_small.shape[0]/steps)-18
-
-    if rem % 2 == 0:
-        d_min = 0 + int(rem/2*steps) + 1
-        d_max = dwi_img_small.shape[0] - int(rem/2*steps)
-
-    elif rem % 2 != 0:
-        d_min = 0 + math.ceil(rem*steps/2)
-        d_max = dwi_img_small.shape[0] - math.ceil(rem/2*steps)
-
-    d = range(d_min + 10, d_max + 10, steps)
-
-    if len(d) == 19:
-        d = range(d_min + steps + 10, d_max + 10, steps)
-    return d
-
-
-def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250):
-    dwi_lesion_img = np.rot90(dwi_lesion_img)
-    dwi_img = np.rot90(dwi_img)
-    mask = dwi_lesion_img < 1
-    masked_im = np.ma.array(dwi_img, mask=~mask)
-
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-
-    axs = axs.ravel()
-
-    for i in range(len(d)):
-        axs[i].imshow(dwi_lesion_img[:, :,d[i]], cmap='Wistia', vmin=0.5, vmax=1)
-        axs[i].imshow(masked_im[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
-        axs[i].axis('off')
-    # plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-
-def create_mr_img(dwi_img, savefile, d, ext='png', dpi=250):
-    dwi_img = np.rot90(dwi_img)
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-    axs = axs.ravel()
-    for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
-        axs[i].axis('off')
-    # plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-
-def create_mr_big_img(dwi_img, savefile, d, ext='png', dpi=250):
-    dwi_img = np.rot90(dwi_img)
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-    axs = axs.ravel()
-    for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray')
-        axs[i].axis('off')
-    # plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-
-def create_adc_img(dwi_img, savefile, d, ext='png', dpi=250):
-    dwi_img = np.rot90(dwi_img)
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-    axs = axs.ravel()
-    for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=1500)
-        axs[i].axis('off')
-    #plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-
-def create_paper_img(dwi_img, gt, pred, savefile, d, ext='png', dpi=250):
-    dwi_img, gt, pred = [np.rot90(im) for im in [dwi_img, gt, pred]]
-    lesions = gt + pred
-    mask = lesions == 0
-    masked_img = np.ma.array(dwi_img, mask=~mask)
-
-    false_neg = np.ma.masked_where(
-        np.logical_and(pred == 0, gt == 1), gt) * gt
-    true_pos = np.ma.masked_where(np.logical_and(pred == 1, gt == 1),
-                                  gt) * gt
-    false_pos = np.ma.masked_where(
-        np.logical_and(pred == 1, gt == 0), pred) * pred
-
-    fig, axs = plt.subplots(3, 6, facecolor='k')
-    fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
-    axs = axs.ravel()
-    for i in range(len(d)):
-        axs[i].imshow(false_neg[:,:,d[i]], cmap='gist_rainbow', vmin=0, vmax=1)
-        axs[i].imshow(false_pos[:, :, d[i]], cmap='brg', vmin=0, vmax=1)
-        # axs[i].imshow(true_pos[:,:,d[i]], cmap='tab10', vmin=0, vmax=1)
-        axs[i].imshow(masked_img[:,:,d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
-        axs[i].axis('off')
-    # plt.show()
-    plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
-    plt.close()
-
-def create_overviewhtml(subject_id, df, outdir):
-    '''
-    Function that creates a HTML file with clinical information and imaging.
-    '''
-    templateLoader = FileSystemLoader(
-        searchpath='./')
-    templateEnv = Environment(loader=templateLoader)
-    TEMPLATE_FILE = "template.html"
-    template = templateEnv.get_template(TEMPLATE_FILE)
-
-    savefolder = outdir + 'htmls'
-    if not os.path.exists(savefolder):
-        os.makedirs(savefolder)
-
-    ptData = df.set_index('id').loc[subject_id, :]
-    treat = ptData['Treatment type(0=no treatment,1=iv only, 2=IA only, 3= Both ia +iv, 4=iv only IA planned but not delivery,5=no information)']
-    if treat == 0:
-        treat = "No treatment"
-    elif treat == 1:
-        treat = "IV only"
-    elif treat == 2:
-        treat = "IA only"
-    elif treat == 3:
-        treat = "IV and IA"
-
-    small = ptData['small lesion']
-    small = 'yes' if small == 1 else 'no'
-    thickness = ptData['dwi_slice_thickness']
-    make = str(ptData['dwi_Manufacturer']) + ' ' + str(ptData['dwi_Model'])
-    day = ptData['day']
-    cause = ptData['Stroke Mechanism']
-
-    output = template.render(subject_id=subject_id,
-                             inspire_id=ptData['subject'],
-                             dice=round(ptData['dice'], 4),
-                             folder=outdir + 'images',
-                             treatment=treat,
-                             make=make,
-                             thickness=thickness,
-                             small=small,
-                             day=day,
-                             cause=cause
-                             )
-    # populate template
-
-    # save html file
-
-    with open(os.path.join(savefolder, subject_id + '.html'), 'w') as f:
-        f.write(output)
 
 
 def make_dict(root, string):
@@ -305,46 +131,38 @@ def example(rank, world_size):
     # create default process group
     setup(rank, world_size)
 
-    HOMEDIR = os.path.expanduser('~/')
-
     if os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/DWI_Training_Data/'
-        ctp_df = pd.read_csv(
-            '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
-            index_col='dl_id'
-        )
-
 
     elif os.path.exists('/media/fwerdiger'):
         directory = '/media/fwerdiger/Storage/DWI_Training_Data/'
-        ctp_df = pd.read_csv(
-            '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
-            index_col='dl_id'
-        )
 
     elif os.path.exists('D:'):
         directory = 'D:/ctp_project_data/DWI_Training_Data/'
-        ctp_df = pd.read_csv(
-            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
-            index_col='dl_id')
+    else:
+        directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
 
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
     # create outdir
-    out_tag = "densenet_ddp_64_size_image"
+    out_tag = "densenetFCN_ddp"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
     train_files, val_files, test_files = [
         make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
 
+    train_files, val_files, test_files = [
+        make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
+    semi_files = get_semi_dataset()
+    train_files = semi_files + train_files
+
     set_determinism(seed=42)
 
     max_epochs = 600
     batch_size = 2
-    image_size = (64, 64, 64)
-    patch_size = None
+    image_size = (128, 128, 128)
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "label"]),
@@ -353,16 +171,6 @@ def example(rank, world_size):
                     mode=['trilinear', "nearest"],
                     align_corners=[True, None],
                     spatial_size=image_size),
-            # RandCropByPosNegLabeld(
-            #     keys=["image", "label"],
-            #     label_key="label",
-            #     spatial_size=patch_size,
-            #     pos=1,
-            #     neg=1,
-            #     num_samples=4,
-            #     image_key="image",
-            #     image_threshold=0,
-            # ),
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
@@ -370,7 +178,6 @@ def example(rank, world_size):
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
             RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
             RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-            # RandAdjustContrastd(keys="image", prob=1, gamma=(0.5, 1)),
             EnsureTyped(keys=["image", "label"]),
         ]
     )
@@ -449,10 +256,14 @@ def example(rank, world_size):
         strides=(2, 2, 2),
     ).to(rank)
 
-    model = DenseNet(
-        spatial_dims=3,
-        in_channels=2,
-        out_channels=2
+    model = DenseNetFCN(
+        ch_in=2,
+        ch_out_init=48,
+        num_classes=2,
+        growth_rate=16,
+        layers=(4, 5, 7, 10, 12),
+        bottleneck=True,
+        bottleneck_layer=15
     ).to(rank)
 
     ddp_model = DDP(model, device_ids=[rank])
@@ -536,11 +347,7 @@ def example(rank, world_size):
                         val_data["image"].to(rank),
                         val_data["label"].to(rank),
                     )
-                    # unsure how to optimize this
-                    roi_size = (64, 64, 64)
-                    sw_batch_size = 2
-                    val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, ddp_model)
+                    val_outputs = ddp_model(val_inputs)
                     # val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     # val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
@@ -582,6 +389,9 @@ def example(rank, world_size):
     time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
     time_taken_hours = int(time_taken_hours)
 
+    model_name = model._get_name()
+    loss_name = loss_function._get_name()
+
     if rank == 0:
         # generate loss plot
         plt.figure("train", (12, 6))
@@ -597,7 +407,7 @@ def example(rank, world_size):
         y = metric_values
         plt.xlabel("epoch")
         plt.plot(x, y)
-        plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'plot_loss.png'),
+        plt.savefig(os.path.join(root_dir + 'out_' + out_tag, str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_plot_loss.png'),
                     bbox_inches='tight', dpi=300, format='png')
         plt.close()
         # compare dice with f1
@@ -609,17 +419,22 @@ def example(rank, world_size):
         y = f1_mean_values
         plt.plot(x, y, 'k', label="manual mean dice")
         plt.legend()
-        plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'dice_compare.png'),
+        plt.savefig(os.path.join(root_dir + 'out_' + out_tag, str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_dice_compare.png'),
                     bbox_inches='tight', dpi=300, format='png')
         plt.close()
 
 
         # save model results in a separate file
-        with open(root_dir + 'out_' + out_tag + '/model_info.txt', 'w') as myfile:
+        with open(root_dir + 'out_' + out_tag + '/model_info_' + str(max_epochs)
+                  + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
+            myfile.write(f'Train dataset size: {len(train_files)}\n')
+            myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
+            myfile.write(f'Validation dataset size: {len(val_files)}\n')
+            myfile.write(f'Model: {model_name}\n')
+            myfile.write(f'Loss function: {loss_name}\n')
             myfile.write(f'Number of epochs: {max_epochs}\n')
             myfile.write(f'Batch size: {batch_size}\n')
             myfile.write(f'Image size: {image_size}\n')
-            myfile.write(f'Patch size: {patch_size}\n')
             myfile.write(f'Validation interval: {val_interval}\n')
             myfile.write(f"Best metric: {best_metric:.4f}\n")
             myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
