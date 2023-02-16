@@ -32,6 +32,7 @@ from torchmetrics import Dice
 import torch
 import torch.nn.functional as f
 from monai_fns import *
+from densenet import *
 
 
 
@@ -297,6 +298,18 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         num_res_units=2,
         norm=Norm.BATCH,
     ).to(device)
+
+    model = DenseNetFCN(
+        ch_in=2,
+        ch_out_init=48,
+        num_classes=2,
+        growth_rate=16,
+        layers=(4, 5, 7, 10, 12),
+        bottleneck=True,
+        bottleneck_layer=15
+    ).to(device)
+
+
     if ddp:
         model.load_state_dict(ddp_state_dict(model_path))
     else:
@@ -310,7 +323,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
 
-            roi_size = (64, 64, 64)
+            roi_size = (128, 128, 128)
             sw_batch_size = 2
             test_data["pred"] = sliding_window_inference(
                 test_inputs, roi_size, sw_batch_size, model)
@@ -458,6 +471,6 @@ if __name__ == '__main__':
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_unet_recursive_round_2/best_metric_model300.pth'
-    out_tag = 'unet_recursive_round_2'
+    model_path = directory + 'out_densenetFCN/best_metric_model600_interim.pth'
+    out_tag = 'unet_densenetFCN'
     main(directory, ctp_df, model_path, out_tag)
