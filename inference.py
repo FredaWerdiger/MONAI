@@ -249,7 +249,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
 
-    test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
+    test_loader = DataLoader(test_ds, batch_size=1, num_workers=1)
 
     post_transforms = Compose([
         EnsureTyped(keys=["pred", "label"]),
