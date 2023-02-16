@@ -250,13 +250,13 @@ def example(rank, world_size):
     #     num_res_units=2,
     #     norm=Norm.BATCH,
     # ).to(rank)
-    model = AttentionUnet(
-        spatial_dims=3,
-        in_channels=2,
-        out_channels=2,
-        channels=(32, 64, 128, 256, 512),
-        strides=(2, 2, 2),
-    ).to(rank)
+    # model = AttentionUnet(
+    #     spatial_dims=3,
+    #     in_channels=2,
+    #     out_channels=2,
+    #     channels=(32, 64, 128, 256, 512),
+    #     strides=(2, 2, 2),
+    # ).to(rank)
 
     model = DenseNetFCN(
         ch_in=2,
