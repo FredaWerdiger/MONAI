@@ -1,5 +1,7 @@
 # this code is to get a probability map out instead of a binary mask
 # currently in piece
+import sys
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 from monai_fns import *
 import os
 import math
@@ -39,6 +41,7 @@ from monai.utils import (
     PytorchPadMode
 )
 from models import *
+from densenet import *
 
 
 def define_zvalues(ct_img):
@@ -162,10 +165,10 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
 def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
 
 
-    out_tag = 'unet_5_channel_dropout_atrophy'
+    out_tag = 'best_model_atrophy/densenet56'
     HU = 15
 
-    model_path  = directory + 'out_' + out_tag + '/' + 'best_metric_model400' + '_' + str(HU) + '.pth'
+    model_path  = directory + 'out_' + out_tag + '/best_metric_DenseNetFCN_400_15HU_DT_CBF_CBV_MTT_ncct.pth'
 
     prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
     if not os.path.exists(prob_dir):
@@ -190,6 +193,15 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         num_res_units=2,
         norm=Norm.BATCH,
         dropout=0.2
+    ).to(device)
+    model = DenseNetFCN(
+        ch_in=5,
+        ch_out_init=36,
+        num_classes=2,
+        growth_rate=12,
+        layers=(4, 4, 4, 4, 4),
+        bottleneck=True,
+        bottleneck_layer=4
     ).to(device)
 
     atrophy_transforms = [
