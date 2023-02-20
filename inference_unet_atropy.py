@@ -32,6 +32,7 @@ from monai.transforms import (
     Resized,
     SaveImage,
     SaveImaged,
+    SplitDimd,
     ThresholdIntensityd,
 )
 import torch
@@ -165,10 +166,22 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
 def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
 
 
-    out_tag = 'best_model_atrophy/densenet56'
-    HU = 15
+    out_tag = 'best_model_atrophy/DT'
+    model_path  = directory + 'out_' + out_tag + '/best_metric_U_Net_400_15HU_DT.pth'
 
-    model_path  = directory + 'out_' + out_tag + '/best_metric_DenseNetFCN_400_15HU_DT_CBF_CBV_MTT_ncct.pth'
+    HU = 15
+    image_size = [128]
+
+    # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct']
+    features = ['DT']# 'CBF', 'CBV', 'MTT', 'ncct']
+    features_transform = ['image_' + string for string in [feature for feature in features if "ncct" not in feature]]
+    if 'ncct' in features:
+        features_transform += ['ncct']
+    features_string = ''
+    for feature in features:
+        features_string += '_'
+        features_string += feature
+
 
     prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
     if not os.path.exists(prob_dir):
@@ -180,29 +193,6 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
     pred_dir = os.path.join(directory + 'out_' + out_tag, "pred")
     if not os.path.exists(pred_dir):
         os.makedirs(pred_dir)
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # test on external data
-    channels = (16, 32, 64)
-    model = UNet(
-        spatial_dims=3,
-        in_channels=5,
-        out_channels=2,
-        channels=channels,
-        strides=(2, 2),
-        num_res_units=2,
-        norm=Norm.BATCH,
-        dropout=0.2
-    ).to(device)
-    model = DenseNetFCN(
-        ch_in=5,
-        ch_out_init=36,
-        num_classes=2,
-        growth_rate=12,
-        layers=(4, 4, 4, 4, 4),
-        bottleneck=True,
-        bottleneck_layer=4
-    ).to(device)
 
     atrophy_transforms = [
         ThresholdIntensityd(keys="ncct", threshold=HU, above=False),
@@ -217,9 +207,11 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
             Resized(keys=["image", "ncct"],
                     mode=['trilinear', 'trilinear'],
                     align_corners=[True, True],
-                    spatial_size=(128, 128, 128)),
+                    spatial_size=image_size*3),
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['DT', 'CBF', 'CBV', 'MTT']),
             *atrophy_transforms,
-            ConcatItemsd(keys=["image", "ncct"], name="image", dim=0),
+            ConcatItemsd(keys=features_transform, name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
         ]
@@ -231,6 +223,34 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         data=test_files, transform=test_transforms)
 
     test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
+
+    data_example = test_ds[0]
+    ch_in = data_example['image'].shape[0]
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # test on external data
+    channels = (16, 32, 64)
+    model = UNet(
+        spatial_dims=3,
+        in_channels=ch_in,
+        out_channels=2,
+        channels=channels,
+        strides=(2, 2),
+        num_res_units=2,
+        norm=Norm.BATCH,
+        dropout=0.2
+    ).to(device)
+    model = DenseNetFCN(
+        ch_in=ch_in,
+        ch_out_init=36,
+        num_classes=2,
+        growth_rate=12,
+        layers=(4, 4, 4, 4, 4),
+        bottleneck=True,
+        bottleneck_layer=4
+    ).to(device)
+    model = U_Net(ch_in, 2)
+
 
     dice_metric = DiceMetric(include_background=False, reduction="mean")
 
@@ -288,10 +308,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         for i, test_data in enumerate(test_loader):
             test_inputs= test_data["image"].to(device)
 
-            roi_size = (128, 128, 128)
-            sw_batch_size = 1
-            test_data["pred"] = sliding_window_inference(
-                test_inputs, roi_size, sw_batch_size, model)
+            test_data["pred"] = model(test_inputs)
 
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
             test_data["proba"] = prob
