@@ -249,7 +249,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         bottleneck=True,
         bottleneck_layer=4
     ).to(device)
-    model = U_Net(ch_in, 2)
+    model = U_Net(ch_in, 2).to(device)
 
 
     dice_metric = DiceMetric(include_background=False, reduction="mean")
