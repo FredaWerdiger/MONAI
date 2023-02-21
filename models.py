@@ -31,7 +31,6 @@ def init_weights(net, init_type='normal', gain=0.02):
     print('initialize network with %s' % init_type)
     net.apply(init_func)
 
-
 class conv_block(nn.Module):
     def __init__(self, ch_in, ch_out):
         super(conv_block, self).__init__()
@@ -112,7 +111,6 @@ class up_conv(nn.Module):
     def forward(self, x):
         x = self.up(x)
         return x
-
 
 class Recurrent_block(nn.Module):
     def __init__(self, ch_out, t=2):
@@ -648,3 +646,5 @@ class R2AttU_Net(nn.Module):
         d1 = self.Conv_1x1(d2)
 
         return d1
+
+

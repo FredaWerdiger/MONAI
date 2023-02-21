@@ -163,17 +163,103 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
     plt.close()
 
 
+def create_dwi_ctp_proba_map(dwi_ct_img,
+                            gt,
+                            proba_50,
+                            proba_70,
+                            proba_90,
+                            savefile,
+                            z,
+                            ext='png',
+                            save=False,
+                            dpi=250):
+    dwi_ct_img, gt, proba_50, proba_70, proba_90 = [np.rot90(im) for im in [dwi_ct_img, gt, proba_50, proba_70, proba_90]]
+    dwi_ct_img, gt, proba_50, proba_70, proba_90 = [np.fliplr(im) for im in [dwi_ct_img, gt, proba_50, proba_70, proba_90]]
+    proba_50_mask = proba_50 == 0
+    proba_70_mask = proba_70 == 0
+    proba_90_mask = proba_90 == 0
+    masked_dwi = np.ma.array(dwi_ct_img, mask=~proba_50_mask)
+    gt_mask = gt == 0
+    masked_dwi_gt = np.ma.array(dwi_ct_img, mask=~gt_mask)
+    proba_50 = np.where(proba_50 == 0, np.nan, proba_50)
+    proba_70 = np.where(proba_70 == 0, np.nan, proba_70)
+    proba_90 = np.where(proba_90 == 0, np.nan, proba_90)
+    gt = np.where(gt == 0, np.nan, gt)
+
+
+    fig, axs = plt.subplots(6, 6, facecolor='k')
+    fig.subplots_adjust(hspace=-0.1, wspace=-0.3)
+    axs = axs.ravel()
+    for ax in axs:
+        ax.axis("off")
+    for i in range(6):
+        print(i)
+
+        axs[i].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+                      interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+        axs[i].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.5, vmin=0, vmax=1)
+        axs[i+6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+                      interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+        axs[i+6].imshow(proba_50[:, :, z[i]], cmap='gnuplot',
+                      interpolation='hanning', alpha=1, vmin=0, vmax=1)
+        axs[i+6].imshow(proba_70[:, :, z[i]], cmap='Wistia',
+                      interpolation='hanning', alpha=1, vmin=0, vmax=1)
+        axs[i+6].imshow(proba_90[:, :, z[i]], cmap='bwr',
+                      interpolation='hanning', alpha=1, vmin=0, vmax=1)
+
+    if 12 > len(z):
+        max2 = len(z)
+    else:
+        max2 = 12
+    for i in range(6, max2):
+        print(i)
+        axs[i + 6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+                      interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+        axs[i + 6].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.5, vmin=0, vmax=1)
+        axs[i+12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+                      interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+        im = axs[i+12].imshow(proba_50[:, :, z[i]], cmap='gnuplot',
+                      interpolation='hanning', alpha=1, vmin=0, vmax=1)
+        axs[i+12].imshow(proba_70[:, :, z[i]], cmap='Wistia',
+                      interpolation='hanning', alpha=1, vmin=0, vmax=1)
+        axs[i+12].imshow(proba_90[:, :, z[i]], cmap='bwr',
+                      interpolation='hanning', alpha=1, vmin=0, vmax=1)
+    if not 12 > len(z):
+        if len(z) > 18:
+            max3 = 18
+        else:
+            max3 = len(z)
+        for i in range(12, max3):
+            print(i)
+            axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+                              interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+            axs[i + 12].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.5, vmin=0, vmax=1)
+            axs[i + 18].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+                               interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+            im = axs[i + 18].imshow(proba_50[:, :, z[i]], cmap='gnuplot',
+                                    interpolation='hanning', alpha=1, vmin=0, vmax=1)
+            axs[i + 18].imshow(proba_70[:, :, z[i]], cmap='Wistia',
+                               interpolation='hanning', alpha=1, vmin=0, vmax=1)
+            axs[i + 18].imshow(proba_90[:, :, z[i]], cmap='bwr',
+                               interpolation='hanning', alpha=1, vmin=0, vmax=1)
+
+    if savefile:
+        plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
+        plt.close()
+
+
+
 def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
 
 
-    out_tag = 'best_model_atrophy/DT'
-    model_path  = directory + 'out_' + out_tag + '/best_metric_U_Net_400_15HU_DT.pth'
+    out_tag = 'unet_simple'
+    model_path = directory + 'out_' + out_tag + '/best_metric_model400.pth'
 
     HU = 15
     image_size = [128]
 
     # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct']
-    features = ['DT']# 'CBF', 'CBV', 'MTT', 'ncct']
+    features = ['DT', 'CBF', 'CBV', 'MTT']#, 'ncct']
     features_transform = ['image_' + string for string in [feature for feature in features if "ncct" not in feature]]
     if 'ncct' in features:
         features_transform += ['ncct']
@@ -181,11 +267,6 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
     for feature in features:
         features_string += '_'
         features_string += feature
-
-
-    prob_dir = os.path.join(directory + 'out_' + out_tag, "proba_masks")
-    if not os.path.exists(prob_dir):
-        os.makedirs(prob_dir)
 
     png_dir = os.path.join(directory + 'out_' + out_tag, "proba_pngs")
     if not os.path.exists(png_dir):
@@ -217,7 +298,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         ]
     )
 
-    test_files = BuildDataset(directory, 'test').ncct_dict
+    test_files = BuildDataset(directory, 'test').ncct_dict[:1]
 
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
@@ -267,14 +348,14 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
             to_tensor=[True, True],
         ),
         AsDiscreted(keys="label", to_onehot=2),
-        AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-        # SaveImaged(
-        #     keys="proba",
-        #     meta_keys="pred_meta_dict",
-        #     output_dir=prob_dir,
-        #     output_postfix="proba",
-        #     resample=False,
-        #     separate_folder=False),
+        # AsDiscreted(keys="pred", argmax=True, to_onehot=2),
+        SaveImaged(
+            keys="proba",
+            meta_keys="pred_meta_dict",
+            output_dir=os.path.join(pred_dir, 'prob'),
+            output_postfix="proba",
+            resample=False,
+            separate_folder=False),
         # SaveImaged(
         #     keys="pred",
         #     meta_keys="pred_meta_dict",
@@ -291,6 +372,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
 
     loader = LoadImage(image_only=True)
     loader_meta = LoadImage(image_only=False)
+
     model.eval()
 
     results = pd.DataFrame(columns=['id',
@@ -312,6 +394,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
 
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
             test_data["proba"] = prob
+
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
             test_output, test_label, test_image, test_proba = from_engine(
@@ -326,7 +409,9 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
             pixel_vol = volx * voly * volz
 
             ground_truth = test_label[0][1].detach().numpy()
-            prediction = test_output[0][1].detach().numpy()
+            prediction = (test_proba[0][1].detach().numpy() >= 0.5 ) *1
+            prediction_70 = (test_proba[0][1].detach().numpy() >=0.7) *1
+            prediction_90 =( test_proba[0][1].detach().numpy() >=0.9) *1
 
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
@@ -334,10 +419,6 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
             size_pred = prediction.sum()
             size_pred_ml = size_pred * pixel_vol / 1000
 
-            proba_image = test_proba[0][1].numpy()
-            threshold = 0.01
-            # mask the probability image
-            proba_image[np.where(proba_image < threshold)] = 0
 
             name = "test_" + os.path.basename(
                 test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
@@ -352,8 +433,8 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
                     dwi_img = dwi_img.detach().numpy()
 
                     save_loc = png_dir + '/' + subject + '_proba.png'
-                    create_dwi_ctp_proba_image(dwi_img, ground_truth, proba_image, save_loc,
-                                               define_zvalues(dwi_img))
+                    create_dwi_ctp_proba_map(dwi_img, ground_truth, prediction, prediction_70, prediction_90, save_loc,
+                                               define_zvalues(dwi_img), ext='png', save=True)
                 else:
                     print("no_dwi_image")
 

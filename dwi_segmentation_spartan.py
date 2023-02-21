@@ -92,7 +92,7 @@ def main():
 
     max_epochs = 600
     batch_size = 2
-    image_size = (128, 64, 64)
+    image_size = (128, 128, 128)
     train_transforms = Compose(
         [
             LoadImaged(keys=["image", "label"]),
@@ -131,7 +131,7 @@ def main():
         data=train_files,
         transform=train_transforms,
         cache_rate=1.0,
-        num_workers=4
+        num_workers=0
     )
 
 
@@ -144,7 +144,7 @@ def main():
         data=val_files,
         transform=val_transforms,
         cache_rate=1.0,
-        num_workers=4)
+        num_workers=0)
 
     val_loader = DataLoader(val_ds,
                             batch_size=batch_size,
@@ -284,11 +284,7 @@ def main():
                         val_data["image"].to(rank),
                         val_data["label"].to(rank),
                     )
-                    # unsure how to optimize this
-                    roi_size = (64, 64, 64)
-                    sw_batch_size = 2
-                    val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model)
+                    val_outputs = model(val_inputs)
                     val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
