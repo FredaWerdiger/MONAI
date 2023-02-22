@@ -472,6 +472,6 @@ if __name__ == '__main__':
             '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_densenetFCN/best_metric_model600.pth'
-    out_tag = 'densenetFCN'
+    model_path = directory + 'out_densenetFCN_batch1/best_metric_model400.pth'
+    out_tag = 'densenetFCN_batch1'
     main(directory, ctp_df, model_path, out_tag, ddp=True)
