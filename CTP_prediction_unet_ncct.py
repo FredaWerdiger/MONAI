@@ -1,5 +1,5 @@
 import sys
-
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
