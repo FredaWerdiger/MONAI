@@ -90,7 +90,7 @@ def main(notes=''):
     max_epochs = 400
     image_size = [128]
     # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct']
-    features = ['DT', 'CBF', 'CBV', 'MTT', 'ncct']
+    features = ['DT', 'CBF', 'ncct']
     features_transform = ['image_' + string for string in [feature for feature in features if "ncct" not in feature]]
     if 'ncct' in features:
         features_transform += ['ncct']
@@ -101,13 +101,13 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'best_model'
+    out_tag = 'best_model/AttUNet'
     HU = 15
     atrophy = True
-    if atrophy:
-        out_tag = out_tag + '_atrophy'
-    else:
-        out_tag = out_tag + '_raw_ncct'
+    # if atrophy:
+    #     out_tag = out_tag + '_atrophy'
+    # else:
+    #     out_tag = out_tag + '_raw_ncct'
     print(f"out_tag = {out_tag}")
 
     if not os.path.exists(directory + 'out_' + out_tag):
@@ -238,6 +238,7 @@ def main(notes=''):
         bottleneck_layer=4
     )
     model = U_Net(ch_in, 2)
+    model = AttU_Net(ch_in, 2)
 
     # model = torch.nn.DataParallel(model)
     model.to(device)
