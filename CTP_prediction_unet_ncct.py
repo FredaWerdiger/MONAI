@@ -101,7 +101,7 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'best_model/AttUNet'
+    out_tag = 'best_model/densenet56'
     HU = 15
     atrophy = True
     # if atrophy:
@@ -237,8 +237,8 @@ def main(notes=''):
         bottleneck=True,
         bottleneck_layer=4
     )
-    model = U_Net(ch_in, 2)
-    model = AttU_Net(ch_in, 2)
+    # model = U_Net(ch_in, 2)
+    # model = AttU_Net(ch_in, 2)
 
     # model = torch.nn.DataParallel(model)
     model.to(device)
