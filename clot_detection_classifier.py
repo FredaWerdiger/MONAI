@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 import glob
 import shutil
 import tempfile
@@ -98,19 +100,19 @@ class_names = [0, 1]
 num_total = len(image_files_list)
 
 # Randomly pick image to display
-
-plt.subplots(2, 2, figsize=(8, 8))
-for i, k in enumerate(np.random.randint(num_total, size=4)):
-    im = sitk.ReadImage(image_files_list[k])
-    size = im.GetSize()
-    slice = random.randint(10, size[2] - 10)
-    arr = sitk.GetArrayFromImage(im)
-    plt.subplot(2, 2, i + 1)
-    plt.xlabel(image_class[k])
-    plt.imshow(arr[slice], cmap="gray", vmin=0, vmax=255)
-plt.tight_layout()
-plt.show()
-
+#
+# plt.subplots(2, 2, figsize=(8, 8))
+# for i, k in enumerate(np.random.randint(num_total, size=4)):
+#     im = sitk.ReadImage(image_files_list[k])
+#     size = im.GetSize()
+#     slice = random.randint(10, size[2] - 10)
+#     arr = sitk.GetArrayFromImage(im)
+#     plt.subplot(2, 2, i + 1)
+#     plt.xlabel(image_class[k])
+#     plt.imshow(arr[slice], cmap="gray", vmin=0, vmax=255)
+# plt.tight_layout()
+# plt.show()
+# plt.close()
 
 val_frac = 0.1
 test_frac = 0.1
