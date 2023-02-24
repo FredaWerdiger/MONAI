@@ -34,6 +34,7 @@ from monai.transforms import (
     ThresholdIntensity
 )
 from monai.utils import set_determinism
+from torch.nn import DataParallel as DDP
 
 print_config()
 
@@ -192,10 +193,16 @@ test_loader = DataLoader(test_ds, batch_size=300, num_workers=10)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = DenseNet121(spatial_dims=3, in_channels=1, out_channels=2).to(device)
+model = DenseNet121(spatial_dims=3, in_channels=1, out_channels=2)
+
+model = DDP(model)
+
+model = model.to(device)
+
+
 loss_function = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), 1e-5)
-max_epochs = 4
+max_epochs = 100
 val_interval = 1
 auc_metric = ROCAUCMetric()
 
