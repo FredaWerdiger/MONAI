@@ -249,11 +249,11 @@ def create_dwi_ctp_proba_map(dwi_ct_img,
 
 
 
-def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
+def main(directory, ctp_df, ddp=False):
 
 
-    out_tag = 'best_model/CBF_DT_MBL'
-    model_path = directory + 'out_' + out_tag + '/best_metric_U_Net_400_15HU_DT_CBF_ncct.pth '
+    out_tag = 'best_model/AttUNet'
+    model_path = directory + 'out_' + out_tag + '/best_metric_AttU_Net_400_15HU_DT_CBF_ncct.pth'
 
     HU = 15
     image_size = [128]
@@ -298,7 +298,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         ]
     )
 
-    test_files = BuildDataset(directory, 'test').ncct_dict[:1]
+    test_files = BuildDataset(directory, 'test').ncct_dict
 
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
@@ -331,6 +331,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
         bottleneck_layer=4
     ).to(device)
     model = U_Net(ch_in, 2).to(device)
+    model = AttU_Net(ch_in, 2).to(device)
 
 
     dice_metric = DiceMetric(include_background=False, reduction="mean")
@@ -348,7 +349,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
             to_tensor=[True, True],
         ),
         AsDiscreted(keys="label", to_onehot=2),
-        # AsDiscreted(keys="pred", argmax=True, to_onehot=2),
+        AsDiscreted(keys="pred", argmax=True, to_onehot=2),
         SaveImaged(
             keys="proba",
             meta_keys="pred_meta_dict",
@@ -424,19 +425,16 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
                 test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
             subject = ctp_df.loc[[name], "subject"].values[0]
             try:
-                dwi_img = [os.path.join(dwi_dir, img) for img in os.listdir(dwi_dir) if subject in img][0]
-            except IndexError:
-                if mediaflux is not None:
-                    dwi_img = glob.glob(mediaflux + 'INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/transform-DWI_followup/*__Warped.nii.gz')[0]
-                    dwi_img = loader(dwi_img)
-                    # spartan giving an error
-                    dwi_img = dwi_img.detach().numpy()
+                dwi_img = glob.glob(os.path.join(directory, 'dwi_test/', subject + '/*'))[0]
+                dwi_img = loader(dwi_img)
+                # spartan giving an error
+                dwi_img = dwi_img.detach().numpy()
 
-                    save_loc = png_dir + '/' + subject + '_proba.png'
-                    create_dwi_ctp_proba_map(dwi_img, ground_truth, prediction, prediction_70, prediction_90, save_loc,
-                                               define_zvalues(dwi_img), ext='png', save=True)
-                else:
-                    print("no_dwi_image")
+                save_loc = png_dir + '/' + subject + '_proba.png'
+                create_dwi_ctp_proba_map(dwi_img, ground_truth, prediction, prediction_70, prediction_90, save_loc,
+                                           define_zvalues(dwi_img), ext='png', save=True)
+            except IndexError:
+                print("no_dwi_image")
 
             results.loc[results.id == name, 'size'] = size
             results.loc[results.id == name, 'size_ml'] = size_ml
@@ -461,9 +459,7 @@ def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
 
 if __name__ == '__main__':
     HOMEDIR = os.path.expanduser("~/")
-    mediaflux = None
     if os.path.exists(HOMEDIR + 'mediaflux/'):
-        mediaflux= HOMEDIR + 'mediaflux/'
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_df = pd.read_csv(
             HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
@@ -476,7 +472,6 @@ if __name__ == '__main__':
             usecols=['subject', 'segmentation_type', 'dl_id'],
         index_col='dl_id')
     elif os.path.exists('Z:/data_freda'):
-        mediaflux = 'Z:/'
         directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
         ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
@@ -497,5 +492,4 @@ if __name__ == '__main__':
 
     # but all the test subjects are manual segmentations so this can be removed
     # TODO: remove reference to no seg data
-    dwi_dir = directory + 'no_seg/dwi_ctp/'
-    main(directory, ctp_df, dwi_dir, mediaflux, ddp=False)
+    main(directory, ctp_df, ddp=False)
