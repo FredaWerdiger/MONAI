@@ -252,14 +252,14 @@ def create_dwi_ctp_proba_map(dwi_ct_img,
 def main(directory, ctp_df, dwi_dir,  mediaflux=None, ddp=False):
 
 
-    out_tag = 'unet_simple'
-    model_path = directory + 'out_' + out_tag + '/best_metric_model400.pth'
+    out_tag = 'best_model/CBF_DT_MBL'
+    model_path = directory + 'out_' + out_tag + '/best_metric_U_Net_400_15HU_DT_CBF_ncct.pth '
 
     HU = 15
     image_size = [128]
 
     # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct']
-    features = ['DT', 'CBF', 'CBV', 'MTT']#, 'ncct']
+    features = ['DT', 'CBF', 'ncct']
     features_transform = ['image_' + string for string in [feature for feature in features if "ncct" not in feature]]
     if 'ncct' in features:
         features_transform += ['ncct']
