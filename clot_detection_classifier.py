@@ -192,7 +192,7 @@ test_loader = DataLoader(test_ds, batch_size=300, num_workers=10)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = DenseNet121(spatial_dims=2, in_channels=1, out_channels=2).to(device)
+model = DenseNet121(spatial_dims=3, in_channels=1, out_channels=2).to(device)
 loss_function = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), 1e-5)
 max_epochs = 4
