@@ -196,7 +196,7 @@ weights = [1, 0.5]
 class_weights = torch.FloatTensor(weights).to(device)
 loss_function = torch.nn.CrossEntropyLoss(weight=class_weights)
 optimizer = torch.optim.Adam(model.parameters(), 1e-5)
-max_epochs = 4
+max_epochs = 200
 val_interval = 1
 auc_metric = ROCAUCMetric()
 
