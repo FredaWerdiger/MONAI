@@ -82,7 +82,6 @@ assert subjects_1 == subjects_2
 
 
 image_class = []
-num_classes = [0, 0]
 for file in segmentations:
     im = sitk.ReadImage(file)
     label = sitk.LabelShapeStatisticsImageFilter()
@@ -193,7 +192,9 @@ test_loader = DataLoader(test_ds, batch_size=300, num_workers=10)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = DenseNet121(spatial_dims=2, in_channels=1, out_channels=2).to(device)
-loss_function = torch.nn.CrossEntropyLoss()
+weights = [1, 0.5]
+class_weights = torch.FloatTensor(weights).to(device)
+loss_function = torch.nn.CrossEntropyLoss(weight=class_weights)
 optimizer = torch.optim.Adam(model.parameters(), 1e-5)
 max_epochs = 4
 val_interval = 1
@@ -297,4 +298,4 @@ with torch.no_grad():
             y_true.append(test_labels[i].item())
             y_pred.append(pred[i].item())
 
-print(classification_report(y_true, y_pred, target_names=class_names, digits=4))
+print(classification_report(y_true, y_pred, target_names=['0', '1'], digits=4))
