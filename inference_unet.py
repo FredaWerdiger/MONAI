@@ -425,7 +425,7 @@ def main(directory, ctp_df, ddp=False):
                 test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
             subject = ctp_df.loc[[name], "subject"].values[0]
             try:
-                dwi_img = glob.glob(os.path.join(directory, 'dwi_test/', subject + '/*'))[0]
+                dwi_img = glob.glob(os.path.join(directory, 'dwi_test/', subject + '*'))[0]
                 dwi_img = loader(dwi_img)
                 # spartan giving an error
                 dwi_img = dwi_img.detach().numpy()

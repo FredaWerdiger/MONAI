@@ -40,21 +40,27 @@ print_config()
 
 HOME = os.path.expanduser('~/')
 image_size = [128]
-
+windows=False
 if os.path.exists(HOME + 'mediaflux'):
     mediaflux = os.path.join(HOME, 'mediaflux')
     directory = os.path.join(mediaflux, 'CTA', 'CODEC-IV', 'INSPIRE - do not share')
 elif os.path.exists('Z:/data_freda/'):
     directory = os.path.join('Z:', 'CTA', 'CODEC-IV', 'INSPIRE - do not share')
+    windows = True
 elif os.path.exists('/data/gpfs/projects/punim1086/clot_detection'):
     directory = '/data/gpfs/projects/punim1086/clot_detection'
 
 
 out_directory = os.path.join(directory, 'results')
-image_files_list = glob.glob(os.path.join(directory, 'cta_all/*'))
+image_files_list = glob.glob('Z:/CTA/codec_skullstrip/*')
+
 image_files_list.sort()
 
-subjects_1 = [file.split('cta_all/')[1].split('_cta')[0] for file in image_files_list]
+if windows:
+    subjects_1 = [file.split('skullstrip\\')[1].split('_cta')[0] for file in image_files_list]
+else:
+    subjects_1 = [file.split('skullstrip/')[1].split('_cta')[0] for file in image_files_list]
+
 
 # TODO: Replace with skull stripped image
 #
@@ -74,10 +80,15 @@ subjects_1 = [file.split('cta_all/')[1].split('_cta')[0] for file in image_files
 #                                           '/CT_baseline/CTP_baseline/mistar/Mean_baseline/*_brain.nii.gz'))[0]
 #         image_files_list.append(brain_im)
 
-segmentations = glob.glob(os.path.join(directory, 'segmentations_all/*'))
+segmentations = [file for file in glob.glob(os.path.join(directory, 'segmentations_all/*'))
+                 if any(subject in file for subject in subjects_1)]
 segmentations.sort()
 
-subjects_2 = [file.split('segmentations_all/')[1].split('_seg')[0] for file in segmentations]
+if windows:
+    subjects_2 = [file.split('segmentations_all\\')[1].split('_seg')[0] for file in segmentations]
+else:
+    subjects_2 = [file.split('segmentations_all/')[1].split('_seg')[0] for file in segmentations]
+
 
 assert subjects_1 == subjects_2
 
@@ -97,8 +108,17 @@ for file in segmentations:
 print(f"Number of patients with a visible clot: {image_class.count(1)}")
 print(f"Number of patients with no visible clot: {image_class.count(0)}")
 
+# Adding more images without a clot
+extra_images = glob.glob('Z:/CTA/no_occlusion_checked/*')
+for file in extra_images:
+    image_files_list.append(file)
+    image_class.append(0)
+
 class_names = [0, 1]
 num_total = len(image_files_list)
+
+print(f"Number of patients with a visible clot: {image_class.count(1)}")
+print(f"Number of patients with no visible clot: {image_class.count(0)}")
 
 # Randomly pick image to display
 #
