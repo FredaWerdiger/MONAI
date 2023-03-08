@@ -50,30 +50,13 @@ elif os.path.exists('/data/gpfs/projects/punim1086/clot_detection'):
 
 
 out_directory = os.path.join(directory, 'results')
-image_files_list = glob.glob(os.path.join(directory, 'cta_all/*'))
+image_files_list = glob.glob(os.path.join(directory, 'codec_skullstrip/*'))
 image_files_list.sort()
 
-subjects_1 = [file.split('cta_all/')[1].split('_cta')[0] for file in image_files_list]
+subjects_1 = [file.split('skullstrip/')[1].split('_cta')[0] for file in image_files_list]
 
-# TODO: Replace with skull stripped image
-#
-# image_files_list = []
-# for subject in subjects_1:
-#     brain_im = glob.glob(mediaflux +
-#                          '/' +
-#                          'INSPIRE_database/' +
-#                          subject +
-#                          '/CT_baseline/CTP_baseline/mistar/Mean_baseline/*mistar_brain.nii.gz')
-#     if len(brain_im) > 1:
-#         image_files_list.append(brain_im[0])
-#     else:
-#         brain_im = glob.glob(os.path.join(mediaflux,
-#                                           'INSPIRE_database/'
-#                                           + subject +
-#                                           '/CT_baseline/CTP_baseline/mistar/Mean_baseline/*_brain.nii.gz'))[0]
-#         image_files_list.append(brain_im)
-
-segmentations = glob.glob(os.path.join(directory, 'segmentations_all/*'))
+segmentations = [file for file in glob.glob(os.path.join(directory, 'segmentations_all/*'))
+                 if any(name in file for name in subjects_1)]
 segmentations.sort()
 
 subjects_2 = [file.split('segmentations_all/')[1].split('_seg')[0] for file in segmentations]
@@ -95,8 +78,20 @@ for file in segmentations:
 print(f"Number of patients with a visible clot: {image_class.count(1)}")
 print(f"Number of patients with no visible clot: {image_class.count(0)}")
 
+# add more no occlusion cases
 class_names = [0, 1]
 num_total = len(image_files_list)
+
+image_files_new = glob.glob(os.path.join(directory, 'no_occlusion_checked/*'))
+subjects_new = [file.split('no_occlusion_checked/')[1].split('_cta')[0] for file in image_files_new]
+
+for subject in subjects_new:
+    image_file = [file for file in image_files_new if subject in file][0]
+    image_class.append(0)
+    image_files_list.append(image_file)
+
+print(f"Number of patients with a visible clot: {image_class.count(1)}")
+print(f"Number of patients with no visible clot: {image_class.count(0)}")
 
 # Randomly pick image to display
 #
@@ -191,8 +186,8 @@ test_loader = DataLoader(test_ds, batch_size=300, num_workers=10)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = DenseNet121(spatial_dims=2, in_channels=1, out_channels=2).to(device)
-weights = [1, 0.5]
+model = DenseNet121(spatial_dims=3, in_channels=1, out_channels=2).to(device)
+weights = [1, 1]
 class_weights = torch.FloatTensor(weights).to(device)
 loss_function = torch.nn.CrossEntropyLoss(weight=class_weights)
 optimizer = torch.optim.Adam(model.parameters(), 1e-5)
