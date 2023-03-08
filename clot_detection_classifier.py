@@ -176,15 +176,15 @@ val_transforms = Compose(
 y_pred_trans = Compose([Activations(softmax=True)])
 y_trans = Compose([AsDiscrete(to_onehot=2)])
 
-
+batch_size = 2
 train_ds = CodecDataset(train_x, train_y, train_transforms)
-train_loader = DataLoader(train_ds, batch_size=2, shuffle=True)
+train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
 
 val_ds = CodecDataset(val_x, val_y, val_transforms)
-val_loader = DataLoader(val_ds, batch_size=2)
+val_loader = DataLoader(val_ds, batch_size=batch_size)
 
 test_ds = CodecDataset(test_x, test_y, val_transforms)
-test_loader = DataLoader(test_ds, batch_size=2)
+test_loader = DataLoader(test_ds, batch_size=1)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -196,6 +196,7 @@ class_weights = torch.FloatTensor(weights).to(device)
 loss_function = torch.nn.CrossEntropyLoss(weight=class_weights)
 optimizer = torch.optim.Adam(model.parameters(), 1e-5)
 max_epochs = 200
+
 val_interval = 1
 auc_metric = ROCAUCMetric()
 
