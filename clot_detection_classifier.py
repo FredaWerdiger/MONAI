@@ -178,19 +178,19 @@ y_trans = Compose([AsDiscrete(to_onehot=2)])
 
 
 train_ds = CodecDataset(train_x, train_y, train_transforms)
-train_loader = DataLoader(train_ds, batch_size=300, shuffle=True, num_workers=10)
+train_loader = DataLoader(train_ds, batch_size=2, shuffle=True)
 
 val_ds = CodecDataset(val_x, val_y, val_transforms)
-val_loader = DataLoader(val_ds, batch_size=300, num_workers=10)
+val_loader = DataLoader(val_ds, batch_size=2)
 
 test_ds = CodecDataset(test_x, test_y, val_transforms)
-test_loader = DataLoader(test_ds, batch_size=300, num_workers=10)
+test_loader = DataLoader(test_ds, batch_size=2)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = DenseNet121(spatial_dims=3, in_channels=1, out_channels=2)
-model = DDP(model)
-model= model.to(device)
+# model = DDP(model)
+model = model.to(device)
 weights = [1, 1]
 class_weights = torch.FloatTensor(weights).to(device)
 loss_function = torch.nn.CrossEntropyLoss(weight=class_weights)
