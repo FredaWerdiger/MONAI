@@ -46,6 +46,9 @@ import math
 import matplotlib.pyplot as plt
 import glob
 import time
+import SimpleITK as sitk
+from sklearn.model_selection import train_test_split
+from sklearn.cluster import KMeans
 # from numba import cuda
 import torch
 # import torch.distributed as dist
@@ -85,6 +88,65 @@ def main(notes=''):
 
     val_df = ctp_dl_df[ctp_dl_df.apply(lambda x: 'val' in x.dl_id, axis=1)]
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
+
+    # train/validation/test split
+
+    data_dir = os.path.join(directory, 'DATA')
+    image_paths = glob.glob(os.path.join(data_dir, 'images', '*'))
+    image_paths.sort()
+    mask_paths = glob.glob(os.path.join(data_dir, 'masks', '*'))
+    mask_paths.sort()
+    random_state = 42
+    # create column with size of lesion (in voxels)
+    lesion_size = []
+    for path in mask_paths:
+        im = sitk.ReadImage(path)
+        x, y, z = im.GetSpacing()
+        voxel_size = (x * y * z)/1000
+        label = sitk.LabelShapeStatisticsImageFilter()
+        label.Execute(sitk.Cast(im, sitk.sitkUInt8))
+        size = label.GetNumberOfPixels(1)
+        lesion_size.append(voxel_size * size)
+
+    labels = (np.asarray(lesion_size) < 5) * 1
+    ctp_dl_df['size_labels'] = labels
+
+    num_train = int(np.ceil(0.6 * len(labels)))
+    num_validation = int(np.ceil(0.2 * len(labels)))
+    num_test = len(labels) - (num_train + num_validation)
+
+    train_id, test_id = train_test_split(ctp_dl_df.dl_id.to_list(),
+                                         train_size=num_train,
+                                         test_size=num_test+num_validation,
+                                         random_state=random_state,
+                                         shuffle=True,
+                                         stratify=labels)
+
+    # get labels list that correspond with
+    test_labels = ctp_dl_df[ctp_dl_df.apply(lambda x: x['dl_id'] in test_id, axis=1)].size_labels.to_list()
+
+    validation_id, test_id = train_test_split(test_id,
+                                              train_size=num_validation,
+                                              test_size=num_test,
+                                              random_state=random_state,
+                                              shuffle=True,
+                                              stratify=test_labels)
+
+    def make_dict(id):
+        id = [str(num).zfill(3) for num in id]
+        paths1 = [file for file in image_paths
+                             if file.split('.nii.gz')[0].split('_')[-1] in id]
+        paths2 = [file for file in mask_paths
+                            if file.split('.nii.gz')[0].split('_')[-1] in id]
+        files_dict = [{"image": image_name, "label": label_name}
+                       for image_name, label_name in zip(paths1, paths2)]
+
+        return files_dict
+
+    train_files = make_dict(train_id)
+    val_files = make_dict(validation_id)
+    test_files = make_dict(test_id)
+    #TODO: Add testing piece to end of code
 
     # model parameters
     max_epochs = 400

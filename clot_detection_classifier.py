@@ -35,66 +35,38 @@ from monai.transforms import (
 )
 from monai.utils import set_determinism
 from torch.nn import DataParallel as DDP
+import time
 
 print_config()
 
 HOME = os.path.expanduser('~/')
 image_size = [128]
-windows=False
+
 if os.path.exists(HOME + 'mediaflux'):
     mediaflux = os.path.join(HOME, 'mediaflux')
     directory = os.path.join(mediaflux, 'CTA', 'CODEC-IV', 'INSPIRE - do not share')
 elif os.path.exists('Z:/data_freda/'):
     directory = os.path.join('Z:', 'CTA', 'CODEC-IV', 'INSPIRE - do not share')
-    windows = True
 elif os.path.exists('/data/gpfs/projects/punim1086/clot_detection'):
-    directory = '/data/gpfs/projects/punim1086/clot_detection'
+    directory = '/data/gpfs/projects/punim1086/clot_detection/'
 
 
-out_directory = os.path.join(directory, 'results')
-image_files_list = glob.glob('Z:/CTA/codec_skullstrip/*')
-
+out_directory = os.path.join(directory, 'batch16')
+image_files_list = glob.glob(os.path.join(directory, 'codec_skullstrip/*'))
 image_files_list.sort()
 
-if windows:
-    subjects_1 = [file.split('skullstrip\\')[1].split('_cta')[0] for file in image_files_list]
-else:
-    subjects_1 = [file.split('skullstrip/')[1].split('_cta')[0] for file in image_files_list]
-
-
-# TODO: Replace with skull stripped image
-#
-# image_files_list = []
-# for subject in subjects_1:
-#     brain_im = glob.glob(mediaflux +
-#                          '/' +
-#                          'INSPIRE_database/' +
-#                          subject +
-#                          '/CT_baseline/CTP_baseline/mistar/Mean_baseline/*mistar_brain.nii.gz')
-#     if len(brain_im) > 1:
-#         image_files_list.append(brain_im[0])
-#     else:
-#         brain_im = glob.glob(os.path.join(mediaflux,
-#                                           'INSPIRE_database/'
-#                                           + subject +
-#                                           '/CT_baseline/CTP_baseline/mistar/Mean_baseline/*_brain.nii.gz'))[0]
-#         image_files_list.append(brain_im)
+subjects_1 = [file.split('skullstrip/')[1].split('_cta')[0] for file in image_files_list]
 
 segmentations = [file for file in glob.glob(os.path.join(directory, 'segmentations_all/*'))
-                 if any(subject in file for subject in subjects_1)]
+                 if any(name in file for name in subjects_1)]
 segmentations.sort()
 
-if windows:
-    subjects_2 = [file.split('segmentations_all\\')[1].split('_seg')[0] for file in segmentations]
-else:
-    subjects_2 = [file.split('segmentations_all/')[1].split('_seg')[0] for file in segmentations]
-
+subjects_2 = [file.split('segmentations_all/')[1].split('_seg')[0] for file in segmentations]
 
 assert subjects_1 == subjects_2
 
 
 image_class = []
-num_classes = [0, 0]
 for file in segmentations:
     im = sitk.ReadImage(file)
     label = sitk.LabelShapeStatisticsImageFilter()
@@ -108,14 +80,17 @@ for file in segmentations:
 print(f"Number of patients with a visible clot: {image_class.count(1)}")
 print(f"Number of patients with no visible clot: {image_class.count(0)}")
 
-# Adding more images without a clot
-extra_images = glob.glob('Z:/CTA/no_occlusion_checked/*')
-for file in extra_images:
-    image_files_list.append(file)
-    image_class.append(0)
-
+# add more no occlusion cases
 class_names = [0, 1]
 num_total = len(image_files_list)
+
+image_files_new = glob.glob(os.path.join(directory, 'no_occlusion_checked/*'))
+subjects_new = [file.split('no_occlusion_checked/')[1].split('_cta')[0] for file in image_files_new]
+
+for subject in subjects_new:
+    image_file = [file for file in image_files_new if subject in file][0]
+    image_class.append(0)
+    image_files_list.append(image_file)
 
 print(f"Number of patients with a visible clot: {image_class.count(1)}")
 print(f"Number of patients with no visible clot: {image_class.count(0)}")
@@ -201,28 +176,29 @@ val_transforms = Compose(
 y_pred_trans = Compose([Activations(softmax=True)])
 y_trans = Compose([AsDiscrete(to_onehot=2)])
 
-
+batch_size = 16
 train_ds = CodecDataset(train_x, train_y, train_transforms)
-train_loader = DataLoader(train_ds, batch_size=300, shuffle=True, num_workers=10)
+train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
 
 val_ds = CodecDataset(val_x, val_y, val_transforms)
-val_loader = DataLoader(val_ds, batch_size=300, num_workers=10)
+val_loader = DataLoader(val_ds, batch_size=batch_size)
 
 test_ds = CodecDataset(test_x, test_y, val_transforms)
-test_loader = DataLoader(test_ds, batch_size=300, num_workers=10)
+test_loader = DataLoader(test_ds, batch_size=1)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = DenseNet121(spatial_dims=3, in_channels=1, out_channels=2)
-
-model = DDP(model)
-
+# model = DDP(model)
 model = model.to(device)
+weights = [1, 1]
+class_weights = torch.FloatTensor(weights).to(device)
+loss_function = torch.nn.CrossEntropyLoss(weight=class_weights)
+learning_rate = 1e-3
+weight_decay = 1e-4
+optimizer = torch.optim.Adam(model.parameters(), learning_rate, weight_decay=weight_decay)
+max_epochs = 200
 
-
-loss_function = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), 1e-5)
-max_epochs = 100
 val_interval = 1
 auc_metric = ROCAUCMetric()
 
@@ -230,6 +206,8 @@ best_metric = -1
 best_metric_epoch = -1
 epoch_loss_values = []
 metric_values = []
+
+start = time.time()
 
 for epoch in range(max_epochs):
     print("-" * 10)
@@ -289,6 +267,14 @@ for epoch in range(max_epochs):
 
 print(f"train completed, best_metric: {best_metric:.4f} " f"at epoch: {best_metric_epoch}")
 
+end = time.time()
+time_taken = end - start
+print(f"Time taken: {round(time_taken, 0)} seconds")
+time_taken_hours = time_taken / 3600
+time_taken_mins = np.ceil((time_taken / 3600 - int(time_taken / 3600)) * 60)
+time_taken_hours = int(time_taken_hours)
+
+
 plt.figure("train", (12, 6))
 plt.subplot(1, 2, 1)
 plt.title("Epoch Average Loss")
@@ -324,4 +310,27 @@ with torch.no_grad():
             y_true.append(test_labels[i].item())
             y_pred.append(pred[i].item())
 
-print(classification_report(y_true, y_pred, target_names=class_names, digits=4))
+print(classification_report(y_true, y_pred, target_names=['0', '1'], digits=4))
+
+model_name = model._get_name()
+loss_name = loss_function._get_name()
+
+with open(out_directory + '/model_info_' + str(
+        max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
+    myfile.write(f'Train dataset size: {len(train_x)}\n')
+    myfile.write(f'Validation dataset size: {len(val_x)}\n')
+    myfile.write(f'Testing dataset size: {len(test_x)}\n')
+    myfile.write(f"Number of patients with a visible clot: {image_class.count(1)}\n")
+    myfile.write(f"Number of patients with no visible clot: {image_class.count(0)}\n")
+    myfile.write(f'Model: {model_name}\n')
+    myfile.write(f'Loss function: {loss_name}\n')
+    myfile.write(f'Number of epochs: {max_epochs}\n')
+    myfile.write(f'Learning rate: {learning_rate}\n')
+    myfile.write(f'Weight decay: {weight_decay}\n')
+    myfile.write(f'Batch size: {batch_size}\n')
+    myfile.write(f'Image size: {image_size}\n')
+    myfile.write(f'Validation interval: {val_interval}\n')
+    myfile.write(f"Best metric: {best_metric:.4f}\n")
+    myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
+    myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
+

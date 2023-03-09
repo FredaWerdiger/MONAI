@@ -412,7 +412,7 @@ def main(directory, ctp_df, ddp=False):
             ground_truth = test_label[0][1].detach().numpy()
             prediction = (test_proba[0][1].detach().numpy() >= 0.5 ) *1
             prediction_70 = (test_proba[0][1].detach().numpy() >=0.7) *1
-            prediction_90 =( test_proba[0][1].detach().numpy() >=0.9) *1
+            prediction_90 =(test_proba[0][1].detach().numpy() >=0.9) *1
 
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
