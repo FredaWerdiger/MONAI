@@ -35,7 +35,7 @@ from monai.transforms import (
 )
 from monai.utils import set_determinism
 from torch.nn import DataParallel as DDP
-
+import time
 
 print_config()
 
@@ -48,10 +48,10 @@ if os.path.exists(HOME + 'mediaflux'):
 elif os.path.exists('Z:/data_freda/'):
     directory = os.path.join('Z:', 'CTA', 'CODEC-IV', 'INSPIRE - do not share')
 elif os.path.exists('/data/gpfs/projects/punim1086/clot_detection'):
-    directory = '/data/gpfs/projects/punim1086/clot_detection'
+    directory = '/data/gpfs/projects/punim1086/clot_detection/'
 
 
-out_directory = os.path.join(directory, 'results')
+out_directory = os.path.join(directory, 'batch16')
 image_files_list = glob.glob(os.path.join(directory, 'codec_skullstrip/*'))
 image_files_list.sort()
 
@@ -194,7 +194,9 @@ model = model.to(device)
 weights = [1, 1]
 class_weights = torch.FloatTensor(weights).to(device)
 loss_function = torch.nn.CrossEntropyLoss(weight=class_weights)
-optimizer = torch.optim.Adam(model.parameters(), 1e-3, weight_decay=1e-4)
+learning_rate = 1e-3
+weight_decay = 1e-4
+optimizer = torch.optim.Adam(model.parameters(), learning_rate, weight_decay=weight_decay)
 max_epochs = 200
 
 val_interval = 1
@@ -204,6 +206,8 @@ best_metric = -1
 best_metric_epoch = -1
 epoch_loss_values = []
 metric_values = []
+
+start = time.time()
 
 for epoch in range(max_epochs):
     print("-" * 10)
@@ -263,6 +267,14 @@ for epoch in range(max_epochs):
 
 print(f"train completed, best_metric: {best_metric:.4f} " f"at epoch: {best_metric_epoch}")
 
+end = time.time()
+time_taken = end - start
+print(f"Time taken: {round(time_taken, 0)} seconds")
+time_taken_hours = time_taken / 3600
+time_taken_mins = np.ceil((time_taken / 3600 - int(time_taken / 3600)) * 60)
+time_taken_hours = int(time_taken_hours)
+
+
 plt.figure("train", (12, 6))
 plt.subplot(1, 2, 1)
 plt.title("Epoch Average Loss")
@@ -299,3 +311,26 @@ with torch.no_grad():
             y_pred.append(pred[i].item())
 
 print(classification_report(y_true, y_pred, target_names=['0', '1'], digits=4))
+
+model_name = model._get_name()
+loss_name = loss_function._get_name()
+
+with open(out_directory + '/model_info_' + str(
+        max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
+    myfile.write(f'Train dataset size: {len(train_x)}\n')
+    myfile.write(f'Validation dataset size: {len(val_x)}\n')
+    myfile.write(f'Testing dataset size: {len(test_x)}\n')
+    myfile.write(f"Number of patients with a visible clot: {image_class.count(1)}\n")
+    myfile.write(f"Number of patients with no visible clot: {image_class.count(0)}\n")
+    myfile.write(f'Model: {model_name}\n')
+    myfile.write(f'Loss function: {loss_name}\n')
+    myfile.write(f'Number of epochs: {max_epochs}\n')
+    myfile.write(f'Learning rate: {learning_rate}\n')
+    myfile.write(f'Weight decay: {weight_decay}\n')
+    myfile.write(f'Batch size: {batch_size}\n')
+    myfile.write(f'Image size: {image_size}\n')
+    myfile.write(f'Validation interval: {val_interval}\n')
+    myfile.write(f"Best metric: {best_metric:.4f}\n")
+    myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
+    myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
+
