@@ -1,5 +1,8 @@
 import os
 import sys
+
+import pandas as pd
+
 sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 import glob
 import shutil
@@ -29,6 +32,7 @@ from monai.transforms import (
     RandFlip,
     RandRotate,
     RandZoom,
+    RandAffine,
     Resize,
     ScaleIntensity,
     ThresholdIntensity
@@ -36,6 +40,7 @@ from monai.transforms import (
 from monai.utils import set_determinism
 from torch.nn import DataParallel as DDP
 import time
+from sklearn.model_selection import train_test_split
 
 print_config()
 
@@ -110,17 +115,43 @@ print(f"Number of patients with no visible clot: {image_class.count(0)}")
 # plt.show()
 # plt.close()
 
+train_frac = 0.8
 val_frac = 0.1
 test_frac = 0.1
+
 length = len(image_files_list)
 indices = np.arange(length)
-np.random.shuffle(indices)
+random_state = 42
 
-test_split = int(test_frac * length)
-val_split = int(val_frac * length) + test_split
-test_indices = indices[:test_split]
-val_indices = indices[test_split:val_split]
-train_indices = indices[val_split:]
+# make a dataframe with data
+
+df = pd.DataFrame( columns=['subject', 'index', 'class'])
+df['index'] = indices
+df['class'] = image_class
+df['subject'] = subjects_1 + subjects_new
+
+num_train = int(np.ceil(train_frac * length))
+num_validation = int(np.ceil(val_frac * length))
+num_test = length - (num_train + num_validation)
+
+train_indices, test_indices = train_test_split(indices,
+                                     train_size=num_train,
+                                     test_size=num_test+num_validation,
+                                     random_state=random_state,
+                                     shuffle=True,
+                                     stratify=image_class)
+
+test_labels = df[df.apply(lambda x: x['index'] in test_indices, axis=1)]['class'].to_list()
+test_indices = df[df.apply(lambda x: x['index'] in test_indices, axis=1)]['index'].to_list()
+
+
+val_indices, test_indices = train_test_split(test_indices,
+                                     train_size=num_validation,
+                                     test_size=num_test,
+                                     random_state=random_state,
+                                     shuffle=True,
+                                     stratify=test_labels)
+
 
 train_x = [image_files_list[i] for i in train_indices]
 train_y = [image_class[i] for i in train_indices]
@@ -153,6 +184,7 @@ train_transforms = Compose(
         ThresholdIntensity(threshold=80, above=False),
         ThresholdIntensity(threshold=0, above=True),
         NormalizeIntensity(nonzero=True, channel_wise=True),
+        RandAffine(prob=0.5, translate_range=10),
         RandRotate(range_x=np.pi / 12, prob=0.5, keep_size=True),
         RandFlip(spatial_axis=0, prob=0.5),
         RandFlip(spatial_axis=1, prob=0.5),
@@ -292,25 +324,37 @@ plt.savefig(os.path.join(directory, "loss_plot_" + model._get_name() + ".png"),
             bbox_inches='tight', dpi=300, format='png')
 plt.close()
 
-
+# TODO: just run below with AUC
 model.load_state_dict(torch.load(os.path.join(out_directory,
                                               "best_metric_model"
                                               + model._get_name() + ".pth")))
 model.eval()
-y_true = []
-y_pred = []
+y_true_array = []
+y_pred_array = []
+auc_metric = ROCAUCMetric()
 with torch.no_grad():
+    y_pred = torch.tensor([], dtype=torch.float32, device=device)
+    y = torch.tensor([], dtype=torch.long, device=device)
     for test_data in test_loader:
         test_images, test_labels = (
             test_data[0].to(device),
             test_data[1].to(device),
         )
-        pred = model(test_images).argmax(dim=1)
-        for i in range(len(pred)):
-            y_true.append(test_labels[i].item())
-            y_pred.append(pred[i].item())
 
-print(classification_report(y_true, y_pred, target_names=['0', '1'], digits=4))
+        y_pred = torch.cat([y_pred, model(test_images)], dim=0)
+        y = torch.cat([y, test_labels], dim=0)
+        y_onehot = [y_trans(i) for i in decollate_batch(y, detach=False)]
+        y_pred_act = [y_pred_trans(i) for i in decollate_batch(y_pred)]
+        auc_metric(y_pred_act, y_onehot)
+        result = auc_metric.aggregate()
+        pred = model(test_images).argmax(dim=1)
+
+        for i in range(len(pred)):
+            y_true_array.append(test_labels[i].item())
+            y_pred_array.append(pred[i].item())
+
+print(f"AUC on test set: {result}")
+print(classification_report(y_true_array, y_pred_array, target_names=['0', '1'], digits=4))
 
 model_name = model._get_name()
 loss_name = loss_function._get_name()
