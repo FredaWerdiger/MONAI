@@ -387,17 +387,17 @@ def main(notes=''):
         ]
     )
 
-    train_dataset = CacheDataset(
-        data=train_files,
-        transform=train_transforms,
-        cache_rate=1.0,
-        num_workers=8)
-
-    val_dataset = CacheDataset(
-        data=val_files,
-        transform=val_transforms,
-        cache_rate=1.0,
-        num_workers=8)
+    # train_dataset = CacheDataset(
+    #     data=train_files,
+    #     transform=train_transforms,
+    #     cache_rate=1.0,
+    #     num_workers=8)
+    #
+    # val_dataset = CacheDataset(
+    #     data=val_files,
+    #     transform=val_transforms,
+    #     cache_rate=1.0,
+    #     num_workers=8)
 
     test_ds = CacheDataset(
         data=test_files,
@@ -405,15 +405,15 @@ def main(notes=''):
         cache_rate=1.0,
         num_workers=8
     )
-
-    train_loader = DataLoader(train_dataset,
-                              batch_size=batch_size,
-                              shuffle=True,
-                              pin_memory=True)
-
-    val_loader = DataLoader(val_dataset,
-                            batch_size=batch_size,
-                            pin_memory=True)
+    #
+    # train_loader = DataLoader(train_dataset,
+    #                           batch_size=batch_size,
+    #                           shuffle=True,
+    #                           pin_memory=True)
+    #
+    # val_loader = DataLoader(val_dataset,
+    #                         batch_size=batch_size,
+    #                         pin_memory=True)
 
     test_loader = DataLoader(test_ds,
                              batch_size=1,
@@ -686,7 +686,7 @@ def main(notes=''):
     loader = LoadImage(image_only=True)
     loader_meta = LoadImage(image_only=False)
 
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(os.path.join(directory, 'out_' + out_tag, model_path)))
 
     model.eval()
 
