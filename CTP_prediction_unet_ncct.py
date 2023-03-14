@@ -270,13 +270,10 @@ def main(notes=''):
         id = [str(num).zfill(3) for num in id]
         paths1 = [file for file in image_paths
                              if file.split('.nii.gz')[0].split('_')[-1] in id]
-        paths2 = [file for file in ncct_paths
-                  if file.split('.nii.gz')[0].split('_')[-1] in id]
-        paths3 = [file for file in mask_paths
-                            if file.split('.nii.gz')[0].split('_')[-1] in id]
+        paths2 = [file for file in ncct_paths if file.split('.nii.gz')[0].split('_')[-1] in id]
+        paths3 = [file for file in mask_paths if file.split('.nii.gz')[0].split('_')[-1] in id]
 
-        files_dict = [{"image": image_name, "ncct": ncct_name, "label": label_name}
-                       for image_name, ncct_name, label_name in zip(paths1, paths2, paths3)]
+        files_dict = [{"image": image_name, "ncct": ncct_name, "label": label_name} for image_name, ncct_name, label_name in zip(paths1, paths2, paths3)]
 
         return files_dict
 
@@ -700,7 +697,10 @@ def main(notes=''):
                                     'px_z',
                                     'size_ml',
                                     'size_pred_ml'])
-    results['id'] = ['test_' + str(item).zfill(3) for item in range(len(test_loader))]
+    results['id'] = [str(item).zfill(3) for item in test_id]
+    # change ctp id dl id to string
+    ctp_dl_df['dl_id'] = ctp_dl_df['dl_id'].apply(lambda row: str(row).zfill(3))
+    ctp_dl_df.set_index('dl_id', inplace=True)
 
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
@@ -735,7 +735,7 @@ def main(notes=''):
             size_pred = prediction.sum()
             size_pred_ml = size_pred * pixel_vol / 1000
 
-            name = "test_" + os.path.basename(
+            name = os.path.basename(
                 test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
             subject = ctp_dl_df.loc[[name], "subject"].values[0]
             try:
