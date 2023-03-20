@@ -756,8 +756,8 @@ def main(notes=''):
 
             fpr, tpr, thresholds = roc_curve(gt_flat, pred_flat, pos_label=1)
             auc_score = auc(fpr, tpr)
-            precision = precision_score(gt_flat, pred_flat)
-            recall = recall_score(gt_flat, pred_flat)
+            precision = precision_score(gt_flat, pred_flat, zero_division=0)
+            recall = recall_score(gt_flat, pred_flat, zero_division=0)
             sensitivities.append(recall)
 
             size = ground_truth.sum()
