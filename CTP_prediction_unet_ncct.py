@@ -756,6 +756,7 @@ def main(notes=''):
             fpr, tpr, thresholds = roc_curve(gt_flat, pred_flat, pos_label=1)
             auc = auc(fpr, tpr)
             precision = precision_score(gt_flat, pred_flat)
+            recall = recall_score(gt_flat, pred_flat)
 
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
@@ -789,7 +790,7 @@ def main(notes=''):
             results.loc[results.id == name, 'dice70'] = dice70
             results.loc[results.id == name, 'dice90'] = dice90
             results.loc[results.id == name, 'auc'] = auc
-            results.loc[results.id == name, 'sensitivity'] = tpr
+            results.loc[results.id == name, 'sensitivity'] = recall
             results.loc[results.id == name, 'precision'] = precision
 
 
