@@ -13,7 +13,7 @@ import torch
 import SimpleITK as sitk
 import numpy as np
 import random
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, roc_curve, auc
 from monai.data import Dataset
 from monai.apps import download_and_extract
 from monai.config import print_config
@@ -241,97 +241,95 @@ metric_values = []
 
 start = time.time()
 
-for epoch in range(max_epochs):
-    print("-" * 10)
-    print(f"epoch {epoch + 1}/{max_epochs}")
-    model.train()
-    epoch_loss = 0
-    step = 0
-    for batch_data in train_loader:
-        step += 1
-        inputs, labels = batch_data[0].to(device), batch_data[1].to(device)
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = loss_function(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        epoch_loss += loss.item()
-        print(f"{step}/{len(train_ds) // train_loader.batch_size}, " f"train_loss: {loss.item():.4f}")
-        epoch_len = len(train_ds) // train_loader.batch_size
-    epoch_loss /= step
-    epoch_loss_values.append(epoch_loss)
-    print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+# for epoch in range(max_epochs):
+#     print("-" * 10)
+#     print(f"epoch {epoch + 1}/{max_epochs}")
+#     model.train()
+#     epoch_loss = 0
+#     step = 0
+#     for batch_data in train_loader:
+#         step += 1
+#         inputs, labels = batch_data[0].to(device), batch_data[1].to(device)
+#         optimizer.zero_grad()
+#         outputs = model(inputs)
+#         loss = loss_function(outputs, labels)
+#         loss.backward()
+#         optimizer.step()
+#         epoch_loss += loss.item()
+#         print(f"{step}/{len(train_ds) // train_loader.batch_size}, " f"train_loss: {loss.item():.4f}")
+#         epoch_len = len(train_ds) // train_loader.batch_size
+#     epoch_loss /= step
+#     epoch_loss_values.append(epoch_loss)
+#     print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+#
+#     if (epoch + 1) % val_interval == 0:
+#         model.eval()
+#         with torch.no_grad():
+#             y_pred = torch.tensor([], dtype=torch.float32, device=device)
+#             y = torch.tensor([], dtype=torch.long, device=device)
+#             for val_data in val_loader:
+#                 val_images, val_labels = (
+#                     val_data[0].to(device),
+#                     val_data[1].to(device),
+#                 )
+#                 y_pred = torch.cat([y_pred, model(val_images)], dim=0)
+#                 y = torch.cat([y, val_labels], dim=0)
+#             y_onehot = [y_trans(i) for i in decollate_batch(y, detach=False)]
+#             y_pred_act = [y_pred_trans(i) for i in decollate_batch(y_pred)]
+#             auc_metric(y_pred_act, y_onehot)
+#             result = auc_metric.aggregate()
+#             auc_metric.reset()
+#             del y_pred_act, y_onehot
+#             metric_values.append(result)
+#             acc_value = torch.eq(y_pred.argmax(dim=1), y)
+#             acc_metric = acc_value.sum().item() / len(acc_value)
+#             if result > best_metric:
+#                 best_metric = result
+#                 best_metric_epoch = epoch + 1
+#                 torch.save(model.state_dict(), os.path.join(out_directory,
+#                                                             "best_metric_model"
+#                                                             + model._get_name() + ".pth"))
+#                 print("saved new best metric model")
+#             print(
+#                 f"current epoch: {epoch + 1} current AUC: {result:.4f}"
+#                 f" current accuracy: {acc_metric:.4f}"
+#                 f" best AUC: {best_metric:.4f}"
+#                 f" at epoch: {best_metric_epoch}"
+#             )
+#
+# print(f"train completed, best_metric: {best_metric:.4f} " f"at epoch: {best_metric_epoch}")
+#
+# end = time.time()
+# time_taken = end - start
+# print(f"Time taken: {round(time_taken, 0)} seconds")
+# time_taken_hours = time_taken / 3600
+# time_taken_mins = np.ceil((time_taken / 3600 - int(time_taken / 3600)) * 60)
+# time_taken_hours = int(time_taken_hours)
+#
+#
+# plt.figure("train", (12, 6))
+# plt.subplot(1, 2, 1)
+# plt.title("Epoch Average Loss")
+# x = [i + 1 for i in range(len(epoch_loss_values))]
+# y = epoch_loss_values
+# plt.xlabel("epoch")
+# plt.plot(x, y)
+# plt.subplot(1, 2, 2)
+# plt.title("Val AUC")
+# x = [val_interval * (i + 1) for i in range(len(metric_values))]
+# y = metric_values
+# plt.xlabel("epoch")
+# plt.plot(x, y)
+# plt.savefig(os.path.join(directory, "loss_plot_" + model._get_name() + ".png"),
+#             bbox_inches='tight', dpi=300, format='png')
+# plt.close()
 
-    if (epoch + 1) % val_interval == 0:
-        model.eval()
-        with torch.no_grad():
-            y_pred = torch.tensor([], dtype=torch.float32, device=device)
-            y = torch.tensor([], dtype=torch.long, device=device)
-            for val_data in val_loader:
-                val_images, val_labels = (
-                    val_data[0].to(device),
-                    val_data[1].to(device),
-                )
-                y_pred = torch.cat([y_pred, model(val_images)], dim=0)
-                y = torch.cat([y, val_labels], dim=0)
-            y_onehot = [y_trans(i) for i in decollate_batch(y, detach=False)]
-            y_pred_act = [y_pred_trans(i) for i in decollate_batch(y_pred)]
-            auc_metric(y_pred_act, y_onehot)
-            result = auc_metric.aggregate()
-            auc_metric.reset()
-            del y_pred_act, y_onehot
-            metric_values.append(result)
-            acc_value = torch.eq(y_pred.argmax(dim=1), y)
-            acc_metric = acc_value.sum().item() / len(acc_value)
-            if result > best_metric:
-                best_metric = result
-                best_metric_epoch = epoch + 1
-                torch.save(model.state_dict(), os.path.join(out_directory,
-                                                            "best_metric_model"
-                                                            + model._get_name() + ".pth"))
-                print("saved new best metric model")
-            print(
-                f"current epoch: {epoch + 1} current AUC: {result:.4f}"
-                f" current accuracy: {acc_metric:.4f}"
-                f" best AUC: {best_metric:.4f}"
-                f" at epoch: {best_metric_epoch}"
-            )
-
-print(f"train completed, best_metric: {best_metric:.4f} " f"at epoch: {best_metric_epoch}")
-
-end = time.time()
-time_taken = end - start
-print(f"Time taken: {round(time_taken, 0)} seconds")
-time_taken_hours = time_taken / 3600
-time_taken_mins = np.ceil((time_taken / 3600 - int(time_taken / 3600)) * 60)
-time_taken_hours = int(time_taken_hours)
-
-
-plt.figure("train", (12, 6))
-plt.subplot(1, 2, 1)
-plt.title("Epoch Average Loss")
-x = [i + 1 for i in range(len(epoch_loss_values))]
-y = epoch_loss_values
-plt.xlabel("epoch")
-plt.plot(x, y)
-plt.subplot(1, 2, 2)
-plt.title("Val AUC")
-x = [val_interval * (i + 1) for i in range(len(metric_values))]
-y = metric_values
-plt.xlabel("epoch")
-plt.plot(x, y)
-plt.savefig(os.path.join(directory, "loss_plot_" + model._get_name() + ".png"),
-            bbox_inches='tight', dpi=300, format='png')
-plt.close()
-
-# TODO: just run below with AUC
 model.load_state_dict(torch.load(os.path.join(out_directory,
                                               "best_metric_model"
                                               + model._get_name() + ".pth")))
 model.eval()
 y_true_array = []
 y_pred_array = []
-auc_metric = ROCAUCMetric()
 with torch.no_grad():
     y_pred = torch.tensor([], dtype=torch.float32, device=device)
     y = torch.tensor([], dtype=torch.long, device=device)
@@ -340,20 +338,16 @@ with torch.no_grad():
             test_data[0].to(device),
             test_data[1].to(device),
         )
-
-        y_pred = torch.cat([y_pred, model(test_images)], dim=0)
-        y = torch.cat([y, test_labels], dim=0)
-        y_onehot = [y_trans(i) for i in decollate_batch(y, detach=False)]
-        y_pred_act = [y_pred_trans(i) for i in decollate_batch(y_pred)]
-        auc_metric(y_pred_act, y_onehot)
-        result = auc_metric.aggregate()
         pred = model(test_images).argmax(dim=1)
 
         for i in range(len(pred)):
             y_true_array.append(test_labels[i].item())
             y_pred_array.append(pred[i].item())
 
-print(f"AUC on test set: {result}")
+fpr, tpr, thresholds = roc_curve(y_true_array, y_pred_array, pos_label=1)
+auc = auc(fpr, tpr)
+
+print(f"AUC on test set: {auc}")
 print(classification_report(y_true_array, y_pred_array, target_names=['0', '1'], digits=4))
 
 model_name = model._get_name()
