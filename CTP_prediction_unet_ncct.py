@@ -742,23 +742,23 @@ def main(notes=''):
             prediction_70 = (test_proba[0][1].detach().numpy() >= 0.7) * 1
             prediction_90 = (test_proba[0][1].detach().numpy() >= 0.9) * 1
 
-            gt_flat = ground_truth.flatten()
-            pred_flat = prediction.flatten()
-            pred70_flat = prediction_70.flatten()
-            pred90_flat = prediction_90.flatten()
-            dice_score = f1_score(gt_flat, pred_flat)
-            dice_metric.append(dice_score)
-            dice70 = f1_score(gt_flat, pred70_flat)
-            dice_metric70.append(dice70)
-            dice90 = f1_score(gt_flat, pred90_flat)
-            dice_metric90.append(dice90)
-            print(f"Dice score for image: {dice_score:.4f}")
-
-            fpr, tpr, thresholds = roc_curve(gt_flat, pred_flat, pos_label=1)
-            auc_score = auc(fpr, tpr)
-            precision = precision_score(gt_flat, pred_flat, zero_division=0)
-            recall = recall_score(gt_flat, pred_flat, zero_division=0)
-            sensitivities.append(recall)
+            # gt_flat = ground_truth.flatten()
+            # pred_flat = prediction.flatten()
+            # pred70_flat = prediction_70.flatten()
+            # pred90_flat = prediction_90.flatten()
+            # dice_score = f1_score(gt_flat, pred_flat)
+            # dice_metric.append(dice_score)
+            # dice70 = f1_score(gt_flat, pred70_flat)
+            # dice_metric70.append(dice70)
+            # dice90 = f1_score(gt_flat, pred90_flat)
+            # dice_metric90.append(dice90)
+            # print(f"Dice score for image: {dice_score:.4f}")
+            #
+            # fpr, tpr, thresholds = roc_curve(gt_flat, pred_flat, pos_label=1)
+            # auc_score = auc(fpr, tpr)
+            # precision = precision_score(gt_flat, pred_flat, zero_division=0)
+            # recall = recall_score(gt_flat, pred_flat, zero_division=0)
+            # sensitivities.append(recall)
 
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
@@ -769,6 +769,7 @@ def main(notes=''):
             name = os.path.basename(
                 test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
             subject = ctp_dl_df.loc[[name], "subject"].values[0]
+
             try:
                 dwi_img = glob.glob(os.path.join(directory, 'dwi_test/', subject + '*'))[0]
                 dwi_img = loader(dwi_img)
@@ -788,30 +789,30 @@ def main(notes=''):
             results.loc[results.id == name, 'px_x'] = volx
             results.loc[results.id == name, 'px_y'] = voly
             results.loc[results.id == name, 'px_z'] = volz
-            results.loc[results.id == name, 'dice'] = dice_score
-            results.loc[results.id == name, 'dice70'] = dice70
-            results.loc[results.id == name, 'dice90'] = dice90
-            results.loc[results.id == name, 'auc'] = auc_score
-            results.loc[results.id == name, 'sensitivity'] = recall
-            results.loc[results.id == name, 'precision'] = precision
+            # results.loc[results.id == name, 'dice'] = dice_score
+            # results.loc[results.id == name, 'dice70'] = dice70
+            # results.loc[results.id == name, 'dice90'] = dice90
+            # results.loc[results.id == name, 'auc'] = auc_score
+            # results.loc[results.id == name, 'sensitivity'] = recall
+            # results.loc[results.id == name, 'precision'] = precision
 
 
         # aggregate the final mean dice result
-        metric = np.mean(dice_metric)
-        metric70 = np.mean(dice_metric70)
-        metric90 = np.mean(dice_metric90)
-        metric_recall = np.mean(sensitivities)
+        # metric = np.mean(dice_metric)
+        # metric70 = np.mean(dice_metric70)
+        # metric90 = np.mean(dice_metric90)
+        # metric_recall = np.mean(sensitivities)
         # reset the status for next validation round
-    print(f"Mean dice on test set: {metric:.4f}")
-    results['mean_dice'] = metric
-    results['mean_dice_70'] = metric70
-    results['mean_dice_90'] = metric90
-    results['mean_sensitvity'] = metric_recall
-    results_join = results.join(
-        ctp_dl_df[~ctp_dl_df.index.duplicated(keep='first')],
-        on='id',
-        how='left')
-    results_join.to_csv(directory + 'out_' + out_tag + '/results.csv', index=False)
+    # print(f"Mean dice on test set: {metric:.4f}")
+    # results['mean_dice'] = metric
+    # results['mean_dice_70'] = metric70
+    # results['mean_dice_90'] = metric90
+    # results['mean_sensitvity'] = metric_recall
+    # results_join = results.join(
+    #     ctp_dl_df[~ctp_dl_df.index.duplicated(keep='first')],
+    #     on='id',
+    #     how='left')
+    # results_join.to_csv(directory + 'out_' + out_tag + '/results.csv', index=False)
 
 if __name__ == "__main__":
     # Environment variables which need to be
