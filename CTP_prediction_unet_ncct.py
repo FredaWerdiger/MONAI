@@ -714,6 +714,7 @@ def main(notes=''):
     dice_metric = []
     dice_metric70 = []
     dice_metric90 = []
+    sensitivities = []
 
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
@@ -754,9 +755,10 @@ def main(notes=''):
             print(f"Dice score for image: {dice_score:.4f}")
 
             fpr, tpr, thresholds = roc_curve(gt_flat, pred_flat, pos_label=1)
-            auc = auc(fpr, tpr)
+            auc_score = auc(fpr, tpr)
             precision = precision_score(gt_flat, pred_flat)
             recall = recall_score(gt_flat, pred_flat)
+            sensitivities.append(recall)
 
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
@@ -789,7 +791,7 @@ def main(notes=''):
             results.loc[results.id == name, 'dice'] = dice_score
             results.loc[results.id == name, 'dice70'] = dice70
             results.loc[results.id == name, 'dice90'] = dice90
-            results.loc[results.id == name, 'auc'] = auc
+            results.loc[results.id == name, 'auc'] = auc_score
             results.loc[results.id == name, 'sensitivity'] = recall
             results.loc[results.id == name, 'precision'] = precision
 
@@ -798,11 +800,13 @@ def main(notes=''):
         metric = np.mean(dice_metric)
         metric70 = np.mean(dice_metric70)
         metric90 = np.mean(dice_metric90)
+        metric_recall = np.mean(sensitivities)
         # reset the status for next validation round
     print(f"Mean dice on test set: {metric:.4f}")
     results['mean_dice'] = metric
     results['mean_dice_70'] = metric70
     results['mean_dice_90'] = metric90
+    results['mean_sensitvity'] = metric_recall
     results_join = results.join(
         ctp_dl_df[~ctp_dl_df.index.duplicated(keep='first')],
         on='id',
