@@ -1,6 +1,6 @@
 import os
 import sys
-
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 import tempfile
 import glob
@@ -150,8 +150,8 @@ def main(directory, model_file):
 
 
 if __name__ == '__main__':
-    directory = '/home/unimelb.edu.au/fwerdiger/mediaflux/data_freda/ctp_project/DWI_Training_Data/'
-    model_file = '/home/unimelb.edu.au/fwerdiger/mediaflux/data_freda/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
+    directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
+    model_file = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
     main(directory, model_file)
     # directory = sys.argv[1]
     # model_file = sys.argv[2]
