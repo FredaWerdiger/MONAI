@@ -27,6 +27,7 @@ import pandas as pd
 import torch
 from monai_fns import *
 from inference import create_mrlesion_img, define_dvalues
+from densenet import *
 
 def main(directory, model_file):
 
@@ -99,6 +100,16 @@ def main(directory, model_file):
         norm=Norm.BATCH,
     ).to(device)
 
+    model = DenseNetFCN(
+        ch_in=2,
+        ch_out_init=48,
+        num_classes=2,
+        growth_rate=16,
+        layers=(4, 5, 7, 10, 12),
+        bottleneck=True,
+        bottleneck_layer=15
+    ).to(device)
+
     loader = LoadImage()
 
     model.load_state_dict(torch.load(model_file))
@@ -139,5 +150,8 @@ def main(directory, model_file):
 
 
 if __name__ == '__main__':
-    directory = sys.argv[1]
-    model_file = sys.argv[2]
+    directory = '/home/unimelb.edu.au/fwerdiger/mediaflux/data_freda/ctp_project/DWI_Training_Data/'
+    model_file = '/home/unimelb.edu.au/fwerdiger/mediaflux/data_freda/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
+    main(directory, model_file)
+    # directory = sys.argv[1]
+    # model_file = sys.argv[2]
