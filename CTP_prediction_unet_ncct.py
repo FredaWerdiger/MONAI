@@ -450,15 +450,15 @@ def main(notes=''):
         norm=Norm.BATCH,
         dropout=0.2
     )
-    # model = DenseNetFCN(
-    #     ch_in=ch_in,
-    #     ch_out_init=36,
-    #     num_classes=2,
-    #     growth_rate=12,
-    #     layers=(4, 4, 4, 4, 4),
-    #     bottleneck=True,
-    #     bottleneck_layer=4
-    # )
+    model = DenseNetFCN(
+        ch_in=ch_in,
+        ch_out_init=36,
+        num_classes=2,
+        growth_rate=12,
+        layers=(4, 4, 4, 4, 4),
+        bottleneck=True,
+        bottleneck_layer=4
+    )
     # model = U_Net(ch_in, 2)
     # model = AttU_Net(ch_in, 2)
 
