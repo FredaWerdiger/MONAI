@@ -125,19 +125,19 @@ def main(directory, model_file):
 
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
-            name = 'INSP_' + os.path.basename(
-                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[2]
-            print(name)
-
-            test_output, test_image = from_engine(["pred", "image"])(test_data)
-            original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
-            # volx, voly, volz = original_image[1]['pixdim'][1:4]  # meta data
-
-            original_image = original_image[0] # image data
-            original_image = original_image[:, :, :, 0]
-            prediction = test_output[0][0].detach().numpy()
-
-            save_loc = directory + "no_seg/pred_images/" + name + "_pred.png"
+            # name = 'INSP_' + os.path.basename(
+            #     test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[2]
+            # print(name)
+            #
+            # test_output, test_image = from_engine(["pred", "image"])(test_data)
+            # original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
+            # # volx, voly, volz = original_image[1]['pixdim'][1:4]  # meta data
+            #
+            # original_image = original_image[0] # image data
+            # original_image = original_image[:, :, :, 0]
+            # prediction = test_output[0][0].detach().numpy()
+            #
+            # save_loc = directory + "no_seg/pred_images/" + name + "_pred.png"
 
             # create_mrlesion_img(
             #     original_image,
@@ -150,8 +150,14 @@ def main(directory, model_file):
 
 
 if __name__ == '__main__':
-    directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
-    model_file = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
+    HOMEDIR = os.path.expanduser('~/')
+    if os.path.exists(HOMEDIR + 'mediaflux/'):
+        directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/DWI_Training_Data/'
+
+    elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
+        directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
+
+    model_file = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
     main(directory, model_file)
     # directory = sys.argv[1]
     # model_file = sys.argv[2]
