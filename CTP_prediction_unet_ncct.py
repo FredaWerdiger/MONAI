@@ -14,7 +14,7 @@ from monai.utils import first, set_determinism
 # from torchmetrics import Dice
 from monai.visualize import GradCAM
 from sklearn.metrics import classification_report
-from monai.networks.nets import UNet, AttentionUnet
+from monai.networks.nets import UNet
 from monai.transforms import (
     AsDiscrete,
     AsDiscreted,
@@ -458,13 +458,6 @@ def main(notes=''):
         layers=(4, 4, 4, 4, 4),
         bottleneck=True,
         bottleneck_layer=4
-    )
-    model = AttentionUnet(
-        spatial_dims=3,
-        in_channels=ch_in,
-        out_channels=2,
-        channels=channels,
-        strides=(2, 2, 2),
     )
     # model = U_Net(ch_in, 2)
     # model = AttU_Net(ch_in, 2)
