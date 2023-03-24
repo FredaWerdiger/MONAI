@@ -285,11 +285,17 @@ def main(notes=''):
     # model parameters
     max_epochs = 400
     image_size = [128]
-    # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct']
-    features = ['DT', 'CBF', 'ncct']
-    features_transform = ['image_' + string for string in [feature for feature in features if "ncct" not in feature]]
+    # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct', 'ncct_atrophy']
+    features = ['DT', 'CBF', 'ncct', 'atrophy']
+    features_transform = ['image_' + string for string in [feature for feature in features
+                                                           if "ncct" not in feature and "atrophy" not in feature]]
     if 'ncct' in features:
-        features_transform += ['ncct']
+        features_transform += ['ncct_raw']
+    if 'atrophy' in features:
+        features_transform += ['ncct_atrophy']
+        atrophy = True
+    else:
+        atrophy = False
     features_string = ''
     for feature in features:
         features_string += '_'
@@ -298,12 +304,7 @@ def main(notes=''):
     batch_size = 2
     val_interval = 2
     out_tag = 'best_model/stratify_size'
-    HU = 15
-    atrophy = False
-    # if atrophy:
-    #     out_tag = out_tag + '_atrophy'
-    # else:
-    #     out_tag = out_tag + '_raw_ncct'
+
     print(f"out_tag = {out_tag}")
 
     if not os.path.exists(directory + 'out_' + out_tag):
@@ -311,19 +312,10 @@ def main(notes=''):
 
     set_determinism(seed=42)
 
-
     transform_dir = os.path.join(directory, 'train', 'ncct_trans')
     if not os.path.exists(transform_dir):
         os.makedirs(transform_dir)
 
-    print(f"Atrophy = {atrophy}")
-    if atrophy:
-        atrophy_transforms = [
-            ThresholdIntensityd(keys="ncct", threshold=HU, above=False),
-            ThresholdIntensityd(keys="ncct", threshold=0, above=True),
-            GaussianSmoothd(keys="ncct", sigma=1)]
-    else:
-        atrophy_transforms = []
 
     train_transforms = Compose(
         [
@@ -335,13 +327,12 @@ def main(notes=''):
                     spatial_size=image_size*3),
             SplitDimd(keys="image", dim=0, keepdim=True,
                       output_postfixes=['DT', 'CBF', 'CBV', 'MTT']),
-            *atrophy_transforms,
-            # SaveImaged(keys="ncct",
-            #            output_dir=transform_dir,
-            #            meta_keys="ncct_meta_dict",
-            #            output_postfix="transform",
-            #            resample=False,
-            #            separate_folder=False),
+            RepeatChannelD(keys="ncct", repeats=2),
+            SplitDimd(keys="ncct", dim=0, keepdim=True,
+                      output_postfixes=['raw', 'atrophy']),
+            ThresholdIntensityd(keys="ncct_atrophy", threshold=15, above=False),
+            ThresholdIntensityd(keys="ncct_atrophy", threshold=0, above=True),
+            GaussianSmoothd(keys="ncct_atrophy", sigma=1),
             ConcatItemsd(keys=features_transform, name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             RandAffined(keys=['image', 'label'], prob=0.5, translate_range=10),
@@ -364,7 +355,12 @@ def main(notes=''):
                     spatial_size=image_size*3),
             SplitDimd(keys="image", dim=0, keepdim=True,
                       output_postfixes=["DT", "CBF", "CBV", "MTT"]),
-            *atrophy_transforms,
+            RepeatChannelD(keys="ncct", repeats=2),
+            SplitDimd(keys="ncct", dim=0, keepdim=True,
+                      output_postfixes=['raw', 'atrophy']),
+            ThresholdIntensityd(keys="ncct_atrophy", threshold=15, above=False),
+            ThresholdIntensityd(keys="ncct_atrophy", threshold=0, above=True),
+            GaussianSmoothd(keys="ncct_atrophy", sigma=1),
             ConcatItemsd(keys=features_transform, name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
@@ -381,7 +377,12 @@ def main(notes=''):
                     spatial_size=image_size*3),
             SplitDimd(keys="image", dim=0, keepdim=True,
                       output_postfixes=['DT', 'CBF', 'CBV', 'MTT']),
-            *atrophy_transforms,
+            RepeatChannelD(keys="ncct", repeats=2),
+            SplitDimd(keys="ncct", dim=0, keepdim=True,
+                      output_postfixes=['raw', 'atrophy']),
+            ThresholdIntensityd(keys="ncct_atrophy", threshold=15, above=False),
+            ThresholdIntensityd(keys="ncct_atrophy", threshold=0, above=True),
+            GaussianSmoothd(keys="ncct_atrophy", sigma=1),
             ConcatItemsd(keys=features_transform, name="image", dim=0),
             NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
             EnsureTyped(keys=["image", "label"]),
@@ -421,21 +422,23 @@ def main(notes=''):
                              pin_memory=True)
 
     # # sanity check to see everything is there
-    # s = 50
-    data_example = test_ds[0]
+    s = 50
+    data_example = train_dataset[1]
     ch_in = data_example['image'].shape[0]
-    # plt.figure("image", (18, 4))
-    # for i in range(5):
-    #     plt.subplot(1, 6, i + 1)
-    #     plt.title(f"image channel {i}")
-    #     plt.imshow(data_example["image"][i, :, :, s].detach().cpu(), cmap="jet")
-    # # also visualize the 3 channels label corresponding to this image
-    # print(f"label shape: {data_example['label'].shape}")
-    # plt.subplot(1, 6, 6)
-    # plt.title("label")
-    # plt.imshow(data_example["label"][0, :, :, s].detach().cpu(), cmap="jet")
-    # plt.show()
-    # plt.close()
+    plt.figure("image", (18, 4))
+    for i in range(ch_in):
+        plt.subplot(1, ch_in + 1, i + 1)
+        plt.title(f"image channel {i}")
+        plt.imshow(data_example["image"][i, :, :, s].detach().cpu(), cmap="jet")
+        plt.axis('off')
+    # also visualize the 3 channels label corresponding to this image
+    print(f"label shape: {data_example['label'].shape}")
+    plt.subplot(1, 6, 6)
+    plt.title("label")
+    plt.imshow(data_example["label"][0, :, :, s].detach().cpu(), cmap="jet")
+    plt.axis('off')
+    plt.show()
+    plt.close()
 
     device = 'cuda'
     channels = (16, 32, 64, 128)
@@ -464,7 +467,7 @@ def main(notes=''):
         in_channels=ch_in,
         out_channels=2,
         channels=channels,
-        strides=( 2, 2, 2),
+        strides=(2, 2, 2),
     )
     # model = U_Net(ch_in, 2)
     # model = AttU_Net(ch_in, 2)
@@ -486,9 +489,9 @@ def main(notes=''):
                                lambda_dice=1,
                                lambda_ce=1)
 
-
+    learning_rate = 1e-4
     optimizer = Adam(model.parameters(),
-                     1e-4,
+                     learning_rate,
                      weight_decay=1e-5)
 
     dice_metric = DiceMetric(include_background=False, reduction='mean')
@@ -594,10 +597,8 @@ def main(notes=''):
 
     model_name = model._get_name()
     loss_name = loss_function._get_name()
-    if not atrophy:
-        HU = None
     with open(
-            directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU' + features_string +'.txt', 'w') as myfile:
+            directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
@@ -611,12 +612,12 @@ def main(notes=''):
         myfile.write('\n')
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
+        myfile.write(f'Initial Learning Rate: {learning_rate}\n')
         myfile.write("Atrophy filter used? ")
         if atrophy:
             myfile.write("yes\n")
         else:
             myfile.write("no\n")
-        myfile.write(f'Hounsfield unit threshold: {HU}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
@@ -647,7 +648,7 @@ def main(notes=''):
     plt.plot(x, y, 'k', label="Dice on training data")
     plt.legend(loc="center right")
     plt.savefig(os.path.join(directory + 'out_' + out_tag,
-                             'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU' + features_string +'.png'),
+                             'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
 
@@ -819,7 +820,7 @@ def main(notes=''):
         ctp_dl_df[~ctp_dl_df.index.duplicated(keep='first')],
         on='id',
         how='left')
-    results_join.to_csv(directory + 'out_' + out_tag + '/results_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + str(HU) + 'HU' + features_string + '.csv', index=False)
+    results_join.to_csv(directory + 'out_' + out_tag + '/results_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
 
 if __name__ == "__main__":
     # Environment variables which need to be
