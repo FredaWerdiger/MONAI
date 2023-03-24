@@ -509,7 +509,7 @@ def main(notes=''):
     post_pred = Compose([EnsureType(), AsDiscrete(argmax=True, to_onehot=2)])
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
-    model_path = 'best_metric_' + model._get_name() + '_' + str(max_epochs) + '_' + str(HU) + 'HU' + features_string +'.pth'
+    model_path = 'best_metric_' + model._get_name() + '_' + str(max_epochs) + features_string +'.pth'
 
     for epoch in range(max_epochs):
         print("-" * 10)
