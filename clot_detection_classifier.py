@@ -226,7 +226,7 @@ model = model.to(device)
 weights = [1, 1]
 class_weights = torch.FloatTensor(weights).to(device)
 loss_function = torch.nn.CrossEntropyLoss(weight=class_weights)
-learning_rate = 1e-3
+learning_rate = 1e-4
 weight_decay = 1e-4
 optimizer = torch.optim.Adam(model.parameters(), learning_rate, weight_decay=weight_decay)
 max_epochs = 200
@@ -345,6 +345,14 @@ with torch.no_grad():
             y_pred_array.append(pred[i].item())
 
 fpr, tpr, thresholds = roc_curve(y_true_array, y_pred_array, pos_label=1)
+
+roc = pd.DataFrame(columns=['fpr', 'tpr', 'thresholds'])
+roc['fpr'] = fpr
+roc['tpr'] = tpr
+roc['thresholds'] = thresholds
+
+roc.to_csv(out_directory + '/roc_values_' +  model._get_name() + '.csv', index=False)
+
 auc = auc(fpr, tpr)
 
 print(f"AUC on test set: {auc}")
@@ -354,7 +362,7 @@ model_name = model._get_name()
 loss_name = loss_function._get_name()
 
 with open(out_directory + '/model_info_' + str(
-        max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_batch' + batch_size + '.txt', 'w') as myfile:
+        max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_batch' + str(batch_size) + '.txt', 'w') as myfile:
     myfile.write(f'Train dataset size: {len(train_x)}\n')
     myfile.write(f'Validation dataset size: {len(val_x)}\n')
     myfile.write(f'Testing dataset size: {len(test_x)}\n')
