@@ -19,7 +19,7 @@ from monai.apps import download_and_extract
 from monai.config import print_config
 from monai.data import decollate_batch, DataLoader
 from monai.metrics import ROCAUCMetric
-from monai.networks.nets import DenseNet121
+from monai.networks.nets import DenseNet121, Densenet169
 from monai.transforms import (
     Activations,
     EnsureChannelFirst,
@@ -220,7 +220,7 @@ test_loader = DataLoader(test_ds, batch_size=1)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = DenseNet121(spatial_dims=3, in_channels=1, out_channels=2)
+model = Densenet169(spatial_dims=3, in_channels=1, out_channels=2)
 # model = DDP(model)
 model = model.to(device)
 weights = [1, 1]
@@ -351,7 +351,13 @@ roc['fpr'] = fpr
 roc['tpr'] = tpr
 roc['thresholds'] = thresholds
 
+arrays = pd.DataFrame(columns=['gt', 'pred'])
+arrays.gt = y_true_array
+arrays.pred = y_pred_array
+
 roc.to_csv(out_directory + '/roc_values_' +  model._get_name() + '.csv', index=False)
+
+arrays.to_csv(out_directory + '/pred_values_' +  model._get_name() + '.csv', index=False)
 
 auc = auc(fpr, tpr)
 
