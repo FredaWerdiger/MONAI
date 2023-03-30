@@ -14,7 +14,7 @@ from monai.utils import first, set_determinism
 # from torchmetrics import Dice
 from monai.visualize import GradCAM
 from sklearn.metrics import classification_report
-from monai.networks.nets import UNet
+from monai.networks.nets import UNet, AttentionUnet
 from monai.transforms import (
     AsDiscrete,
     AsDiscreted,
@@ -297,7 +297,7 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'best_model/stratify_size'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy'
     HU = 15
     atrophy = False
     # if atrophy:
@@ -445,24 +445,31 @@ def main(notes=''):
         in_channels=ch_in,
         out_channels=2,
         channels=channels,
-        strides=(2, 2),
+        strides=(2, 2, 2),
         num_res_units=2,
         norm=Norm.BATCH,
         dropout=0.2
     )
     model = DenseNetFCN(
         ch_in=ch_in,
-        ch_out_init=48,
+        ch_out_init=36,
         num_classes=2,
-        growth_rate=16,
-        layers=(4, 5, 7, 10, 12),
+        growth_rate=12,
+        layers=(4, 4, 4, 4, 4),
         bottleneck=True,
-        bottleneck_layer=15
+        bottleneck_layer=4
+    )
+    model = AttentionUnet(
+        spatial_dims=3,
+        in_channels=ch_in,
+        out_channels=2,
+        channels=channels,
+        strides=( 2, 2, 2),
     )
     # model = U_Net(ch_in, 2)
     # model = AttU_Net(ch_in, 2)
 
-    model = torch.nn.DataParallel(model)
+    # model = torch.nn.DataParallel(model)
     model.to(device)
 
     loss_function = DiceLoss(smooth_dr=1e-5,
