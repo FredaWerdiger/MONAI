@@ -269,10 +269,10 @@ data_transforms = Compose(
     [
         LoadImaged(keys=["image", "ncct", "label"]),
         EnsureChannelFirstd(keys=["image", "ncct", "label"]),
-        Resized(keys=["image", "ncct", "label"],
-                mode=['trilinear', 'trilinear', "nearest"],
-                align_corners=[True, True, None],
-                spatial_size=image_size * 3),
+        # Resized(keys=["image", "ncct", "label"],
+        #         mode=['trilinear', 'trilinear', "nearest"],
+        #         align_corners=[True, True, None],
+        #         spatial_size=image_size * 3),
         SplitDimd(keys="image", dim=0, keepdim=True,
                   output_postfixes=['DT', 'CBF', 'CBV', 'MTT']),
         # SaveImaged(keys="ncct",
@@ -302,7 +302,10 @@ volume_ds = CacheDataset(
 patch_transform = Compose(
     [
         SqueezeDimd(keys=["image", "label"], dim=-1),  # squeeze the last dim
-        Resized(keys=["label", "label"], spatial_size=[128, 128]),
+        Resized(keys=["label", "label"], spatial_size=image_size*2,
+                mode=['trilinear', "nearest"],
+                align_corners=[True, None],
+                ),
         # to use crop/pad instead of reszie:
         # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
     ]
