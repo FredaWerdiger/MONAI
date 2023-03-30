@@ -191,6 +191,10 @@ def main(notes=''):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
+    elif os.path.exists('Z:/data_freda'):
+        directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
+        ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+                                usecols=['subject', 'segmentation_type', 'dl_id'])
     elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv',
@@ -217,6 +221,20 @@ def main(notes=''):
     mask_paths.sort()
     ncct_paths = glob.glob(os.path.join(data_dir, 'ncct', '*'))
     ncct_paths.sort()
+
+    # filter out for TIMI = 0
+    atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx', sheet_name='Sheet1',
+                             header=[0], usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
+    atlas_df['timi'] = atlas_df['Occlusion severity (TIMI:0=complete occlusion, 3=normal)'].apply(pd.to_numeric, errors='coerce')
+    timi_df = ctp_dl_df.join(atlas_df.set_index('INSPIRE ID'), on='subject', how='left')
+    complete_occlusions = timi_df[timi_df.apply(lambda x: x.timi == 0, axis=1)]
+    complete_ids = complete_occlusions.dl_id.to_list()
+
+    image_paths = [path for path in image_paths if any(str(id).zfill(3) in path for id in complete_ids)]
+    mask_paths = [path for path in mask_paths if any(str(id).zfill(3) in path for id in complete_ids)]
+    ncct_paths = [path for path in ncct_paths if any(str(id).zfill(3) in path for id in complete_ids)]
+
+    assert len(image_paths) == len(mask_paths) == len(ncct_paths)
 
     random_state = 42
     # create column with size of lesion (in voxels)
@@ -286,7 +304,7 @@ def main(notes=''):
     max_epochs = 400
     image_size = [128]
     # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct', 'ncct_atrophy']
-    features = ['DT', 'CBF', 'ncct', 'atrophy']
+    features = ['DT', 'CBF', 'ncct']
     features_transform = ['image_' + string for string in [feature for feature in features
                                                            if "ncct" not in feature and "atrophy" not in feature]]
     if 'ncct' in features:
@@ -303,7 +321,7 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'best_model/stratify_size/att_unet_3_layers'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions'
 
     print(f"out_tag = {out_tag}")
 
