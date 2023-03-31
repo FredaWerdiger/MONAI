@@ -207,7 +207,7 @@ def main(notes=''):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel('/data/gpfs/projects/punim1086/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel('/data/gpfs/projects/punim1086/study_design/ATLAS_clinical_20221006_1304.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
