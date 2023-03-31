@@ -191,14 +191,26 @@ def main(notes=''):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx',
+                                 sheet_name='Sheet1',
+                                 header=[0],
+                                 usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
     elif os.path.exists('Z:/data_freda'):
         directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx',
+                                 sheet_name='Sheet1',
+                                 header=[0],
+                                 usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
     elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
+        atlas_df = pd.read_excel('/data/gpfs/projects/punim1086/ATLAS_clinical_20221006_1304.xlsx',
+                                 sheet_name='Sheet1',
+                                 header=[0],
+                                 usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
     elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
@@ -223,8 +235,7 @@ def main(notes=''):
     ncct_paths.sort()
 
     # filter out for TIMI = 0
-    atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx', sheet_name='Sheet1',
-                             header=[0], usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
+
     atlas_df['timi'] = atlas_df['Occlusion severity (TIMI:0=complete occlusion, 3=normal)'].apply(pd.to_numeric, errors='coerce')
     timi_df = ctp_dl_df.join(atlas_df.set_index('INSPIRE ID'), on='subject', how='left')
     complete_occlusions = timi_df[timi_df.apply(lambda x: x.timi == 0, axis=1)]
