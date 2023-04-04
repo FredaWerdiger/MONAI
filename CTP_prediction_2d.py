@@ -350,7 +350,7 @@ sizes_bin = (np.asarray(sizes) < 0.05) * 1
 df = pd.DataFrame(columns=['ids', 'sizes'])
 df['ids'] = ids
 df['sizes'] = sizes_bin
-num_train = int(np.ceil(0.6 * len(lesion_slices)))
+num_train = int(np.ceil(0.8 * len(lesion_slices)))
 num_validation = int(np.ceil(0.2 * len(lesion_slices)))
 num_test = len(lesion_slices) - (num_train + num_validation)
 
