@@ -3,9 +3,9 @@ sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
-from monai.data import CacheDataset, DataLoader, decollate_batch
+from monai.data import CacheDataset, DataLoader, decollate_batch, GridPatchDataset, PatchIterd
 from monai.losses import DiceLoss, DiceCELoss
-from monai.inferers import sliding_window_inference
+from monai.inferers import sliding_window_inference, SliceInferer
 from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
 from monai.handlers import EarlyStopHandler
@@ -37,6 +37,7 @@ from monai.transforms import (
     Resized,
     SaveImaged,
     ScaleIntensityd,
+    SqueezeDimd,
     ThresholdIntensityd,
     SplitDimd,
 )
@@ -330,7 +331,7 @@ def main(notes=''):
         features_string += '_'
         features_string += feature
     patch_size = None
-    batch_size = 2
+    batch_size = 8 # slices
     val_interval = 2
     out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions'
 
@@ -437,13 +438,39 @@ def main(notes=''):
         num_workers=8
     )
 
-    train_loader = DataLoader(train_dataset,
+    # transform to 2d slices
+    patch_transform = Compose(
+        [
+            SqueezeDimd(keys=["image", "label"], dim=-1),  # squeeze the last dim
+            Resized(keys=["label", "label"], spatial_size=image_size * 2,
+                    mode=['trilinear', "nearest"],
+                    align_corners=[True, None],
+                    ),
+            # to use crop/pad instead of reszie:
+            # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
+        ]
+    )
+
+    patch_func = PatchIterd(
+        keys=["image", "label"],
+        patch_size=(None, None, 1),  # dynamic first two dimensions
+        start_pos=(0, 0, 0)
+    )
+
+    patch_train_ds = GridPatchDataset(
+        data=train_dataset,
+        patch_iter=patch_func,
+        transform=patch_transform,
+        with_coordinates=False)
+
+
+    train_loader = DataLoader(patch_train_ds,
                               batch_size=batch_size,
                               shuffle=True,
                               pin_memory=True)
 
     val_loader = DataLoader(val_dataset,
-                            batch_size=batch_size,
+                            batch_size=2,
                             pin_memory=True)
 
     test_loader = DataLoader(test_ds,
@@ -452,7 +479,7 @@ def main(notes=''):
 
     # # sanity check to see everything is there
     s = 50
-    data_example = train_dataset[1]
+    data_example = test_ds[1]
     ch_in = data_example['image'].shape[0]
     plt.figure("image", (18, 4))
     for i in range(ch_in):
@@ -492,7 +519,7 @@ def main(notes=''):
         bottleneck_layer=4
     )
     model = AttentionUnet(
-        spatial_dims=3,
+        spatial_dims=2,
         in_channels=ch_in,
         out_channels=2,
         channels=channels,
@@ -572,7 +599,16 @@ def main(notes=''):
                         val_data["image"].to(device),
                         val_data["label"].to(device),
                     )
-                    val_outputs = model(val_inputs)
+                    roi_size = (128, 128)
+                    sw_batch_size = 3
+                    slice_inferer = SliceInferer(
+                        roi_size=roi_size,
+                        sw_batch_size=sw_batch_size,
+                        spatial_dim=1,
+                        device=device,
+                        padding_mode='replicate',
+                    )
+                    val_outputs = slice_inferer(val_inputs, model)
 
                     # compute metric for current iteration
                     # dice_metric_torch_macro(val_outputs, val_labels.long())
@@ -759,7 +795,16 @@ def main(notes=''):
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
 
-            test_data["pred"] = model(test_inputs)
+            roi_size = (128, 128)
+            sw_batch_size = 3
+            slice_inferer = SliceInferer(
+                roi_size=roi_size,
+                sw_batch_size=sw_batch_size,
+                spatial_dim=1,
+                device=device,
+                padding_mode='replicate',
+            )
+            test_data["pred"] = slice_inferer(test_inputs, model)
 
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
             test_data["proba"] = prob

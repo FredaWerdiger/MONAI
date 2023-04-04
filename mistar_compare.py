@@ -72,7 +72,6 @@ def main(out_tag):
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
     results_df.to_csv(results_csv, index=None)
 
-
     fig, ax = plt.subplots(1, figsize=(8, 5))
     sm.graphics.mean_diff_plot(results_df.size_pred_ml, results_df.mistar_core, ax=ax)
 
