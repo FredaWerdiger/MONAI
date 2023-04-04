@@ -466,7 +466,6 @@ def main(notes=''):
 
     train_loader = DataLoader(patch_train_ds,
                               batch_size=batch_size,
-                              shuffle=True,
                               pin_memory=True)
 
     val_loader = DataLoader(val_dataset,
@@ -523,7 +522,7 @@ def main(notes=''):
         in_channels=ch_in,
         out_channels=2,
         channels=channels,
-        strides=(2, 2, 2),
+        strides=(2, 2),
     )
     # model = U_Net(ch_in, 2)
     # model = AttU_Net(ch_in, 2)
