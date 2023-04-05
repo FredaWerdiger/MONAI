@@ -471,7 +471,7 @@ def main(notes=''):
 
     if lesion_slices_only:
         lesion_slices = []
-        for i, train_data in enumerate(list(train_loader)):
+        for train_data in train_loader:
             label = train_data["label"]
             lesion_size = np.count_nonzero(label.numpy())
             if lesion_size > 0:
