@@ -335,7 +335,7 @@ def main(notes=''):
     patch_size = None
     batch_size = 128 # slices
     val_interval = 2
-    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/slices'
 
     print(f"out_tag = {out_tag}")
 
