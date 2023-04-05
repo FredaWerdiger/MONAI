@@ -315,6 +315,7 @@ def main(notes=''):
     # model parameters
     max_epochs = 400
     image_size = [128]
+    lesion_slices_only = True
     # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct', 'ncct_atrophy']
     features = ['DT', 'CBF', 'ncct']
     features_transform = ['image_' + string for string in [feature for feature in features
@@ -331,7 +332,7 @@ def main(notes=''):
         features_string += '_'
         features_string += feature
     patch_size = None
-    batch_size = 8 # slices
+    batch_size = 128 # slices
     val_interval = 2
     out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions'
 
@@ -465,8 +466,27 @@ def main(notes=''):
 
 
     train_loader = DataLoader(patch_train_ds,
-                              batch_size=batch_size,
+                              batch_size=1,
                               pin_memory=True)
+
+    if lesion_slices_only:
+        lesion_slices = []
+        for i, train_data in enumerate(list(train_loader)):
+            label = train_data["label"]
+            lesion_size = np.count_nonzero(label.numpy())
+            if lesion_size > 0:
+                lesion_slices.append(train_data)
+
+        training_data_lesion = CacheDataset(
+            data=lesion_slices,
+            transform=None
+        )
+
+        train_loader = DataLoader(
+            training_data_lesion,
+            batch_size=batch_size,
+            pin_memory=True
+        )
 
     val_loader = DataLoader(val_dataset,
                             batch_size=2,
@@ -677,6 +697,7 @@ def main(notes=''):
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
         myfile.write(f'Initial Learning Rate: {learning_rate}\n')
+        myfile.write(f'Training on slices with lesions only? {lesion_slices_only}\n')
         myfile.write("Atrophy filter used? ")
         if atrophy:
             myfile.write("yes\n")
