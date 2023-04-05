@@ -308,9 +308,9 @@ def main(notes=''):
 
         return files_dict
 
-    train_files = make_dict(train_id)[:2]
-    val_files = make_dict(validation_id)[:2]
-    test_files = make_dict(test_id)[:2]
+    train_files = make_dict(train_id)
+    val_files = make_dict(validation_id)
+    test_files = make_dict(test_id)
 
     # model parameters
     max_epochs = 400
