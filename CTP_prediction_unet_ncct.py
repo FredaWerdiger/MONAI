@@ -239,7 +239,7 @@ def main(notes=''):
 
     atlas_df['timi'] = atlas_df['Occlusion severity (TIMI:0=complete occlusion, 3=normal)'].apply(pd.to_numeric, errors='coerce')
     timi_df = ctp_dl_df.join(atlas_df.set_index('INSPIRE ID'), on='subject', how='left')
-    complete_occlusions = timi_df[timi_df.apply(lambda x: x.timi == 0, axis=1)]
+    complete_occlusions = timi_df[timi_df.apply(lambda x: x.timi == 0, axis=1)].drop_duplicates()
     complete_ids = complete_occlusions.dl_id.to_list()
 
     image_paths = [path for path in image_paths if any(str(id).zfill(3) in path for id in complete_ids)]
@@ -262,13 +262,13 @@ def main(notes=''):
 
     # lesions less than 5 mL
     labels = (np.asarray(lesion_size) < 5) * 1
-    ctp_dl_df['size_labels'] = labels # i think this is correct. maybe check
+    complete_occlusions['size_labels'] = labels # i think this is correct. maybe check
 
     num_train = int(np.ceil(0.6 * len(labels)))
     num_validation = int(np.ceil(0.2 * len(labels)))
     num_test = len(labels) - (num_train + num_validation)
 
-    train_id, test_id = train_test_split(ctp_dl_df.dl_id.to_list(),
+    train_id, test_id = train_test_split(complete_occlusions.dl_id.to_list(),
                                          train_size=num_train,
                                          test_size=num_test+num_validation,
                                          random_state=random_state,
@@ -276,7 +276,7 @@ def main(notes=''):
                                          stratify=labels)
 
     # get labels list that correspond with test id
-    test_df = ctp_dl_df[ctp_dl_df.apply(lambda x: x['dl_id'] in test_id, axis=1)]
+    test_df = complete_occlusions[complete_occlusions.apply(lambda x: x['dl_id'] in test_id, axis=1)]
     test_labels = test_df.size_labels.to_list()
     test_id = test_df.dl_id.to_list()
 
@@ -288,13 +288,13 @@ def main(notes=''):
                                               stratify=test_labels)
 
     # HOME MANY TRAINING FILES ARE MANUALLY SEGMENTED
-    train_df = ctp_dl_df[ctp_dl_df.apply(lambda x: x.dl_id in train_id, axis=1)]
+    train_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in train_id, axis=1)]
     num_semi_train = len(train_df[train_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
-    val_df = ctp_dl_df[ctp_dl_df.apply(lambda x: x.dl_id in validation_id, axis=1)]
+    val_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in validation_id, axis=1)]
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
-    test_df = ctp_dl_df[ctp_dl_df.apply(lambda x: x.dl_id in test_id, axis=1)]
+    test_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in test_id, axis=1)]
     num_semi_test = len(test_df[test_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     def make_dict(id):
@@ -308,9 +308,9 @@ def main(notes=''):
 
         return files_dict
 
-    train_files = make_dict(train_id)
-    val_files = make_dict(validation_id)
-    test_files = make_dict(test_id)
+    train_files = make_dict(train_id)[:2]
+    val_files = make_dict(validation_id)[:2]
+    test_files = make_dict(test_id)[:2]
 
     # model parameters
     max_epochs = 400
@@ -466,27 +466,27 @@ def main(notes=''):
 
 
     train_loader = DataLoader(patch_train_ds,
-                              batch_size=1,
+                              batch_size=batch_size,
                               pin_memory=True)
 
-    if lesion_slices_only:
-        lesion_slices = []
-        for train_data in train_loader:
-            label = train_data["label"]
-            lesion_size = np.count_nonzero(label.numpy())
-            if lesion_size > 0:
-                lesion_slices.append(train_data)
-
-        training_data_lesion = CacheDataset(
-            data=lesion_slices,
-            transform=None
-        )
-
-        train_loader = DataLoader(
-            training_data_lesion,
-            batch_size=batch_size,
-            pin_memory=True
-        )
+    # if lesion_slices_only:
+    #     lesion_slices = []
+    #     for train_data in train_loader:
+    #         label = train_data["label"]
+    #         lesion_size = np.count_nonzero(label.numpy())
+    #         if lesion_size > 0:
+    #             lesion_slices.append(train_data)
+    #
+    #     training_data_lesion = CacheDataset(
+    #         data=lesion_slices,
+    #         transform=None
+    #     )
+    #
+    #     train_loader = DataLoader(
+    #         training_data_lesion,
+    #         batch_size=batch_size,
+    #         pin_memory=True
+    #     )
 
     val_loader = DataLoader(val_dataset,
                             batch_size=2,
