@@ -3,9 +3,9 @@ sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 from monai_fns import *
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from monai.config import print_config
-from monai.data import CacheDataset, DataLoader, decollate_batch, GridPatchDataset, PatchIterd
+from monai.data import CacheDataset, DataLoader, decollate_batch
 from monai.losses import DiceLoss, DiceCELoss
-from monai.inferers import sliding_window_inference, SliceInferer
+from monai.inferers import sliding_window_inference
 from monai.networks.layers import Norm
 from monai.metrics import DiceMetric
 from monai.handlers import EarlyStopHandler
@@ -37,7 +37,6 @@ from monai.transforms import (
     Resized,
     SaveImaged,
     ScaleIntensityd,
-    SqueezeDimd,
     ThresholdIntensityd,
     SplitDimd,
 )
@@ -247,8 +246,7 @@ def main(notes=''):
     ncct_paths = [path for path in ncct_paths if any(str(id).zfill(3) + '.nii.gz' in path for id in complete_ids)]
 
     assert len(image_paths) == len(mask_paths) == len(ncct_paths)
-    print(len(image_paths))
-    print(complete_occlusions.head())
+
     random_state = 42
     # create column with size of lesion (in voxels)
     lesion_size = []
@@ -289,13 +287,13 @@ def main(notes=''):
                                               stratify=test_labels)
 
     # HOME MANY TRAINING FILES ARE MANUALLY SEGMENTED
-    train_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in train_id, axis=1)]
+    train_df = ctp_dl_df[ctp_dl_df.apply(lambda x: x.dl_id in train_id, axis=1)]
     num_semi_train = len(train_df[train_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
-    val_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in validation_id, axis=1)]
+    val_df = ctp_dl_df[ctp_dl_df.apply(lambda x: x.dl_id in validation_id, axis=1)]
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
-    test_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in test_id, axis=1)]
+    test_df = ctp_dl_df[ctp_dl_df.apply(lambda x: x.dl_id in test_id, axis=1)]
     num_semi_test = len(test_df[test_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
 
     def make_dict(id):
@@ -316,7 +314,6 @@ def main(notes=''):
     # model parameters
     max_epochs = 400
     image_size = [128]
-    lesion_slices_only = True
     # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct', 'ncct_atrophy']
     features = ['DT', 'CBF', 'ncct']
     features_transform = ['image_' + string for string in [feature for feature in features
@@ -333,9 +330,9 @@ def main(notes=''):
         features_string += '_'
         features_string += feature
     patch_size = None
-    batch_size = 128 # slices
+    batch_size = 2
     val_interval = 2
-    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/slices'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions'
 
     print(f"out_tag = {out_tag}")
 
@@ -440,57 +437,13 @@ def main(notes=''):
         num_workers=8
     )
 
-    # transform to 2d slices
-    patch_transform = Compose(
-        [
-            SqueezeDimd(keys=["image", "label"], dim=-1),  # squeeze the last dim
-            Resized(keys=["label", "label"], spatial_size=image_size * 2,
-                    mode=['trilinear', "nearest"],
-                    align_corners=[True, None],
-                    ),
-            # to use crop/pad instead of reszie:
-            # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
-        ]
-    )
-
-    patch_func = PatchIterd(
-        keys=["image", "label"],
-        patch_size=(None, None, 1),  # dynamic first two dimensions
-        start_pos=(0, 0, 0)
-    )
-
-    patch_train_ds = GridPatchDataset(
-        data=train_dataset,
-        patch_iter=patch_func,
-        transform=patch_transform,
-        with_coordinates=False)
-
-
-    train_loader = DataLoader(patch_train_ds,
+    train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
+                              shuffle=True,
                               pin_memory=True)
 
-    # if lesion_slices_only:
-    #     lesion_slices = []
-    #     for train_data in train_loader:
-    #         label = train_data["label"]
-    #         lesion_size = np.count_nonzero(label.numpy())
-    #         if lesion_size > 0:
-    #             lesion_slices.append(train_data)
-    #
-    #     training_data_lesion = CacheDataset(
-    #         data=lesion_slices,
-    #         transform=None
-    #     )
-    #
-    #     train_loader = DataLoader(
-    #         training_data_lesion,
-    #         batch_size=batch_size,
-    #         pin_memory=True
-    #     )
-
     val_loader = DataLoader(val_dataset,
-                            batch_size=2,
+                            batch_size=batch_size,
                             pin_memory=True)
 
     test_loader = DataLoader(test_ds,
@@ -499,7 +452,7 @@ def main(notes=''):
 
     # # sanity check to see everything is there
     s = 50
-    data_example = test_ds[1]
+    data_example = train_dataset[1]
     ch_in = data_example['image'].shape[0]
     plt.figure("image", (18, 4))
     for i in range(ch_in):
@@ -539,11 +492,11 @@ def main(notes=''):
         bottleneck_layer=4
     )
     model = AttentionUnet(
-        spatial_dims=2,
+        spatial_dims=3,
         in_channels=ch_in,
         out_channels=2,
         channels=channels,
-        strides=(2, 2),
+        strides=(2, 2, 2),
     )
     # model = U_Net(ch_in, 2)
     # model = AttU_Net(ch_in, 2)
@@ -619,16 +572,7 @@ def main(notes=''):
                         val_data["image"].to(device),
                         val_data["label"].to(device),
                     )
-                    roi_size = (128, 128)
-                    sw_batch_size = 3
-                    slice_inferer = SliceInferer(
-                        roi_size=roi_size,
-                        sw_batch_size=sw_batch_size,
-                        spatial_dim=1,
-                        device=device,
-                        padding_mode='replicate',
-                    )
-                    val_outputs = slice_inferer(val_inputs, model)
+                    val_outputs = model(val_inputs)
 
                     # compute metric for current iteration
                     # dice_metric_torch_macro(val_outputs, val_labels.long())
@@ -698,7 +642,6 @@ def main(notes=''):
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
         myfile.write(f'Initial Learning Rate: {learning_rate}\n')
-        myfile.write(f'Training on slices with lesions only? {lesion_slices_only}\n')
         myfile.write("Atrophy filter used? ")
         if atrophy:
             myfile.write("yes\n")
@@ -816,16 +759,7 @@ def main(notes=''):
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
 
-            roi_size = (128, 128)
-            sw_batch_size = 3
-            slice_inferer = SliceInferer(
-                roi_size=roi_size,
-                sw_batch_size=sw_batch_size,
-                spatial_dim=1,
-                device=device,
-                padding_mode='replicate',
-            )
-            test_data["pred"] = slice_inferer(test_inputs, model)
+            test_data["pred"] = model(test_inputs)
 
             prob = f.softmax(test_data["pred"], dim=1)  # probability of infarct
             test_data["proba"] = prob
