@@ -756,6 +756,8 @@ def main(notes=''):
     dice_metric90 = []
     sensitivities = []
     specificities = []
+    gts_flat = []
+    preds_flat = []
 
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
@@ -782,7 +784,9 @@ def main(notes=''):
             prediction_90 = (test_proba[0][1].detach().numpy() >= 0.9) * 1
 
             gt_flat = ground_truth.flatten()
+            gts_flat.append(gt_flat)
             pred_flat = prediction.flatten()
+            preds_flat.append(pred_flat)
             pred70_flat = prediction_70.flatten()
             pred90_flat = prediction_90.flatten()
             dice_score = f1_score(gt_flat, pred_flat)
@@ -856,6 +860,24 @@ def main(notes=''):
         on='id',
         how='left')
     results_join.to_csv(directory + 'out_' + out_tag + '/results_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
+
+    fpr, tpr, threshold = roc_curve(gts_flat, preds_flat)
+    roc_df = pd.DataFrame([fpr, tpr, thresholds], columns=['tpr', 'fpr', 'thresholds'])
+    roc_df.to_csv(directory + 'out_' + out_tag + '/roc_data_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
+
+    roc_auc = auc(fpr, tpr)
+    plt.title('Receiver Operating Characteristic')
+    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
+    plt.legend(loc='lower right')
+    plt.plot([0, 1], [0, 1], 'r--')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.ylabel('Sensitivity')
+    plt.xlabel('1 - Specificity')
+    plt.savefig(os.path.join(directory + 'out_' + out_tag,
+                             'roc_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.png'),
+                bbox_inches='tight', dpi=300, format='png')
+    plt.close()
 
 if __name__ == "__main__":
     # Environment variables which need to be
