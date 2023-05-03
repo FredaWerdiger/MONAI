@@ -862,7 +862,7 @@ def main(notes=''):
     results_join.to_csv(directory + 'out_' + out_tag + '/results_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
 
     fpr, tpr, threshold = roc_curve(gts_flat, preds_flat)
-    roc_df = pd.DataFrame([fpr, tpr, thresholds], columns=['tpr', 'fpr', 'thresholds'])
+    roc_df = pd.DataFrame([fpr, tpr, threshold], columns=['tpr', 'fpr', 'thresholds'])
     roc_df.to_csv(directory + 'out_' + out_tag + '/roc_data_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
 
     roc_auc = auc(fpr, tpr)
