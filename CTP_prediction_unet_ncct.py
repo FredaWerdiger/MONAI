@@ -784,9 +784,9 @@ def main(notes=''):
             prediction_90 = (test_proba[0][1].detach().numpy() >= 0.9) * 1
 
             gt_flat = ground_truth.flatten()
-            gts_flat.append(gt_flat)
+            gts_flat.extend(gt_flat.astype(int))
             pred_flat = prediction.flatten()
-            preds_flat.append(pred_flat)
+            preds_flat.extend(pred_flat.astype(int))
             pred70_flat = prediction_70.flatten()
             pred90_flat = prediction_90.flatten()
             dice_score = f1_score(gt_flat, pred_flat)
@@ -862,7 +862,7 @@ def main(notes=''):
     results_join.to_csv(directory + 'out_' + out_tag + '/results_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
 
     fpr, tpr, threshold = roc_curve(gts_flat, preds_flat)
-    roc_df = pd.DataFrame([fpr, tpr, threshold], columns=['tpr', 'fpr', 'thresholds'])
+    roc_df = pd.DataFrame([gts_flat, preds_flat], columns=['ground_truth', 'prediction'])
     roc_df.to_csv(directory + 'out_' + out_tag + '/roc_data_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
 
     roc_auc = auc(fpr, tpr)
