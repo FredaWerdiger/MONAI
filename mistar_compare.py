@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import glob
 import SimpleITK as sitk
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, confusion_matrix, recall_score, roc_curve, auc
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 
@@ -38,11 +38,17 @@ def main(out_tag):
     results_df['mistar_core'] = ''
     results_df['mistar_penumbra'] = ''
     results_df['mistar_dice'] = ''
+    results_df['mistar_sensitivity'] = ''
+    results_df['mistar_specificity'] = ''
+    results_df['mistar_auc'] = ''
 
     gt_folder = os.path.join(directory, 'DATA', 'masks')
     pred_folder = os.path.join(results_folder, 'pred')
+    gts_flat = []
+    cores_flat = []
 
     for subject in results_df.subject.to_list():
+        print("Running for {}".format(subject))
         dl_id = str(results_df.loc[results_df.subject == subject, 'id'].values[0]).zfill(3)
 
         mistar_dir = mediaflux + '/INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/mistar/'
@@ -55,7 +61,18 @@ def main(out_tag):
         # get gt
         gt = glob.glob(gt_folder + '/*' + dl_id + '*')[0]
         gt_array = sitk.GetArrayFromImage(sitk.ReadImage(gt))
-        dice_mistar = f1_score(gt_array.flatten(), core.flatten())
+        gt_flat = gt_array.flatten().astype(int)
+        # gts_flat.extend(gt_flat)
+        core_flat = core.flatten().astype(int)
+        # cores_flat.extend(core_flat)
+        dice_mistar = f1_score(gt_flat, core_flat)
+        fpr, tpr, threshold = roc_curve(gt_flat, core_flat)
+        roc_auc = auc(fpr, tpr)
+
+        sensitivity = recall_score(gt_flat, core_flat)
+        tn, fp, fn, tp = confusion_matrix(gt_flat, core_flat).ravel()
+        specificity = tn / (tn + fp)
+
         # get volumes
         num_core_pixels = core.sum()
         penumbra = (mistar_array == 120) * 1
@@ -68,15 +85,35 @@ def main(out_tag):
         results_df.loc[results_df.subject == subject, 'mistar_core'] = core_volume
         results_df.loc[results_df.subject == subject, 'mistar_penumbra'] = penumbra_volume
         results_df.loc[results_df.subject == subject, 'mistar_dice'] = dice_mistar
+        results_df.loc[results_df.subject == subject, 'mistar_sensitivity'] = sensitivity
+        results_df.loc[results_df.subject == subject, 'mistar_specificity'] = specificity
+        results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
 
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
     results_df.to_csv(results_csv, index=None)
 
-    fig, ax = plt.subplots(1, figsize=(8, 5))
-    sm.graphics.mean_diff_plot(results_df.size_pred_ml, results_df.mistar_core, ax=ax)
-
-    plt.savefig(results_folder + '/mistar_vs_dl_mean_diff_plot.png', dpi=300, facecolor='w', bbox_inches='tight', format='png')
-
+    # fig, ax = plt.subplots(1, figsize=(8, 5))
+    # sm.graphics.mean_diff_plot(results_df.size_pred_ml, results_df.mistar_core, ax=ax)
+    #
+    # plt.savefig(results_folder + '/mistar_vs_dl_mean_diff_plot.png', dpi=300, facecolor='w', bbox_inches='tight', format='png')
+    #
+    # fpr, tpr, threshold = roc_curve(gts_flat, cores_flat)
+    # roc_df = pd.DataFrame(np.array([gts_flat, cores_flat]).transpose(), columns=['gt', 'mistar_core'])
+    # roc_df.to_csv(results_folder + '/mistar_roc_data.csv', index=False)
+    #
+    # roc_auc = auc(fpr, tpr)
+    # plt.title('Receiver Operating Characteristic')
+    # plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
+    # plt.legend(loc='lower right')
+    # plt.plot([0, 1], [0, 1], 'r--')
+    # plt.xlim([0, 1])
+    # plt.ylim([0, 1])
+    # plt.ylabel('Sensitivity')
+    # plt.xlabel('1 - Specificity')
+    # plt.savefig(os.path.join(results_folder + 'out_' + out_tag,
+    #                          'mistar_roc_plot.png'),
+    #             bbox_inches='tight', dpi=300, format='png')
+    # plt.close()
 
 if __name__ == '__main__':
     out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions'
