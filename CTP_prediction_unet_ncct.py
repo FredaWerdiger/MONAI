@@ -418,17 +418,17 @@ def main(notes=''):
         ]
     )
 
-    train_dataset = CacheDataset(
-        data=train_files,
-        transform=train_transforms,
-        cache_rate=1.0,
-        num_workers=8)
+    # train_dataset = CacheDataset(
+    #     data=train_files,
+    #     transform=train_transforms,
+    #     cache_rate=1.0,
+    #     num_workers=8)
 
-    val_dataset = CacheDataset(
-        data=val_files,
-        transform=val_transforms,
-        cache_rate=1.0,
-        num_workers=8)
+    # val_dataset = CacheDataset(
+    #     data=val_files,
+    #     transform=val_transforms,
+    #     cache_rate=1.0,
+    #     num_workers=8)
 
     test_ds = CacheDataset(
         data=test_files,
@@ -437,14 +437,14 @@ def main(notes=''):
         num_workers=8
     )
 
-    train_loader = DataLoader(train_dataset,
-                              batch_size=batch_size,
-                              shuffle=True,
-                              pin_memory=True)
-
-    val_loader = DataLoader(val_dataset,
-                            batch_size=batch_size,
-                            pin_memory=True)
+    # train_loader = DataLoader(train_dataset,
+    #                           batch_size=batch_size,
+    #                           shuffle=True,
+    #                           pin_memory=True)
+    #
+    # val_loader = DataLoader(val_dataset,
+    #                         batch_size=batch_size,
+    #                         pin_memory=True)
 
     test_loader = DataLoader(test_ds,
                              batch_size=1,
@@ -452,7 +452,7 @@ def main(notes=''):
 
     # # sanity check to see everything is there
     s = 50
-    data_example = train_dataset[1]
+    data_example = test_ds[1]
     ch_in = data_example['image'].shape[0]
     plt.figure("image", (18, 4))
     for i in range(ch_in):
