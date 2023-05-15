@@ -35,7 +35,6 @@ def main(directory, model_file, overwrite=True):
     # remove this file for now which doesn't load ###RESOLVED
     # remove = 'image_INSP_CN020302'
     # test_files = [name for name in test_files if remove not in name["image"]]
-    subjects = ['INSP_'+ file['image'].split('INSP_')[1].split('.nii.gz')[0] for file in test_files]
 
     # replace with path
     out_dir = directory + "no_seg/masks"
@@ -159,15 +158,18 @@ if __name__ == '__main__':
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         mediaflux = HOMEDIR + 'mediaflux/'
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
+        model_file = mediaflux + 'data_freda/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
+
     if os.path.exists('Z:'):
         mediaflux = 'Z:/'
         directory = mediaflux + 'data_freda/ctp_project/CTP_DL_Data/'
+        model_file = mediaflux + 'data_freda/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
 
     elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
+        model_file = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
-    model_file = mediaflux + 'data_freda/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
     main(directory, model_file, overwrite=False)
     # directory = sys.argv[1]
     # model_file = sys.argv[2]
