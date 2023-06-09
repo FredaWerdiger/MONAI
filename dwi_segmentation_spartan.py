@@ -79,7 +79,7 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "densenetFCN"
+    out_tag = "densenetFCN_batch1"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -91,7 +91,7 @@ def main():
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 2
+    batch_size = 1
     image_size = (128, 128, 128)
     train_transforms = Compose(
         [
@@ -131,7 +131,7 @@ def main():
         data=train_files,
         transform=train_transforms,
         cache_rate=1.0,
-        num_workers=0
+        num_workers=4
     )
 
 
@@ -144,7 +144,7 @@ def main():
         data=val_files,
         transform=val_transforms,
         cache_rate=1.0,
-        num_workers=0)
+        num_workers=4)
 
     val_loader = DataLoader(val_ds,
                             batch_size=batch_size,
@@ -213,7 +213,7 @@ def main():
     #     dropout_prob=0.2,
     # ).to(device)
 
-    model = DDP(model)
+    #model = DDP(model)
     model = model.to(rank)
 
     loss_function = DiceLoss(
@@ -222,10 +222,11 @@ def main():
         to_onehot_y=True,
         softmax=True,
         include_background=False)
+    learning_rate = 1e-4
     optimizer = torch.optim.Adam(
         model.parameters(),
-        1e-4,
-        weight_decay=1e-5)
+        learning_rate,
+        weight_decay=1e-4)
 
     # TODO: change to parameters from 100 layer tiramisu
     # weight decay = 1e-4
@@ -284,7 +285,11 @@ def main():
                         val_data["image"].to(rank),
                         val_data["label"].to(rank),
                     )
-                    val_outputs = model(val_inputs)
+                    # unsure how to optimize this
+                    roi_size = (64, 64, 64)
+                    sw_batch_size = 2
+                    val_outputs = sliding_window_inference(
+                        val_inputs, roi_size, sw_batch_size, model)
                     val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
@@ -364,6 +369,7 @@ def main():
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
+        myfile.write(f'Initial learning rate: {learning_rate}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
         myfile.write(f'Validation interval: {val_interval}\n')
