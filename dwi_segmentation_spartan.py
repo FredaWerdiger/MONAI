@@ -161,7 +161,7 @@ def main():
     m = random.randint(0, 50)
     s = random.randint(0, 63)
     val_data_example = val_ds[m]
-    # print(f"image shape: {val_data_example['image_b1000'].shape}")
+    print(f"image shape: {val_data_example['image'].shape}")
     # plt.figure("image", (18, 6))
     # for i in range(1):
     #     plt.subplot(1, 3, i + 1)
@@ -367,6 +367,7 @@ def main():
     with open(root_dir + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
+        myfile.write(f'corrected segmentations: {len(corrections)}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
