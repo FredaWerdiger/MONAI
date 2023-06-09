@@ -50,7 +50,7 @@ from densenet import DenseNetFCN
 
 import torch
 import os
-from recursive_data import get_semi_dataset
+from recursive_data import *
 from torch.nn import DataParallel as DDP
 
 
@@ -73,13 +73,13 @@ def make_dict(root, string):
 def main():
 
     directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
-    existing_model = directory + 'out_unet_recursive/best_metric_model600.pth'
+    existing_model = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
     # create outdir
-    out_tag = "densenetFCN_batch1"
+    out_tag = "densenetFCN_batch1/learning_rate_1e4/recursive"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -88,6 +88,8 @@ def main():
     semi_files = get_semi_dataset()
     train_files = semi_files + train_files
 
+    corrections = get_corrections()
+    train_files = train_files + corrections
     set_determinism(seed=42)
 
     max_epochs = 600
@@ -228,7 +230,6 @@ def main():
         learning_rate,
         weight_decay=1e-4)
 
-    # TODO: change to parameters from 100 layer tiramisu
     # weight decay = 1e-4
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
@@ -247,7 +248,7 @@ def main():
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
     # load existing model
-    # model.load_state_dict(torch.load(existing_model))
+    model.load_state_dict(torch.load(existing_model))
 
     for epoch in range(max_epochs):
         print("-" * 10)
