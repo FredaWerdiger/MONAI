@@ -89,6 +89,7 @@ def main():
     train_files = semi_files + train_files
 
     corrections = get_corrections()
+    print(f"Number of corrections added: {len(corrections)}")
     train_files = train_files + corrections
     set_determinism(seed=42)
 
