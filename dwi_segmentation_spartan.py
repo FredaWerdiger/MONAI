@@ -218,6 +218,8 @@ def main():
 
     #model = DDP(model)
     model = model.to(rank)
+    # load existing model
+    model.load_state_dict(torch.load(existing_model))
 
     loss_function = DiceLoss(
         smooth_nr=0,
@@ -248,8 +250,6 @@ def main():
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
-    # load existing model
-    model.load_state_dict(torch.load(existing_model))
 
     for epoch in range(max_epochs):
         print("-" * 10)
