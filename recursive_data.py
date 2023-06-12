@@ -27,6 +27,8 @@ def get_semi_dataset():
     images_semi = [os.path.join(semi_data, 'images', file)
                    for file in os.listdir(os.path.join(semi_data, 'images'))
                    if 'INSP_' + file.split('_')[2].split('.nii')[0] in subjects_semi]
+    images_semi.sort()
+    subjects_semi.sort()
 
     # go through and make sure there no single-channel images
     subjects_in = []
