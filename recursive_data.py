@@ -17,7 +17,7 @@ def get_semi_dataset():
                  if ('exclude' not in file and 'funny' not in file)]
     masks_semi.sort()
 
-    subjects_semi = ['INSP_' + file.split('_')[2] for file in masks_semi]
+    subjects_semi = ['INSP_' + file.split('_')[2].split('.nii')[0] for file in masks_semi]
     # for subject, file in zip(subjects_semi, masks_semi):
     #     os.rename(os.path.join(semi_data, 'mask_semi', file),
     #               os.path.join(semi_data, 'mask_semi', 'mask_' + subject + '.nii.gz'))
@@ -26,7 +26,7 @@ def get_semi_dataset():
                      ('CN13' not in subject and 'CN16' not in subject)]
     images_semi = [os.path.join(semi_data, 'images', file)
                    for file in os.listdir(os.path.join(semi_data, 'images'))
-                   if 'INSP_' + file.split('_')[2] in subjects_semi]
+                   if 'INSP_' + file.split('_')[2].split('.nii')[0] in subjects_semi]
 
     # go through and make sure there no single-channel images
     subjects_in = []
@@ -38,10 +38,10 @@ def get_semi_dataset():
                 subjects_in.append(subject)
     images_semi = [os.path.join(semi_data, 'images', file)
                    for file in os.listdir(os.path.join(semi_data, 'images'))
-                   if 'INSP_' + file.split('_')[2] in subjects_in]
+                   if 'INSP_' + file.split('_')[2].split('.nii')[0] in subjects_in]
     masks_semi = [os.path.join(semi_data, 'masks_semi', file)
                    for file in os.listdir(os.path.join(semi_data, 'masks_semi'))
-                   if 'INSP_' + file.split('_')[2] in subjects_in]
+                   if 'INSP_' + file.split('_')[2].split('.nii')[0] in subjects_in]
 
     images_semi.sort()
     masks_semi.sort()
