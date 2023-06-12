@@ -1,5 +1,5 @@
 import os
-
+import SimpleITK as sitk
 
 def get_semi_dataset():
     HOMEDIR = os.path.expanduser('~/')
@@ -21,12 +21,30 @@ def get_semi_dataset():
     # for subject, file in zip(subjects_semi, masks_semi):
     #     os.rename(os.path.join(semi_data, 'mask_semi', file),
     #               os.path.join(semi_data, 'mask_semi', 'mask_' + subject + '.nii.gz'))
-
+    # exclude cases with two dwi channels - from CN13 or CN16
+    subjects_semi = [subject for subject in subjects_semi if
+                     ('CN13' not in subject and 'CN16' not in subject)]
     images_semi = [os.path.join(semi_data, 'images', file)
                    for file in os.listdir(os.path.join(semi_data, 'images'))
                    if 'INSP_' + file.split('_')[2] in subjects_semi]
+
+    # go through and make sure there no single-channel images
+    subjects_in = []
+    for subject, image in zip(subjects_semi, images_semi):
+        im = sitk.ReadImage(image)
+        sz = im.GetSize()
+        if len(sz) == 4:
+            if sz[-1] == 2:
+                subjects_in.append(subject)
+    images_semi = [os.path.join(semi_data, 'images', file)
+                   for file in os.listdir(os.path.join(semi_data, 'images'))
+                   if 'INSP_' + file.split('_')[2] in subjects_in]
+    masks_semi = [os.path.join(semi_data, 'masks_semi', file)
+                   for file in os.listdir(os.path.join(semi_data, 'masks_semi'))
+                   if 'INSP_' + file.split('_')[2] in subjects_in]
+
     images_semi.sort()
-    masks_semi = [os.path.join(semi_data, 'masks_semi', file) for file in masks_semi]
+    masks_semi.sort()
 
     semi_dict = [
         {"image": image_name, "label": label_name}
