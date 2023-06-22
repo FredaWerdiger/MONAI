@@ -9,6 +9,40 @@ from sklearn.metrics import f1_score, confusion_matrix, recall_score, roc_curve,
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 
+
+def get_subject_results(subject, dl_id, gt_folder, mediaflux):
+    mistar_dir = mediaflux + '/INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/mistar/'
+    mistar_lesion = glob.glob(mistar_dir + '*' + 'Lesion.nii.gz')[0]
+    mistar_img = sitk.ReadImage(mistar_lesion)
+    mistar_array = sitk.GetArrayFromImage(mistar_img).astype(float)
+    # get core and penumbra
+    core = (mistar_array == 220) * 1
+    core = np.asarray(core)
+    # get gt
+    gt = glob.glob(gt_folder + '/*' + dl_id + '*')[0]
+    gt_array = sitk.GetArrayFromImage(sitk.ReadImage(gt))
+    gt_flat = gt_array.ravel()
+    core_flat = core.ravel()
+    dice_mistar = f1_score(gt_flat, core_flat)
+    fpr, tpr, threshold = roc_curve(gt_flat, core_flat)
+    roc_auc = auc(fpr, tpr)
+
+    sensitivity = recall_score(gt_flat, core_flat)
+    tn, fp, fn, tp = confusion_matrix(gt_flat, core_flat).ravel()
+    specificity = tn / (tn + fp)
+
+    # get volumes
+    num_core_pixels = core.sum()
+    penumbra = (mistar_array == 120) * 1
+    num_penumbra_pixels = penumbra.sum()
+    # get spacing and calculate volumes in mL
+    x, y, z = mistar_img.GetSpacing()
+    volume = (x * y * x) / 1000
+    core_volume = num_core_pixels * volume
+    penumbra_volume = num_penumbra_pixels * volume
+    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, gt_flat, core_flat
+
+
 def main(out_tag):
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
@@ -43,51 +77,26 @@ def main(out_tag):
     results_df['mistar_auc'] = ''
 
     gt_folder = os.path.join(directory, 'DATA', 'masks')
-    pred_folder = os.path.join(results_folder, 'pred')
     gts_flat = []
     cores_flat = []
 
     for subject in results_df.subject.to_list():
         print("Running for {}".format(subject))
         dl_id = str(results_df.loc[results_df.subject == subject, 'id'].values[0]).zfill(3)
+        results = get_subject_results(subject, dl_id, gt_folder, mediaflux)
+        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, _, _ = results
 
-        mistar_dir = mediaflux + '/INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/mistar/'
-        mistar_lesion = glob.glob(mistar_dir + '*' + 'Lesion.nii.gz')[0]
-        mistar_img = sitk.ReadImage(mistar_lesion)
-        mistar_array = sitk.GetArrayFromImage(mistar_img).astype(float)
-        # get core and penumbra
-        core = (mistar_array == 220) * 1
-        core = np.asarray(core)
-        # get gt
-        gt = glob.glob(gt_folder + '/*' + dl_id + '*')[0]
-        gt_array = sitk.GetArrayFromImage(sitk.ReadImage(gt))
-        gt_flat = gt_array.flatten().astype(int)
-        # gts_flat.extend(gt_flat)
-        core_flat = core.flatten().astype(int)
-        # cores_flat.extend(core_flat)
-        dice_mistar = f1_score(gt_flat, core_flat)
-        fpr, tpr, threshold = roc_curve(gt_flat, core_flat)
-        roc_auc = auc(fpr, tpr)
-
-        sensitivity = recall_score(gt_flat, core_flat)
-        tn, fp, fn, tp = confusion_matrix(gt_flat, core_flat).ravel()
-        specificity = tn / (tn + fp)
-
-        # get volumes
-        num_core_pixels = core.sum()
-        penumbra = (mistar_array == 120) * 1
-        num_penumbra_pixels = penumbra.sum()
-        # get spacing and calculate volumes in mL
-        x, y, z = mistar_img.GetSpacing()
-        volume = (x * y * x)/1000
-        core_volume = num_core_pixels * volume
-        penumbra_volume = num_penumbra_pixels * volume
         results_df.loc[results_df.subject == subject, 'mistar_core'] = core_volume
         results_df.loc[results_df.subject == subject, 'mistar_penumbra'] = penumbra_volume
         results_df.loc[results_df.subject == subject, 'mistar_dice'] = dice_mistar
         results_df.loc[results_df.subject == subject, 'mistar_sensitivity'] = sensitivity
         results_df.loc[results_df.subject == subject, 'mistar_specificity'] = specificity
         results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
+
+        gt_array = results[6].tolist()
+        core_array = results[7].tolist()
+        gts_flat.extend(gt_array)
+        cores_flat.extend(core_array)
 
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
     results_df.to_csv(results_csv, index=None)
