@@ -50,7 +50,7 @@ from densenet import DenseNetFCN
 
 import torch
 import os
-from recursive_data import get_semi_dataset
+from recursive_data import *
 from torch.nn import DataParallel as DDP
 
 
@@ -73,13 +73,13 @@ def make_dict(root, string):
 def main():
 
     directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
-    existing_model = directory + 'out_unet_recursive/best_metric_model600.pth'
+    existing_model = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
     # create outdir
-    out_tag = "densenetFCN"
+    out_tag = "densenetFCN_batch1/learning_rate_1e4/recursive"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -88,10 +88,13 @@ def main():
     semi_files = get_semi_dataset()
     train_files = semi_files + train_files
 
+    corrections = get_corrections()
+    print(f"Number of corrections added: {len(corrections)}")
+    train_files = train_files + corrections
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 2
+    batch_size = 1
     image_size = (128, 128, 128)
     train_transforms = Compose(
         [
@@ -131,7 +134,7 @@ def main():
         data=train_files,
         transform=train_transforms,
         cache_rate=1.0,
-        num_workers=0
+        num_workers=4
     )
 
 
@@ -144,7 +147,7 @@ def main():
         data=val_files,
         transform=val_transforms,
         cache_rate=1.0,
-        num_workers=0)
+        num_workers=4)
 
     val_loader = DataLoader(val_ds,
                             batch_size=batch_size,
@@ -158,7 +161,7 @@ def main():
     m = random.randint(0, 50)
     s = random.randint(0, 63)
     val_data_example = val_ds[m]
-    # print(f"image shape: {val_data_example['image_b1000'].shape}")
+    print(f"image shape: {val_data_example['image'].shape}")
     # plt.figure("image", (18, 6))
     # for i in range(1):
     #     plt.subplot(1, 3, i + 1)
@@ -213,8 +216,10 @@ def main():
     #     dropout_prob=0.2,
     # ).to(device)
 
-    model = DDP(model)
+    #model = DDP(model)
     model = model.to(rank)
+    # load existing model
+    model.load_state_dict(torch.load(existing_model))
 
     loss_function = DiceLoss(
         smooth_nr=0,
@@ -222,12 +227,12 @@ def main():
         to_onehot_y=True,
         softmax=True,
         include_background=False)
+    learning_rate = 1e-4
     optimizer = torch.optim.Adam(
         model.parameters(),
-        1e-4,
-        weight_decay=1e-5)
+        learning_rate,
+        weight_decay=1e-4)
 
-    # TODO: change to parameters from 100 layer tiramisu
     # weight decay = 1e-4
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
@@ -245,8 +250,6 @@ def main():
     post_label = Compose([EnsureType(), AsDiscrete(to_onehot=2)])
     start = time.time()
     model_name = 'best_metric_model' + str(max_epochs) + '.pth'
-    # load existing model
-    # model.load_state_dict(torch.load(existing_model))
 
     for epoch in range(max_epochs):
         print("-" * 10)
@@ -284,7 +287,11 @@ def main():
                         val_data["image"].to(rank),
                         val_data["label"].to(rank),
                     )
-                    val_outputs = model(val_inputs)
+                    # unsure how to optimize this
+                    roi_size = (64, 64, 64)
+                    sw_batch_size = 2
+                    val_outputs = sliding_window_inference(
+                        val_inputs, roi_size, sw_batch_size, model)
                     val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
@@ -360,10 +367,12 @@ def main():
     with open(root_dir + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
+        myfile.write(f'corrected segmentations: {len(corrections)}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
+        myfile.write(f'Initial learning rate: {learning_rate}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
         myfile.write(f'Validation interval: {val_interval}\n')
