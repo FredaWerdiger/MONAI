@@ -48,6 +48,10 @@ def main(directory, model_file, overwrite=True):
     if not overwrite:
         test_files = [im for sub, im in zip(subjects, test_files) if not any(sub in path for path in os.listdir(out_dir))]
 
+    for sub, im in zip(subjects, test_files):
+        if any(sub in path for path in os.listdir(out_dir)):
+            print(sub)
+
     # test on external data
     test_transforms = Compose(
         [
