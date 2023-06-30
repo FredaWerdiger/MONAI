@@ -191,7 +191,7 @@ def main(notes=''):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -199,7 +199,7 @@ def main(notes=''):
         directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -207,7 +207,7 @@ def main(notes=''):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel('/data/gpfs/projects/punim1086/study_design/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel('/data/gpfs/projects/punim1086/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -238,12 +238,13 @@ def main(notes=''):
 
     atlas_df['timi'] = atlas_df['Occlusion severity (TIMI:0=complete occlusion, 3=normal)'].apply(pd.to_numeric, errors='coerce')
     timi_df = ctp_dl_df.join(atlas_df.set_index('INSPIRE ID'), on='subject', how='left')
-    complete_occlusions = timi_df[timi_df.apply(lambda x: x.timi == 0, axis=1)].drop_duplicates()
-    complete_ids = complete_occlusions.dl_id.to_list()
+    incomplete_occlusions = timi_df[timi_df.apply(lambda x: x.timi > 0, axis=1)].drop_duplicates()
+    incomplete_ids = incomplete_occlusions.dl_id.to_list()
+    complete_occlusions = timi_df.drop(incomplete_occlusions.index)
 
-    image_paths = [path for path in image_paths if any(str(id).zfill(3) + '.nii.gz' in path for id in complete_ids)]
-    mask_paths = [path for path in mask_paths if any(str(id).zfill(3) + '.nii.gz' in path for id in complete_ids)]
-    ncct_paths = [path for path in ncct_paths if any(str(id).zfill(3) + '.nii.gz' in path for id in complete_ids)]
+    image_paths = [path for path in image_paths if not any(str(id).zfill(3) + '.nii.gz' in path for id in incomplete_ids)]
+    mask_paths = [path for path in mask_paths if not any(str(id).zfill(3) + '.nii.gz' in path for id in incomplete_ids)]
+    ncct_paths = [path for path in ncct_paths if not any(str(id).zfill(3) + '.nii.gz' in path for id in incomplete_ids)]
 
     assert len(image_paths) == len(mask_paths) == len(ncct_paths)
 
@@ -261,7 +262,7 @@ def main(notes=''):
 
     # lesions less than 5 mL
     labels = (np.asarray(lesion_size) < 5) * 1
-    complete_occlusions['size_labels'] = labels # i think this is correct. maybe check
+    complete_occlusions['size_labels'] = labels
 
     num_train = int(np.ceil(0.6 * len(labels)))
     num_validation = int(np.ceil(0.2 * len(labels)))
@@ -418,17 +419,17 @@ def main(notes=''):
         ]
     )
 
-    # train_dataset = CacheDataset(
-    #     data=train_files,
-    #     transform=train_transforms,
-    #     cache_rate=1.0,
-    #     num_workers=8)
+    train_dataset = CacheDataset(
+        data=train_files,
+        transform=train_transforms,
+        cache_rate=1.0,
+        num_workers=8)
 
-    # val_dataset = CacheDataset(
-    #     data=val_files,
-    #     transform=val_transforms,
-    #     cache_rate=1.0,
-    #     num_workers=8)
+    val_dataset = CacheDataset(
+        data=val_files,
+        transform=val_transforms,
+        cache_rate=1.0,
+        num_workers=8)
 
     test_ds = CacheDataset(
         data=test_files,
@@ -437,14 +438,14 @@ def main(notes=''):
         num_workers=8
     )
 
-    # train_loader = DataLoader(train_dataset,
-    #                           batch_size=batch_size,
-    #                           shuffle=True,
-    #                           pin_memory=True)
-    #
-    # val_loader = DataLoader(val_dataset,
-    #                         batch_size=batch_size,
-    #                         pin_memory=True)
+    train_loader = DataLoader(train_dataset,
+                              batch_size=batch_size,
+                              shuffle=True,
+                              pin_memory=True)
+
+    val_loader = DataLoader(val_dataset,
+                            batch_size=batch_size,
+                            pin_memory=True)
 
     test_loader = DataLoader(test_ds,
                              batch_size=1,
@@ -540,148 +541,148 @@ def main(notes=''):
     start = time.time()
     model_path = 'best_metric_' + model._get_name() + '_' + str(max_epochs) + '_' + features_string +'.pth'
 
-    # for epoch in range(max_epochs):
-    #     print("-" * 10)
-    #     print(f"epoch {epoch + 1}/{max_epochs}")
-    #     epoch_loss = 0
-    #     step = 0
-    #     model.train()
-    #     for batch_data in train_loader:
-    #         step += 1
-    #         inputs, labels = (
-    #             batch_data["image"].to(device),
-    #             batch_data["label"].to(device),
-    #         )
-    #         optimizer.zero_grad()
-    #         outputs = model(inputs)
-    #         loss = loss_function(outputs, labels)
-    #         loss.backward()
-    #         epoch_loss += loss.item()
-    #         optimizer.step()
-    #     lr_scheduler.step()
-    #     epoch_loss /= step
-    #     epoch_loss_values.append(epoch_loss)
-    #     print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
-    #
-    #     if (epoch + 1) % val_interval == 0:
-    #         model.eval()
-    #         print("Evaluating...")
-    #         with torch.no_grad():
-    #             for val_data in val_loader:
-    #                 val_inputs, val_labels = (
-    #                     val_data["image"].to(device),
-    #                     val_data["label"].to(device),
-    #                 )
-    #                 val_outputs = model(val_inputs)
-    #
-    #                 # compute metric for current iteration
-    #                 # dice_metric_torch_macro(val_outputs, val_labels.long())
-    #                 # now to for the MONAI dice metric
-    #                 val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
-    #                 val_labels = [post_label(i) for i in decollate_batch(val_labels)]
-    #                 dice_metric(val_outputs, val_labels)
-    #
-    #             mean_dice = dice_metric.aggregate().item()
-    #             dice_metric.reset()
-    #             dice_metric_values.append(mean_dice)
-    #
-    #             # repeating the process for training data to check for overfitting
-    #             for val_data in train_loader:
-    #                 val_inputs, val_labels = (
-    #                     val_data["image"].to(device),
-    #                     val_data["label"].to(device),
-    #                 )
-    #                 val_outputs = model(val_inputs)
-    #
-    #                 # compute metric for current iteration
-    #                 # dice_metric_torch_macro(val_outputs, val_labels.long())
-    #                 # now to for the MONAI dice metric
-    #                 val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
-    #                 val_labels = [post_label(i) for i in decollate_batch(val_labels)]
-    #                 dice_metric_train(val_outputs, val_labels)
-    #
-    #             mean_dice_train = dice_metric_train.aggregate().item()
-    #             dice_metric_train.reset()
-    #             dice_metric_values_train.append(mean_dice_train)
-    #
-    #             if mean_dice > best_metric:
-    #                 best_metric = mean_dice
-    #                 best_metric_epoch = epoch + 1
-    #                 torch.save(model.state_dict(), os.path.join(
-    #                     directory, 'out_' + out_tag, model_path))
-    #                 print("saved new best metric model")
-    #
-    #             print(
-    #                 f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
-    #                 f"\nbest mean dice: {best_metric:.4f} "
-    #                 f"at epoch: {best_metric_epoch}"
-    #             )
-    #     del loss, outputs
-    # end = time.time()
-    # time_taken = end - start
-    # print(f"Time taken: {round(time_taken, 0)} seconds")
-    # time_taken_hours = time_taken/3600
-    # time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
-    # time_taken_hours = int(time_taken_hours)
-    #
+    for epoch in range(max_epochs):
+        print("-" * 10)
+        print(f"epoch {epoch + 1}/{max_epochs}")
+        epoch_loss = 0
+        step = 0
+        model.train()
+        for batch_data in train_loader:
+            step += 1
+            inputs, labels = (
+                batch_data["image"].to(device),
+                batch_data["label"].to(device),
+            )
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = loss_function(outputs, labels)
+            loss.backward()
+            epoch_loss += loss.item()
+            optimizer.step()
+        lr_scheduler.step()
+        epoch_loss /= step
+        epoch_loss_values.append(epoch_loss)
+        print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+
+        if (epoch + 1) % val_interval == 0:
+            model.eval()
+            print("Evaluating...")
+            with torch.no_grad():
+                for val_data in val_loader:
+                    val_inputs, val_labels = (
+                        val_data["image"].to(device),
+                        val_data["label"].to(device),
+                    )
+                    val_outputs = model(val_inputs)
+
+                    # compute metric for current iteration
+                    # dice_metric_torch_macro(val_outputs, val_labels.long())
+                    # now to for the MONAI dice metric
+                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    dice_metric(val_outputs, val_labels)
+
+                mean_dice = dice_metric.aggregate().item()
+                dice_metric.reset()
+                dice_metric_values.append(mean_dice)
+
+                # repeating the process for training data to check for overfitting
+                for val_data in train_loader:
+                    val_inputs, val_labels = (
+                        val_data["image"].to(device),
+                        val_data["label"].to(device),
+                    )
+                    val_outputs = model(val_inputs)
+
+                    # compute metric for current iteration
+                    # dice_metric_torch_macro(val_outputs, val_labels.long())
+                    # now to for the MONAI dice metric
+                    val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
+                    val_labels = [post_label(i) for i in decollate_batch(val_labels)]
+                    dice_metric_train(val_outputs, val_labels)
+
+                mean_dice_train = dice_metric_train.aggregate().item()
+                dice_metric_train.reset()
+                dice_metric_values_train.append(mean_dice_train)
+
+                if mean_dice > best_metric:
+                    best_metric = mean_dice
+                    best_metric_epoch = epoch + 1
+                    torch.save(model.state_dict(), os.path.join(
+                        directory, 'out_' + out_tag, model_path))
+                    print("saved new best metric model")
+
+                print(
+                    f"current epoch: {epoch + 1} current mean dice: {mean_dice:.4f}"
+                    f"\nbest mean dice: {best_metric:.4f} "
+                    f"at epoch: {best_metric_epoch}"
+                )
+        del loss, outputs
+    end = time.time()
+    time_taken = end - start
+    print(f"Time taken: {round(time_taken, 0)} seconds")
+    time_taken_hours = time_taken/3600
+    time_taken_mins = np.ceil((time_taken/3600 - int(time_taken/3600)) * 60)
+    time_taken_hours = int(time_taken_hours)
+
     model_name = model._get_name()
     loss_name = loss_function._get_name()
-    # with open(
-    #         directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.txt', 'w') as myfile:
-    #     myfile.write(f'Train dataset size: {len(train_files)}\n')
-    #     myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
-    #     myfile.write(f'Validation dataset size: {len(val_files)}\n')
-    #     myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
-    #     myfile.write(f'Test dataset size: {len(test_files)}\n')
-    #     myfile.write(f'Test semi-auto segmented: {num_semi_test}\n')
-    #     myfile.write(f'Intended number of features: {len(features)}\n')
-    #     myfile.write(f'Actual number of features: {ch_in}\n')
-    #     myfile.write('Features: ')
-    #     myfile.write(features_string)
-    #     myfile.write('\n')
-    #     myfile.write(f'Model: {model_name}\n')
-    #     myfile.write(f'Loss function: {loss_name}\n')
-    #     myfile.write(f'Initial Learning Rate: {learning_rate}\n')
-    #     myfile.write("Atrophy filter used? ")
-    #     if atrophy:
-    #         myfile.write("yes\n")
-    #     else:
-    #         myfile.write("no\n")
-    #     myfile.write(f'Number of epochs: {max_epochs}\n')
-    #     myfile.write(f'Batch size: {batch_size}\n')
-    #     myfile.write(f'Image size: {image_size}\n')
-    #     myfile.write(f'Patch size: {patch_size}\n')
-    #     myfile.write(f'channels: {channels}\n')
-    #     myfile.write(f'Validation interval: {val_interval}\n')
-    #     myfile.write(f"Best metric: {best_metric:.4f}\n")
-    #     myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
-    #     myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
-    #     myfile.write(notes)
-    #
-    #
-    # # plot things
-    # plt.figure("train", (12, 6))
-    # plt.subplot(1, 2, 1)
-    # plt.title("Average Loss per Epoch")
-    # x = [i + 1 for i in range(len(epoch_loss_values))]
-    # y = epoch_loss_values
-    # plt.xlabel("epoch")
-    # plt.plot(x, y)
-    # plt.subplot(1, 2, 2)
-    # plt.title("Mean Dice (Accuracy)")
-    # x = [val_interval * (i + 1) for i in range(len(dice_metric_values))]
-    # y = dice_metric_values
-    # plt.xlabel("epoch")
-    # plt.plot(x, y, 'b', label="Dice on validation data")
-    # y = dice_metric_values_train
-    # plt.plot(x, y, 'k', label="Dice on training data")
-    # plt.legend(loc="center right")
-    # plt.savefig(os.path.join(directory + 'out_' + out_tag,
-    #                          'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.png'),
-    #             bbox_inches='tight', dpi=300, format='png')
-    # plt.close()
-    #
-    # # test
+    with open(
+            directory + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.txt', 'w') as myfile:
+        myfile.write(f'Train dataset size: {len(train_files)}\n')
+        myfile.write(f'Train semi-auto segmented: {num_semi_train}\n')
+        myfile.write(f'Validation dataset size: {len(val_files)}\n')
+        myfile.write(f'Validation semi-auto segmented: {num_semi_val}\n')
+        myfile.write(f'Test dataset size: {len(test_files)}\n')
+        myfile.write(f'Test semi-auto segmented: {num_semi_test}\n')
+        myfile.write(f'Intended number of features: {len(features)}\n')
+        myfile.write(f'Actual number of features: {ch_in}\n')
+        myfile.write('Features: ')
+        myfile.write(features_string)
+        myfile.write('\n')
+        myfile.write(f'Model: {model_name}\n')
+        myfile.write(f'Loss function: {loss_name}\n')
+        myfile.write(f'Initial Learning Rate: {learning_rate}\n')
+        myfile.write("Atrophy filter used? ")
+        if atrophy:
+            myfile.write("yes\n")
+        else:
+            myfile.write("no\n")
+        myfile.write(f'Number of epochs: {max_epochs}\n')
+        myfile.write(f'Batch size: {batch_size}\n')
+        myfile.write(f'Image size: {image_size}\n')
+        myfile.write(f'Patch size: {patch_size}\n')
+        myfile.write(f'channels: {channels}\n')
+        myfile.write(f'Validation interval: {val_interval}\n')
+        myfile.write(f"Best metric: {best_metric:.4f}\n")
+        myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
+        myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
+        myfile.write(notes)
+
+
+    # plot things
+    plt.figure("train", (12, 6))
+    plt.subplot(1, 2, 1)
+    plt.title("Average Loss per Epoch")
+    x = [i + 1 for i in range(len(epoch_loss_values))]
+    y = epoch_loss_values
+    plt.xlabel("epoch")
+    plt.plot(x, y)
+    plt.subplot(1, 2, 2)
+    plt.title("Mean Dice (Accuracy)")
+    x = [val_interval * (i + 1) for i in range(len(dice_metric_values))]
+    y = dice_metric_values
+    plt.xlabel("epoch")
+    plt.plot(x, y, 'b', label="Dice on validation data")
+    y = dice_metric_values_train
+    plt.plot(x, y, 'k', label="Dice on training data")
+    plt.legend(loc="center right")
+    plt.savefig(os.path.join(directory + 'out_' + out_tag,
+                             'loss_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.png'),
+                bbox_inches='tight', dpi=300, format='png')
+    plt.close()
+
+    # test
 
     pred_dir = os.path.join(directory + 'out_' + out_tag, "pred")
     if not os.path.exists(pred_dir):
