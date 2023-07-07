@@ -79,14 +79,14 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "densenetFCN_batch1/learning_rate_1e4/recursive"
+    out_tag = "out_unet_recursive_from_scratch_round_2"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
     train_files, val_files, test_files = [
         make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
     semi_files = get_semi_dataset()
-    train_files = semi_files + train_files
+    # train_files = semi_files + train_files
 
     corrections = get_corrections()
     print(f"Number of corrections added: {len(corrections)}")
@@ -94,7 +94,7 @@ def main():
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 1
+    batch_size = 2
     image_size = (128, 128, 128)
     train_transforms = Compose(
         [
@@ -184,15 +184,15 @@ def main():
         num_res_units=2,
         norm=Norm.BATCH,
     ).to(rank)
-    model = DenseNetFCN(
-        ch_in=2,
-        ch_out_init=48,
-        num_classes=2,
-        growth_rate=16,
-        layers=(4, 5, 7, 10, 12),
-        bottleneck=True,
-        bottleneck_layer=15
-    )
+    # model = DenseNetFCN(
+    #     ch_in=2,
+    #     ch_out_init=48,
+    #     num_classes=2,
+    #     growth_rate=16,
+    #     layers=(4, 5, 7, 10, 12),
+    #     bottleneck=True,
+    #     bottleneck_layer=15
+    # )
     # model = AttentionUnet(
     #     spatial_dims=3,
     #     in_channels=2,
@@ -217,9 +217,9 @@ def main():
     # ).to(device)
 
     #model = DDP(model)
-    model = model.to(rank)
+    # model = model.to(rank)
     # load existing model
-    model.load_state_dict(torch.load(existing_model))
+    # model.load_state_dict(torch.load(existing_model))
 
     loss_function = DiceLoss(
         smooth_nr=0,
