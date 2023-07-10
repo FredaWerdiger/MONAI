@@ -299,15 +299,15 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         norm=Norm.BATCH,
     ).to(device)
 
-    model = DenseNetFCN(
-        ch_in=2,
-        ch_out_init=48,
-        num_classes=2,
-        growth_rate=16,
-        layers=(4, 5, 7, 10, 12),
-        bottleneck=True,
-        bottleneck_layer=15
-    ).to(device)
+    # model = DenseNetFCN(
+    #     ch_in=2,
+    #     ch_out_init=48,
+    #     num_classes=2,
+    #     growth_rate=16,
+    #     layers=(4, 5, 7, 10, 12),
+    #     bottleneck=True,
+    #     bottleneck_layer=15
+    # ).to(device)
 
 
     if ddp:
@@ -472,6 +472,6 @@ if __name__ == '__main__':
             '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_inspire_dl.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_densenetFCN_batch1/best_metric_model400.pth'
-    out_tag = 'densenetFCN_batch1'
-    main(directory, ctp_df, model_path, out_tag, ddp=True)
+    model_path = directory + 'out_final_no_cropping/learning_rate_1e4/best_metric_model600.pth'
+    out_tag = 'final_no_cropping/learning_rate_1e4/'
+    main(directory, ctp_df, model_path, out_tag, ddp=False)
