@@ -93,10 +93,10 @@ def main(out_tag):
         results_df.loc[results_df.subject == subject, 'mistar_specificity'] = specificity
         results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
 
-        gt_array = results[6].tolist()
-        core_array = results[7].tolist()
-        gts_flat.extend(gt_array)
-        cores_flat.extend(core_array)
+        # gt_array = results[6].tolist()
+        # core_array = results[7].tolist()
+        # gts_flat.extend(gt_array)
+        # cores_flat.extend(core_array)
 
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
     results_df.to_csv(results_csv, index=None)
