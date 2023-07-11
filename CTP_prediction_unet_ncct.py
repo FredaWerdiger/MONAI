@@ -248,7 +248,7 @@ def main(notes=''):
 
     assert len(image_paths) == len(mask_paths) == len(ncct_paths)
 
-    random_state = 0
+    random_state = 42
     # create column with size of lesion (in voxels)
     lesion_size = []
     for path in mask_paths:
@@ -264,8 +264,8 @@ def main(notes=''):
     labels = (np.asarray(lesion_size) < 5) * 1
     complete_occlusions['size_labels'] = labels
 
-    num_train = int(np.ceil(0.8 * len(labels)))
-    num_validation = int(np.ceil(0.1 * len(labels)))
+    num_train = int(np.ceil(0.6 * len(labels)))
+    num_validation = int(np.ceil(0.2 * len(labels)))
     num_test = len(labels) - (num_train + num_validation)
 
     train_id, test_id = train_test_split(complete_occlusions.dl_id.to_list(),
@@ -337,7 +337,8 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/'
+    out_tag = out_tag + 'more_data_with_exclusions601010split/'
 
     print(f"out_tag = {out_tag}")
 
@@ -794,8 +795,7 @@ def main(notes=''):
             gt_flat = ground_truth.flatten()
             gts_flat.extend(gt_flat.astype(int))
             pred_flat = prediction.flatten()
-            score_flat = test_proba[0][1].detach().numpy().flatten()
-            preds_flat.extend(score_flat)
+            preds_flat.extend(pred_flat.astype(int))
             pred70_flat = prediction_70.flatten()
             pred90_flat = prediction_90.flatten()
             dice_score = f1_score(gt_flat, pred_flat)
