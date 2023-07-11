@@ -50,7 +50,7 @@ def main(out_tag):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -59,7 +59,7 @@ def main(out_tag):
         directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -93,10 +93,10 @@ def main(out_tag):
         results_df.loc[results_df.subject == subject, 'mistar_specificity'] = specificity
         results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
 
-        gt_array = results[6].tolist()
-        core_array = results[7].tolist()
-        gts_flat.extend(gt_array)
-        cores_flat.extend(core_array)
+        # gt_array = results[6].tolist()
+        # core_array = results[7].tolist()
+        # gts_flat.extend(gt_array)
+        # cores_flat.extend(core_array)
 
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
     results_df.to_csv(results_csv, index=None)
