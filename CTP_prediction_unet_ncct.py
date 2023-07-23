@@ -318,7 +318,7 @@ def main(notes=''):
 
     # model parameters
     max_epochs = 400
-    image_size = [128]
+    image_size = [256]
     # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct', 'ncct_atrophy']
     features = ['DT', 'CBF', 'ncct']
     features_transform = ['image_' + string for string in [feature for feature in features
@@ -337,7 +337,7 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/more_data_with_exclusions601010split/'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/upsample/'
 
     print(f"out_tag = {out_tag}")
 
