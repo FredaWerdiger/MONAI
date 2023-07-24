@@ -32,6 +32,7 @@ from densenet import *
 def main(directory, model_file, overwrite=True):
 
     test_files = BuildDataset(directory, "no_seg").no_seg_dict
+
     # remove this file for now which doesn't load ###RESOLVED
     # remove = 'image_INSP_CN020302'
     # test_files = [name for name in test_files if remove not in name["image"]]
@@ -44,13 +45,13 @@ def main(directory, model_file, overwrite=True):
     if not os.path.exists(trans_dir):
         os.makedirs(trans_dir)
 
-    subjects = ['INSP_' + file['image'].split('INSP_')[1].split('.nii.gz')[0] for file in test_files]
-    if not overwrite:
-        test_files = [im for sub, im in zip(subjects, test_files) if not any(sub in path for path in os.listdir(out_dir))]
-
-    for sub, im in zip(subjects, test_files):
-        if any(sub in path for path in os.listdir(out_dir)):
-            print(sub)
+    # subjects = ['INSP_' + file['image'].split('INSP_')[1].split('.nii.gz')[0] for file in test_files]
+    # if not overwrite:
+    #     test_files = [im for sub, im in zip(subjects, test_files) if not any(sub in path for path in os.listdir(out_dir))]
+    #
+    # for sub, im in zip(subjects, test_files):
+    #     if any(sub in path for path in os.listdir(out_dir)):
+    #         print(sub)
 
     # test on external data
     test_transforms = Compose(
@@ -126,10 +127,8 @@ def main(directory, model_file, overwrite=True):
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
-            roi_size = (64, 64, 64)
-            sw_batch_size = 4
-            test_data["pred"] = sliding_window_inference(
-                test_inputs, roi_size, sw_batch_size, model)
+
+            test_data["pred"] = model(test_inputs)
 
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
@@ -161,17 +160,17 @@ if __name__ == '__main__':
     HOMEDIR = os.path.expanduser('~/')
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         mediaflux = HOMEDIR + 'mediaflux/'
-        directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
+        directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/DWI_Training_Data/'
         model_file = mediaflux + 'data_freda/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
     if os.path.exists('Z:'):
         mediaflux = 'Z:/'
-        directory = mediaflux + 'data_freda/ctp_project/CTP_DL_Data/'
+        directory = mediaflux + 'data_freda/ctp_project/DWI_Training_Data/'
         model_file = mediaflux + 'data_freda/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
 
     elif os.path.exists('/data/gpfs/projects/punim1086/ctp_project'):
-        directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
+        directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
         model_file = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
     main(directory, model_file, overwrite=False)
