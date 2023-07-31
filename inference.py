@@ -41,13 +41,17 @@ def define_dvalues(dwi_img):
     steps = int(dwi_img.shape[2]/18)
     rem = int(dwi_img.shape[2]/steps)-18
 
-    if rem % 2 == 0:
+    if rem == 0:
+        d_min = 0
+        d_max = dwi_img.shape[2]
+    elif rem % 2 == 0:
         d_min = 0 + int(rem/2*steps) + 1
         d_max = dwi_img.shape[2] - int(rem/2*steps) + 1
 
     elif rem % 2 != 0:
         d_min = 0 + math.ceil(rem*steps/2)
         d_max = dwi_img.shape[2] - math.ceil(rem/2*steps) + 1
+
 
     d = range(d_min, d_max, steps)
 
@@ -246,7 +250,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         ]
     )
 
-    test_files = make_dict(root_dir, 'test')
+    test_files = make_dict(root_dir, 'no_seg/test_cases/')
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
 
@@ -267,11 +271,11 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         ),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
         AsDiscreted(keys="label", to_onehot=2),
-        SaveImaged(keys="pred",
-                   meta_keys="pred_meta_dict",
-                   output_dir=root_dir + "out_" + out_tag + '/pred',
-                   output_postfix="pred", resample=False,
-                   separate_folder=False),
+        # SaveImaged(keys="pred",
+        #            meta_keys="pred_meta_dict",
+        #            output_dir=root_dir + "out_" + out_tag + '/pred',
+        #            output_postfix="pred", resample=False,
+        #            separate_folder=False),
     ])
 
     if not os.path.exists(root_dir + "out_" + out_tag + '/pred'):
@@ -391,7 +395,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
                               'png',
                               dpi=300)
 
-            # uncomment below to visualise results.
+            # # uncomment below to visualise results.
             # plt.figure("check", (24, 6))
             # plt.subplot(1, 4, 1)
             # plt.imshow(original_image[:, :, 12], cmap="gray")
@@ -435,44 +439,44 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         on='id',
         how='left')
     print(results)
-    results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
+    # results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
 
-    for sub in results_join['id']:
-        create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
+    # for sub in results_join['id']:
+    #     create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
 
 if __name__ == '__main__':
     HOMEDIR = os.path.expanduser("~/")
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id'
         )
         windows = False
     elif os.path.exists('Z:'):
         directory = 'Z:/data_freda/ctp_project/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            HOMEDIR + 'PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            HOMEDIR + 'PycharmProjects/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
         windows = True
     elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id'
         )
         windows = False
     elif os.path.exists('D:'):
         directory = 'D:/ctp_project_data/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
     else:
         directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_inspire_dl.csv',
+            '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_densenetFCN_batch1/learning_rate_1e4/without_extra_data/best_metric_model600.pth'
-    out_tag = 'densenetFCN_batch1/learning_rate_1e4/without_extra_data/'
+    model_path = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
+    out_tag = 'densenetFCN_batch1/learning_rate_1e4/with_corrections_0_extra_test_set/'
     main(directory, ctp_df, model_path, out_tag, ddp=False)
