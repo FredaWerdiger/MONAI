@@ -67,7 +67,7 @@ def main(out_tag):
     print(f"out_tag = {out_tag}")
 
     results_folder = os.path.join(directory, 'out_' + out_tag)
-    results_csv = glob.glob(results_folder + '/results*.csv')[0]
+    results_csv = glob.glob(results_folder + '/results*.csv')[-1]
     results_df = pd.read_csv(results_csv)
     results_df['mistar_core'] = ''
     results_df['mistar_penumbra'] = ''
@@ -99,6 +99,10 @@ def main(out_tag):
         # cores_flat.extend(core_array)
 
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
+    results_df['mistar_mean_auc'] = results_df.mistar_auc.mean()
+    results_df['mistar_mean_sensitivity'] = results_df.mistar_sensitivity.mean()
+    results_df['mistar_mean_specificity'] = results_df.mistar_specificity.mean()
+
     results_df.to_csv(results_csv, index=None)
 
     # fig, ax = plt.subplots(1, figsize=(8, 5))
@@ -125,5 +129,5 @@ def main(out_tag):
     # plt.close()
 
 if __name__ == '__main__':
-    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/more_data_with_exclusions602020split/'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/upsample/'
     main(out_tag=out_tag)
