@@ -232,7 +232,7 @@ def make_dict(root, string):
         for image_name, label_name in zip(images, labels)
     ]
 
-def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
+def main(root_dir, ctp_df, model_path, out_tag, acute, follow_up, ddp=False):
 
 
     # test on external data
@@ -250,7 +250,10 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         ]
     )
 
-    test_files = make_dict(root_dir, 'no_seg/test_cases/')
+    if follow_up:
+        test_files = BuildDataset(root_dir, 'no_seg/test_cases').images_dict
+    if acute:
+        test_files = BuildDataset(root_dir, 'test').images_dict
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
 
@@ -322,7 +325,10 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
     model.eval()
 
     results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'px_z', 'size_ml'])
-    results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
+    if acute:
+        results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
+    if follow_up:
+        results['id'] = ['no_seg_' + file['image'].split('.nii.gz')[0].split('_')[-1] for file in test_files]
 
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
@@ -352,8 +358,14 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
             transformed_image = test_inputs[0][0].detach().cpu().numpy()
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
-            name = "test_" + os.path.basename(
-                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
+            # for acute test set
+            if acute:
+                name = "test_" + os.path.basename(
+                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
+            # for follow-up test set
+            if follow_up:
+                name = "no_seg_" + os.path.basename(
+                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[-1]
             save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
 
             if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
@@ -479,4 +491,4 @@ if __name__ == '__main__':
 
     model_path = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
     out_tag = 'densenetFCN_batch1/learning_rate_1e4/with_corrections_0_extra_test_set/'
-    main(directory, ctp_df, model_path, out_tag, ddp=False)
+    main(directory, ctp_df, model_path, out_tag, acute=False, follow_up=True, ddp=False)
