@@ -2,7 +2,7 @@ import os
 import math
 import pathlib
 import sys
-
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI')
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
