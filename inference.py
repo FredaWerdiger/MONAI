@@ -427,19 +427,19 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
 
     results['mean_dice'] = metric
 
-    from sklearn.cluster import k_means
-    kmeans_labels = k_means(
-        np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
-        n_clusters=2,
-        random_state=0)[1]
-    kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
-    results['size_label']=kmeans_labels
+    # from sklearn.cluster import k_means
+    # kmeans_labels = k_means(
+    #     np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
+    #     n_clusters=2,
+    #     random_state=0)[1]
+    # kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
+    # results['size_label']=kmeans_labels
     results_join = results.join(
         ctp_df[~ctp_df.index.duplicated(keep='first')],
         on='id',
         how='left')
     print(results)
-    # results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
+    results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
 
     # for sub in results_join['id']:
     #     create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
