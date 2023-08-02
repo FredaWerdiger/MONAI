@@ -333,7 +333,10 @@ def main(root_dir, ctp_df, model_path, out_tag, acute, follow_up, ddp=False):
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
-            test_data["pred"] = model(test_inputs)
+            # test_data["pred"] = model(test_inputs)
+            roi_size = (64, 64, 64)
+            sw_batch_size = 4
+            test_data["pred"] = sliding_window_inference(test_inputs, roi_size, sw_batch_size, model)
 
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
