@@ -497,6 +497,6 @@ if __name__ == '__main__':
             '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_final_no_cropping/best_metric_model600.pth'
-    out_tag = 'final_no_cropping/extra_test_set'
+    model_path = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
+    out_tag = 'out_densenetFCN_batch1/learning_rate_1e4/isles_test_set'
     main(directory, ctp_df, model_path, out_tag, acute=False, follow_up=False, isles=True, ddp=False)
