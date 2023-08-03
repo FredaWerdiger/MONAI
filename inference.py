@@ -232,7 +232,7 @@ def make_dict(root, string):
         for image_name, label_name in zip(images, labels)
     ]
 
-def main(root_dir, ctp_df, model_path, out_tag, acute, follow_up, ddp=False):
+def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=False):
 
 
     # test on external data
@@ -251,12 +251,13 @@ def main(root_dir, ctp_df, model_path, out_tag, acute, follow_up, ddp=False):
     )
 
     if follow_up:
-        test_files = BuildDataset(root_dir, 'no_seg/test_cases').images_dict
+        test_files = BuildDataset(directory, 'no_seg/test_cases').images_dict
     if acute:
-        test_files = BuildDataset(root_dir, 'test').images_dict
+        test_files = BuildDataset(directory, 'test').images_dict
+    if isles:
+        test_files = BuildDataset(directory, 'ISLES22').images_dict
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
-
     test_loader = DataLoader(test_ds, batch_size=1, num_workers=1)
 
     post_transforms = Compose([
@@ -281,8 +282,8 @@ def main(root_dir, ctp_df, model_path, out_tag, acute, follow_up, ddp=False):
         #            separate_folder=False),
     ])
 
-    if not os.path.exists(root_dir + "out_" + out_tag + '/pred'):
-        os.makedirs(root_dir + "out_" + out_tag + '/pred')
+    if not os.path.exists(directory + "out_" + out_tag + '/pred'):
+        os.makedirs(directory + "out_" + out_tag + '/pred')
 
     # removing sync on step as we are running on master node
     # dice_metric = Dice(ignore_index=0)
@@ -329,7 +330,8 @@ def main(root_dir, ctp_df, model_path, out_tag, acute, follow_up, ddp=False):
         results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
     if follow_up:
         results['id'] = ['no_seg_' + file['image'].split('.nii.gz')[0].split('_')[-1] for file in test_files]
-
+    if isles:
+        results['id'] = ['isles_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
@@ -364,15 +366,18 @@ def main(root_dir, ctp_df, model_path, out_tag, acute, follow_up, ddp=False):
             # for acute test set
             if acute:
                 name = "test_" + os.path.basename(
-                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
+                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[-1]
             # for follow-up test set
             if follow_up:
                 name = "no_seg_" + os.path.basename(
                     test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[-1]
-            save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
+            if isles:
+                name = "isles_" + os.path.basename(
+                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[-1]
+            save_loc = directory + "out_" + out_tag + "/images/" + name + "_"
 
-            if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
-                os.makedirs(root_dir + "out_" + out_tag + "/images/")
+            if not os.path.exists(directory + "out_" + out_tag + "/images/"):
+                os.makedirs(directory + "out_" + out_tag + "/images/")
 
             create_paper_img(
                 original_image,
@@ -454,7 +459,7 @@ def main(root_dir, ctp_df, model_path, out_tag, acute, follow_up, ddp=False):
         on='id',
         how='left')
     print(results)
-    results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
+    results_join.to_csv(directory + 'out_' + out_tag + '/results.csv', index=False)
 
     # for sub in results_join['id']:
     #     create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
@@ -494,4 +499,4 @@ if __name__ == '__main__':
 
     model_path = directory + 'out_final_no_cropping/best_metric_model600.pth'
     out_tag = 'final_no_cropping/extra_test_set'
-    main(directory, ctp_df, model_path, out_tag, acute=False, follow_up=True, ddp=False)
+    main(directory, ctp_df, model_path, out_tag, acute=False, follow_up=False, isles=True, ddp=False)
