@@ -3,7 +3,7 @@ import glob
 import torch.distributed as dist
 import torch
 from monai.data import Dataset, DataLoader, DistributedSampler
-from numba import cuda
+# from numba import cuda
 from GPUtil import showUtilization as gpu_usage
 from collections import OrderedDict
 
