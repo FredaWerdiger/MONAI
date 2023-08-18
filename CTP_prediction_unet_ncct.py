@@ -337,7 +337,7 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/upsample/'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/upsample/four_layers/'
 
     print(f"out_tag = {out_tag}")
 
@@ -457,7 +457,7 @@ def main(notes=''):
 
     # # sanity check to see everything is there
     s = 50
-    data_example = test_ds[1]
+    data_example = test_ds[0]
     ch_in = data_example['image'].shape[0]
     # plt.figure("image", (18, 4))
     # for i in range(ch_in):
@@ -767,6 +767,10 @@ def main(notes=''):
     # gts_flat = []
     # preds_flat = []
 
+    # get hemisphere masks for each patients
+    left_hemisphere_masks = glob.glob(directory + 'DATA/left_hemisphere_mask/*')
+    right_hemisphere_masks = glob.glob(directory + 'DATA/right_hemisphere_mask/*')
+
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
@@ -791,6 +795,25 @@ def main(notes=''):
             prediction_70 = (test_proba[0][1].detach().numpy() >= 0.7) * 1
             prediction_90 = (test_proba[0][1].detach().numpy() >= 0.9) * 1
 
+            name = os.path.basename(
+                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
+            subject = ctp_dl_df.loc[[name], "subject"].values[0]
+            left_mask = [file for file in left_hemisphere_masks if name in file][0]
+            right_mask = [file for file in right_hemisphere_masks if name in file][0]
+            left_im, right_im = [loader(im) for im in [left_mask, right_mask]]
+            left_np, right_np = [im.detach().numpy() for im in [left_im, right_im]]
+
+            # find which hemisphere
+            right_masked = right_np * prediction
+            left_masked = left_np * prediction
+
+            # see if there are any pixels in each corner
+            hemisphere_mask = ''
+            if np.count_nonzero(right_masked) > 0:
+                hemisphere_mask = right_np.flatten()
+            elif np.count_nonzero(left_masked) > 0:
+                hemisphere_mask = left_np.flatten()
+
             gt_flat = ground_truth.flatten()
             # gts_flat.extend(gt_flat.astype(int))
             pred_flat = prediction.flatten()
@@ -805,13 +828,19 @@ def main(notes=''):
             dice_metric90.append(dice90)
             print(f"Dice score for image: {dice_score:.4f}")
 
-            fpr, tpr, thresholds = roc_curve(gt_flat, pred_flat, pos_label=1)
+            gt_flat = np.where((hemisphere_mask == 0), np.nan, gt_flat)
+            core_flat = np.where(hemisphere_mask == 0, np.nan, core_flat)
+            tp = len(np.where((gt_flat == 1) & (core_flat == 1))[0])
+            fp = len(np.where((gt_flat == 0) & (core_flat == 1))[0])
+            fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
+            tn = len(np.where((gt_flat == 0) & (core_flat == 0))[0])
+            sensitivity = tp / (tp + fn)
+            specificity = tn / (tn + fp)
+            # mask out nans and recalculate AUC
+            fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
+                                            core_flat[np.where((core_flat == 1) | (core_flat == 0))])
             auc_score = auc(fpr, tpr)
-            precision = precision_score(gt_flat, pred_flat, zero_division=0)
-            recall = recall_score(gt_flat, pred_flat, zero_division=0)
-            tn, fp, fn, tp = confusion_matrix(gt_flat, pred_flat).ravel()
-            specificity = tn / (tn+fp)
-            sensitivities.append(recall)
+            sensitivities.append(sensitivity)
             specificities.append(specificity)
 
             size = ground_truth.sum()
@@ -820,9 +849,6 @@ def main(notes=''):
             size_pred = prediction.sum()
             size_pred_ml = size_pred * pixel_vol / 1000
 
-            name = os.path.basename(
-                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
-            subject = ctp_dl_df.loc[[name], "subject"].values[0]
 
             try:
                 dwi_img = glob.glob(os.path.join(directory, 'dwi_test/', subject + '*'))[0]
@@ -847,22 +873,22 @@ def main(notes=''):
             results.loc[results.id == name, 'dice70'] = dice70
             results.loc[results.id == name, 'dice90'] = dice90
             results.loc[results.id == name, 'auc'] = auc_score
-            results.loc[results.id == name, 'sensitivity'] = recall
+            results.loc[results.id == name, 'sensitivity'] = sensitivity
             results.loc[results.id == name, 'specificity'] = specificity
-            results.loc[results.id == name, 'precision'] = precision
-
 
         # aggregate the final mean dice result
         metric = np.mean(dice_metric)
         metric70 = np.mean(dice_metric70)
         metric90 = np.mean(dice_metric90)
         metric_recall = np.mean(sensitivities)
+        metric_specificity = np.mean(specificities)
         # reset the status for next validation round
     print(f"Mean dice on test set: {metric:.4f}")
     results['mean_dice'] = metric
     results['mean_dice_70'] = metric70
     results['mean_dice_90'] = metric90
     results['mean_sensitvity'] = metric_recall
+    results['mean_specificity'] = metric_specificity
     results_join = results.join(
         ctp_dl_df[~ctp_dl_df.index.duplicated(keep='first')],
         on='id',

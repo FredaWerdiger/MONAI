@@ -6,14 +6,16 @@ import shutil
 ctp_df = pd.read_csv(
             'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
             usecols=['subject', 'dl_id'])
+HOMEDIR = os.path.expanduser('~/')
+mediaflux = HOMEDIR + 'mediaflux/'
 test_df = pd.read_csv(
-    'Z:/data_freda/ctp_project/CTP_DL_Data/out_best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/upsample/results_400_epoch_AttentionUnet_DiceCELoss__DT_CBF_ncct.csv',
+    mediaflux + 'data_freda/ctp_project/CTP_DL_Data/out_best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/upsample/results_400_epoch_AttentionUnet_DiceCELoss__DT_CBF_ncct.csv',
 usecols=['subject', 'id'])
 
 # test_df = ctp_df[ctp_df.apply(lambda x: 'test' in x.dl_id, axis=1)]
 
 subjects = test_df.subject.to_list()
-out_dir = 'D:/ctp_project_data/CTP_DL_Data/dwi_test/'
+out_dir = mediaflux + 'data_freda/ctp_project/CTP_DL_Data/dwi_test'
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 

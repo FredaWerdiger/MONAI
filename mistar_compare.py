@@ -10,11 +10,27 @@ import statsmodels.api as sm
 import matplotlib.pyplot as plt
 
 
-def get_subject_results(subject, dl_id, gt_folder, mediaflux):
+def get_subject_results(subject, dl_id, gt_folder, mediaflux, directory):
     mistar_dir = mediaflux + '/INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/mistar/'
     mistar_lesion = glob.glob(mistar_dir + '*' + 'Lesion.nii.gz')[0]
     mistar_img = sitk.ReadImage(mistar_lesion)
     mistar_array = sitk.GetArrayFromImage(mistar_img).astype(float)
+    # get hemisphere mask
+    left_mask = [file for file in glob.glob(directory + 'DATA/left_hemisphere_mask/*') if dl_id in file][0]
+    right_mask = [file for file in glob.glob(directory + 'DATA/right_hemisphere_mask/*') if dl_id in file][0]
+    left_im, right_im = [sitk.GetArrayFromImage(sitk.ReadImage(im)).astype(float)
+                         for im in [left_mask, right_mask]]
+
+    # find which hemisphere
+    right_masked = right_im * mistar_array
+    left_masked = left_im * mistar_array
+
+    # see if there are any pixels in each corner
+    hemisphere_mask = ''
+    if np.count_nonzero(right_masked) > 0:
+        hemisphere_mask = right_im.ravel()
+    elif np.count_nonzero(left_masked) > 0:
+        hemisphere_mask = left_im.ravel()
     # get core and penumbra
     core = (mistar_array == 220) * 1
     core = np.asarray(core)
@@ -24,12 +40,6 @@ def get_subject_results(subject, dl_id, gt_folder, mediaflux):
     gt_flat = gt_array.ravel()
     core_flat = core.ravel()
     dice_mistar = f1_score(gt_flat, core_flat)
-    fpr, tpr, threshold = roc_curve(gt_flat, core_flat)
-    roc_auc = auc(fpr, tpr)
-
-    sensitivity = recall_score(gt_flat, core_flat)
-    tn, fp, fn, tp = confusion_matrix(gt_flat, core_flat).ravel()
-    specificity = tn / (tn + fp)
 
     # get volumes
     num_core_pixels = core.sum()
@@ -40,14 +50,30 @@ def get_subject_results(subject, dl_id, gt_folder, mediaflux):
     volume = (x * y * x) / 1000
     core_volume = num_core_pixels * volume
     penumbra_volume = num_penumbra_pixels * volume
-    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, gt_flat, core_flat
+
+    fpr, tpr, threshold = roc_curve(gt_flat, core_flat)
+    old_roc_auc = auc(fpr, tpr)
+    gt_flat = np.where((hemisphere_mask==0), np.nan, gt_flat)
+    core_flat = np.where(hemisphere_mask==0, np.nan, core_flat)
+    tp = len(np.where((gt_flat==1) &(core_flat==1))[0])
+    fp = len(np.where((gt_flat==0) &(core_flat==1))[0])
+    fn = len(np.where((gt_flat==1) &(core_flat==0))[0])
+    tn = len(np.where((gt_flat==0) &(core_flat==0))[0])
+    sensitivity = tp / (tp + fn)
+    specificity = tn / (tn + fp)
+    # mask out nans and recalculate AUC
+    fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1)|(gt_flat == 0))], core_flat[np.where((core_flat == 1)| (core_flat == 0))])
+    roc_auc = auc(fpr, tpr)
+    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_roc_auc
 
 
 def main(out_tag):
     HOMEDIR = os.path.expanduser('~/')
+
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         mediaflux = HOMEDIR + 'mediaflux/'
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
+
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
         atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
@@ -75,16 +101,17 @@ def main(out_tag):
     results_df['mistar_sensitivity'] = ''
     results_df['mistar_specificity'] = ''
     results_df['mistar_auc'] = ''
+    results_df['old_auc'] = ''
 
     gt_folder = os.path.join(directory, 'DATA', 'masks')
-    gts_flat = []
-    cores_flat = []
-
+    # gts_flat = []
+    # cores_flat = []
+    # subject = results_df.subject.to_list()[1]
     for subject in results_df.subject.to_list():
         print("Running for {}".format(subject))
         dl_id = str(results_df.loc[results_df.subject == subject, 'id'].values[0]).zfill(3)
-        results = get_subject_results(subject, dl_id, gt_folder, mediaflux)
-        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, _, _ = results
+        results = get_subject_results(subject, dl_id, gt_folder, mediaflux, directory)
+        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_auc = results
 
         results_df.loc[results_df.subject == subject, 'mistar_core'] = core_volume
         results_df.loc[results_df.subject == subject, 'mistar_penumbra'] = penumbra_volume
@@ -92,6 +119,7 @@ def main(out_tag):
         results_df.loc[results_df.subject == subject, 'mistar_sensitivity'] = sensitivity
         results_df.loc[results_df.subject == subject, 'mistar_specificity'] = specificity
         results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
+        results_df.loc[results_df.subject == subject, 'old_auc'] = old_auc
 
         # gt_array = results[6].tolist()
         # core_array = results[7].tolist()
@@ -100,6 +128,7 @@ def main(out_tag):
 
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
     results_df['mistar_mean_auc'] = results_df.mistar_auc.mean()
+    results_df['mistar_old_mean_auc'] = results_df.old_auc.mean()
     results_df['mistar_mean_sensitivity'] = results_df.mistar_sensitivity.mean()
     results_df['mistar_mean_specificity'] = results_df.mistar_specificity.mean()
 
