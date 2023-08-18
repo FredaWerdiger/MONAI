@@ -24,7 +24,7 @@ for subject in subjects:
         if not subject == 'INSP_AU250244':
             print('Running for {}'.format(subject))
             try:
-                dwi_img = glob.glob(mediaflux + 'INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/transform-DWI_followup/*__Warped.nii.gz')[0]
+                dwi_img = glob.glob(mediaflux + 'INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/transform-DWI_followup/*__b1000.nii.gz')[0]
             except IndexError:
                 try:
                     dwi_im = glob.glob(mediaflux + 'data_freda/ctp_project/CTP_DL_Data/no_seg/dwi_ctp_june/' + subject + '*')[0]
