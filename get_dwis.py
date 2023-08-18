@@ -4,7 +4,7 @@ import pandas as pd
 import shutil
 
 ctp_df = pd.read_csv(
-            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
+            '../study_design/study_lists/data_for_ctp_dl.csv',
             usecols=['subject', 'dl_id'])
 HOMEDIR = os.path.expanduser('~/')
 mediaflux = HOMEDIR + 'mediaflux/'
