@@ -24,12 +24,13 @@ for subject in subjects:
     if not subject == 'INSP_AU250244':
         print('Running for {}'.format(subject))
         try:
-            dwi_img = glob.glob(mediaflux + 'INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/transform-DWI_followup/*b1000.nii.gz')[0]
+            dwi_img = glob.glob(mediaflux + 'data_freda/ctp_project/CTP_DL_Data/no_seg/dwi_ctp_june/' + subject + '*')[0]
         except IndexError:
             try:
-                dwi_img = glob.glob(mediaflux + 'data_freda/ctp_project/CTP_DL_Data/no_seg/dwi_ctp_june/' + subject + '*')[0]
-            except IndexError:
                 dwi_img = glob.glob(mediaflux + 'data_freda/ctp_project/CTP_DL_Data/no_seg/dwi_ctp/' + subject + '*')[0]
+            except IndexError:
+                dwi_img = glob.glob(
+                    mediaflux + 'INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/transform-DWI_followup/*b1000.nii.gz')[0]
         if os.path.exists(os.path.join(out_dir, subject + '_dwi.nii.gz')):
             os.remove(os.path.join(out_dir, subject + '_dwi.nii.gz'))
         shutil.copy(dwi_img, os.path.join(out_dir, subject + '_dwi.nii.gz'))
