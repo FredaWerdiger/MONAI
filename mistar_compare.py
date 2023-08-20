@@ -76,7 +76,7 @@ def main(out_tag):
 
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-06-09T0451.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -85,7 +85,7 @@ def main(out_tag):
         directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-06-09T0451.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
