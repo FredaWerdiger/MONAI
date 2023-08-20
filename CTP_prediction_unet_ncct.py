@@ -829,7 +829,7 @@ def main(notes=''):
             print(f"Dice score for image: {dice_score:.4f}")
 
             gt_flat = np.where((hemisphere_mask == 0), np.nan, gt_flat)
-            core_flat = np.where(hemisphere_mask == 0, np.nan, core_flat)
+            core_flat = np.where(hemisphere_mask == 0, np.nan, pred_flat)
             tp = len(np.where((gt_flat == 1) & (core_flat == 1))[0])
             fp = len(np.where((gt_flat == 0) & (core_flat == 1))[0])
             fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
