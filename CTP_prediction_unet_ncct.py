@@ -885,7 +885,7 @@ def main(notes=''):
         metric90 = np.mean(dice_metric90)
         metric_recall = np.mean(sensitivities)
         metric_specificity = np.mean(specificities)
-        metric_auc =np.mean(auc_score)
+        metric_auc = np.mean(auc_score)
         # reset the status for next validation round
     print(f"Mean dice on test set: {metric:.4f}")
     results['mean_dice'] = metric
@@ -893,6 +893,7 @@ def main(notes=''):
     results['mean_dice_90'] = metric90
     results['mean_sensitvity'] = metric_recall
     results['mean_specificity'] = metric_specificity
+    results['mean_auc'] = metric_auc
     results_join = results.join(
         ctp_dl_df[~ctp_dl_df.index.duplicated(keep='first')],
         on='id',
