@@ -715,20 +715,20 @@ def main(notes=''):
         ),
         AsDiscreted(keys="label", to_onehot=2),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-        SaveImaged(
-            keys="proba",
-            meta_keys="pred_meta_dict",
-            output_dir=os.path.join(pred_dir, 'prob'),
-            output_postfix="proba",
-            resample=False,
-            separate_folder=False),
-        SaveImaged(
-            keys="pred",
-            meta_keys="pred_meta_dict",
-            output_dir=pred_dir,
-            output_postfix="seg",
-            resample=False,
-            separate_folder=False)
+        # SaveImaged(
+        #     keys="proba",
+        #     meta_keys="pred_meta_dict",
+        #     output_dir=os.path.join(pred_dir, 'prob'),
+        #     output_postfix="proba",
+        #     resample=False,
+        #     separate_folder=False),
+        # SaveImaged(
+        #     keys="pred",
+        #     meta_keys="pred_meta_dict",
+        #     output_dir=pred_dir,
+        #     output_postfix="seg",
+        #     resample=False,
+        #     separate_folder=False)
     ])
 
     loader = LoadImage(image_only=True)
@@ -834,7 +834,10 @@ def main(notes=''):
             fp = len(np.where((gt_flat == 0) & (core_flat == 1))[0])
             fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
             tn = len(np.where((gt_flat == 0) & (core_flat == 0))[0])
-            sensitivity = tp / (tp + fn)
+            if (tp == 0) and (fn == 0):
+                sensitivity == 0
+            else:
+                sensitivity = tp / (tp + fn)
             specificity = tn / (tn + fp)
             # mask out nans and recalculate AUC
             fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
