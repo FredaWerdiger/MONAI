@@ -54,8 +54,6 @@ from recursive_data import *
 from torch.nn import DataParallel as DDP
 
 
-
-
 def make_dict(root, string):
     images = sorted(
         glob.glob(os.path.join(root, string, 'images', '*.nii.gz'))
@@ -158,22 +156,22 @@ def main():
     # Uncomment to display data
 
     import random
-    m = random.randint(0, 50)
+    m = random.randint(0, 170)
     s = random.randint(0, 63)
-    val_data_example = val_ds[m]
+    val_data_example = train_ds[m]
     print(f"image shape: {val_data_example['image'].shape}")
-    # plt.figure("image", (18, 6))
-    # for i in range(1):
-    #     plt.subplot(1, 3, i + 1)
-    #     plt.title(f"image channel {i}")
-    #     plt.imshow(val_data_example["image_b1000"][i, :, :, s].detach().cpu(), cmap="gray")
-    # # also visualize the 3 channels label corresponding to this image
-    # print(f"label shape: {val_data_example['label'].shape}")
-    # plt.subplot(1, 3, 3)
-    # plt.title("label")
-    # plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
-    # plt.show()
-    # plt.close()
+    plt.figure("image", (18, 6))
+    for i in range(2):
+        plt.subplot(1, 3, i + 1)
+        plt.title(f"image channel {i}")
+        plt.imshow(val_data_example["image"][i, :, :, s].detach().cpu(), cmap="gray")
+    # also visualize the 3 channels label corresponding to this image
+    print(f"label shape: {val_data_example['label'].shape}")
+    plt.subplot(1, 3, 3)
+    plt.title("label")
+    plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
+    plt.show()
+    plt.close()
 
     model = UNet(
         spatial_dims=3,

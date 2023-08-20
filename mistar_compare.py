@@ -59,7 +59,10 @@ def get_subject_results(subject, dl_id, gt_folder, mediaflux, directory):
     fp = len(np.where((gt_flat==0) &(core_flat==1))[0])
     fn = len(np.where((gt_flat==1) &(core_flat==0))[0])
     tn = len(np.where((gt_flat==0) &(core_flat==0))[0])
-    sensitivity = tp / (tp + fn)
+    if (tp == 0) and (fn == 0):
+        sensitivity = 0
+    else:
+        sensitivity = tp / (tp + fn)
     specificity = tn / (tn + fp)
     # mask out nans and recalculate AUC
     fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1)|(gt_flat == 0))], core_flat[np.where((core_flat == 1)| (core_flat == 0))])

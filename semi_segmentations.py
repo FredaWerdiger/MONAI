@@ -12,17 +12,17 @@ if not os.path.exists(mediaflux):
     mediaflux = 'Z:/'
 
 directory = mediaflux + 'data_freda/ctp_project/CTP_DL_Data/'
-# semi_masks = [file for file in glob.glob(directory + 'no_seg/masks_semi/*')
-#               if ('exclude' not in file and 'funny' not in file)]
-# masks = [file for file in glob.glob(directory + 'no_seg/masks/*')
-#          if 'exclude' not in file]
-# subjects = ['INSP_' + sub.split('.nii')[0].split('_')[-1] for sub in semi_masks]
+semi_masks = [file for file in glob.glob(directory + 'no_seg/masks_semi/*')
+              if ('exclude' not in file and 'funny' not in file)]
+masks = [file for file in glob.glob(directory + 'no_seg/masks/*')
+         if 'exclude' not in file]
+subjects = ['INSP_' + sub.split('.nii')[0].split('_')[-1] for sub in semi_masks]
 
-# running for cases that james and chrissy did
-masks = [file for file in glob.glob(mediaflux  + 'data_freda/dl_seg_check/*pred*')]
-semi_masks = [file for file in glob.glob(mediaflux  + 'data_freda/dl_seg_check/*seg*')]
+# # running for cases that james and chrissy did
+# masks = [file for file in glob.glob(mediaflux  + 'data_freda/dl_seg_check/*pred*')]
+# semi_masks = [file for file in glob.glob(mediaflux  + 'data_freda/dl_seg_check/*seg*')]
 
-subjects = ['INSP_' + sub.split('.nii')[0].split('_')[-2] for sub in semi_masks]
+# subjects = ['INSP_' + sub.split('.nii')[0].split('_')[-2] for sub in semi_masks]
 subjects.sort()
 
 df = pd.DataFrame(columns=["subject",

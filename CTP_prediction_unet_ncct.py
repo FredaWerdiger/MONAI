@@ -835,7 +835,7 @@ def main(notes=''):
             fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
             tn = len(np.where((gt_flat == 0) & (core_flat == 0))[0])
             if (tp == 0) and (fn == 0):
-                sensitivity == 0
+                sensitivity = 0
             else:
                 sensitivity = tp / (tp + fn)
             specificity = tn / (tn + fp)
@@ -885,6 +885,7 @@ def main(notes=''):
         metric90 = np.mean(dice_metric90)
         metric_recall = np.mean(sensitivities)
         metric_specificity = np.mean(specificities)
+        metric_auc =np.mean(auc_score)
         # reset the status for next validation round
     print(f"Mean dice on test set: {metric:.4f}")
     results['mean_dice'] = metric
