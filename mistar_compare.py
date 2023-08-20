@@ -158,5 +158,5 @@ def main(out_tag):
     # plt.close()
 
 if __name__ == '__main__':
-    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/upsample/'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/more_data_with_exclusions602020split/hemisphere'
     main(out_tag=out_tag)
