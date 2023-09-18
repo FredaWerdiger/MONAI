@@ -74,14 +74,14 @@ def main():
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_final_no_cropping_repeat"
+    out_tag = "unet_final_no_cropping_recursive"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
     train_files, val_files, test_files = [
         make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
-    # semi_files = get_semi_dataset()
-    # train_files = semi_files + train_files
+    semi_files = get_semi_dataset()
+    train_files = semi_files + train_files
 
     set_determinism(seed=42)
 
