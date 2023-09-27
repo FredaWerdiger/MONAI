@@ -102,7 +102,7 @@ def main(out_tag):
     results_folder = os.path.join(directory, 'out_' + out_tag)
     results_csv = glob.glob(results_folder + '/results*.csv')
     results_csv.sort()
-    results_csv = results_folder[0]
+    results_csv = results_csv[0]
     results_df = pd.read_csv(results_csv)
     results_df['mistar_core'] = ''
     results_df['mistar_penumbra'] = ''
