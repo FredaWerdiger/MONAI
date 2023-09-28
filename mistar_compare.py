@@ -10,8 +10,8 @@ import statsmodels.api as sm
 import matplotlib.pyplot as plt
 
 
-def get_subject_results(subject, dl_id, gt_folder, mediaflux, directory):
-    mistar_dir = mediaflux + '/INSPIRE_database/' + subject + '/CT_baseline/CTP_baseline/mistar/'
+def get_subject_results(subject, dl_id, gt_folder, atlas, directory):
+    mistar_dir = atlas + '/ATLAS_database/' + subject + '/CT_baseline/CTP_baseline/mistar/'
     mistar_lesion = glob.glob(mistar_dir + '*' + 'Lesion.nii.gz')[0]
     mistar_img = sitk.ReadImage(mistar_lesion)
     mistar_array = sitk.GetArrayFromImage(mistar_img).astype(float)
@@ -89,6 +89,7 @@ def main(out_tag):
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
     elif os.path.exists('Z:/data_freda'):
         mediaflux = 'Z:'
+        atlas = 'Y:'
         directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
@@ -119,7 +120,7 @@ def main(out_tag):
     for subject in results_df.subject.to_list():
         print("Running for {}".format(subject))
         dl_id = str(results_df.loc[results_df.subject == subject, 'id'].values[0]).zfill(3)
-        results = get_subject_results(subject, dl_id, gt_folder, mediaflux, directory)
+        results = get_subject_results(subject, dl_id, gt_folder, atlas, directory)
         core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_auc = results
 
         results_df.loc[results_df.subject == subject, 'mistar_core'] = core_volume

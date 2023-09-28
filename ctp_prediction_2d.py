@@ -192,7 +192,7 @@ def main(notes=''):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -200,7 +200,7 @@ def main(notes=''):
         directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -208,7 +208,7 @@ def main(notes=''):
         directory = '/data/gpfs/projects/punim1086/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv('/data/gpfs/projects/punim1086/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel('/data/gpfs/projects/punim1086/study_design/ATLAS_clinical_20221006_1304.xlsx',
+        atlas_df = pd.read_excel('/data/gpfs/projects/punim1086/study_design/ATLAS_clinical_2023-02-14T1206.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -237,25 +237,27 @@ def main(notes=''):
 
     # filter out for TIMI = 0
 
-    atlas_df['timi'] = atlas_df['Occlusion severity (TIMI:0=complete occlusion, 3=normal)'].apply(pd.to_numeric, errors='coerce')
+    atlas_df['timi'] = atlas_df['Occlusion severity (TIMI:0=complete occlusion, 3=normal)'].apply(pd.to_numeric,
+                                                                                                  errors='coerce')
     timi_df = ctp_dl_df.join(atlas_df.set_index('INSPIRE ID'), on='subject', how='left')
-    complete_occlusions = timi_df[timi_df.apply(lambda x: x.timi == 0, axis=1)].drop_duplicates()
-    complete_ids = complete_occlusions.dl_id.to_list()
+    incomplete_occlusions = timi_df[timi_df.apply(lambda x: x.timi > 0, axis=1)].drop_duplicates()
+    incomplete_ids = incomplete_occlusions.dl_id.to_list()
+    complete_occlusions = timi_df.drop(incomplete_occlusions.index)
 
-    image_paths = [path for path in image_paths if any(str(id).zfill(3) + '.nii.gz' in path for id in complete_ids)]
-    mask_paths = [path for path in mask_paths if any(str(id).zfill(3) + '.nii.gz' in path for id in complete_ids)]
-    ncct_paths = [path for path in ncct_paths if any(str(id).zfill(3) + '.nii.gz' in path for id in complete_ids)]
+    image_paths = [path for path in image_paths if
+                   not any(str(id).zfill(3) + '.nii.gz' in path for id in incomplete_ids)]
+    mask_paths = [path for path in mask_paths if not any(str(id).zfill(3) + '.nii.gz' in path for id in incomplete_ids)]
+    ncct_paths = [path for path in ncct_paths if not any(str(id).zfill(3) + '.nii.gz' in path for id in incomplete_ids)]
 
     assert len(image_paths) == len(mask_paths) == len(ncct_paths)
-    print(len(image_paths))
-    print(complete_occlusions.head())
+
     random_state = 42
     # create column with size of lesion (in voxels)
     lesion_size = []
     for path in mask_paths:
         im = sitk.ReadImage(path)
         x, y, z = im.GetSpacing()
-        voxel_size = (x * y * z)/1000
+        voxel_size = (x * y * z) / 1000
         label = sitk.LabelShapeStatisticsImageFilter()
         label.Execute(sitk.Cast(im, sitk.sitkUInt8))
         size = label.GetNumberOfPixels(1)
@@ -263,7 +265,7 @@ def main(notes=''):
 
     # lesions less than 5 mL
     labels = (np.asarray(lesion_size) < 5) * 1
-    complete_occlusions['size_labels'] = labels # i think this is correct. maybe check
+    complete_occlusions['size_labels'] = labels
 
     num_train = int(np.ceil(0.6 * len(labels)))
     num_validation = int(np.ceil(0.2 * len(labels)))
@@ -271,7 +273,7 @@ def main(notes=''):
 
     train_id, test_id = train_test_split(complete_occlusions.dl_id.to_list(),
                                          train_size=num_train,
-                                         test_size=num_test+num_validation,
+                                         test_size=num_test + num_validation,
                                          random_state=random_state,
                                          shuffle=True,
                                          stratify=labels)
@@ -291,12 +293,15 @@ def main(notes=''):
     # HOME MANY TRAINING FILES ARE MANUALLY SEGMENTED
     train_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in train_id, axis=1)]
     num_semi_train = len(train_df[train_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
+    num_small_train = len(train_df[train_df.apply(lambda x: x.size_labels == 1, axis=1)])
 
     val_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in validation_id, axis=1)]
     num_semi_val = len(val_df[val_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
+    num_small_val = len(val_df[val_df.apply(lambda x: x.size_labels == 1, axis=1)])
 
     test_df = complete_occlusions[complete_occlusions.apply(lambda x: x.dl_id in test_id, axis=1)]
     num_semi_test = len(test_df[test_df.apply(lambda x: x.segmentation_type == "semi_automated", axis=1)])
+    num_small_test = len(test_df[test_df.apply(lambda x: x.size_labels == 1, axis=1)])
 
     def make_dict(id):
         id = [str(num).zfill(3) for num in id]
@@ -806,11 +811,19 @@ def main(notes=''):
     ctp_dl_df['dl_id'] = ctp_dl_df['dl_id'].apply(lambda row: str(row).zfill(3))
     ctp_dl_df.set_index('dl_id', inplace=True)
 
-    from sklearn.metrics import f1_score, auc, recall_score, precision_score, roc_curve
+    from sklearn.metrics import f1_score, auc, recall_score, precision_score, roc_curve, confusion_matrix
     dice_metric = []
     dice_metric70 = []
     dice_metric90 = []
     sensitivities = []
+    specificities = []
+    # gts_flat = []
+    # preds_flat = []
+
+    # get hemisphere masks for each patients
+    left_hemisphere_masks = glob.glob(directory + 'DATA/left_hemisphere_mask/*')
+    right_hemisphere_masks = glob.glob(directory + 'DATA/right_hemisphere_mask/*')
+
 
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
@@ -845,8 +858,29 @@ def main(notes=''):
             prediction_70 = (test_proba[0][1].detach().numpy() >= 0.7) * 1
             prediction_90 = (test_proba[0][1].detach().numpy() >= 0.9) * 1
 
+            name = os.path.basename(
+                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
+            subject = ctp_dl_df.loc[[name], "subject"].values[0]
+            left_mask = [file for file in left_hemisphere_masks if name in file][0]
+            right_mask = [file for file in right_hemisphere_masks if name in file][0]
+            left_im, right_im = [loader(im) for im in [left_mask, right_mask]]
+            left_np, right_np = [im.detach().numpy() for im in [left_im, right_im]]
+
+            # find which hemisphere
+            right_masked = right_np * prediction
+            left_masked = left_np * prediction
+
+            # see if there are any pixels in each corner
+            hemisphere_mask = ''
+            if np.count_nonzero(right_masked) > 0:
+                hemisphere_mask = right_np.flatten()
+            elif np.count_nonzero(left_masked) > 0:
+                hemisphere_mask = left_np.flatten()
+
             gt_flat = ground_truth.flatten()
+            # gts_flat.extend(gt_flat.astype(int))
             pred_flat = prediction.flatten()
+            # preds_flat.extend(pred_flat.astype(int))
             pred70_flat = prediction_70.flatten()
             pred90_flat = prediction_90.flatten()
             dice_score = f1_score(gt_flat, pred_flat)
@@ -857,21 +891,29 @@ def main(notes=''):
             dice_metric90.append(dice90)
             print(f"Dice score for image: {dice_score:.4f}")
 
-            fpr, tpr, thresholds = roc_curve(gt_flat, pred_flat, pos_label=1)
+            gt_flat = np.where((hemisphere_mask == 0), np.nan, gt_flat)
+            core_flat = np.where(hemisphere_mask == 0, np.nan, pred_flat)
+            tp = len(np.where((gt_flat == 1) & (core_flat == 1))[0])
+            fp = len(np.where((gt_flat == 0) & (core_flat == 1))[0])
+            fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
+            tn = len(np.where((gt_flat == 0) & (core_flat == 0))[0])
+            if (tp == 0) and (fn == 0):
+                sensitivity = 0
+            else:
+                sensitivity = tp / (tp + fn)
+            specificity = tn / (tn + fp)
+            # mask out nans and recalculate AUC
+            fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
+                                            core_flat[np.where((core_flat == 1) | (core_flat == 0))])
             auc_score = auc(fpr, tpr)
-            precision = precision_score(gt_flat, pred_flat, zero_division=0)
-            recall = recall_score(gt_flat, pred_flat, zero_division=0)
-            sensitivities.append(recall)
+            sensitivities.append(sensitivity)
+            specificities.append(specificity)
 
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
 
             size_pred = prediction.sum()
             size_pred_ml = size_pred * pixel_vol / 1000
-
-            name = os.path.basename(
-                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
-            subject = ctp_dl_df.loc[[name], "subject"].values[0]
 
             try:
                 dwi_img = glob.glob(os.path.join(directory, 'dwi_test/', subject + '*'))[0]
@@ -896,8 +938,8 @@ def main(notes=''):
             results.loc[results.id == name, 'dice70'] = dice70
             results.loc[results.id == name, 'dice90'] = dice90
             results.loc[results.id == name, 'auc'] = auc_score
-            results.loc[results.id == name, 'sensitivity'] = recall
-            results.loc[results.id == name, 'precision'] = precision
+            results.loc[results.id == name, 'sensitivity'] = sensitivity
+            results.loc[results.id == name, 'specificity'] = specificity
 
 
         # aggregate the final mean dice result
@@ -905,12 +947,16 @@ def main(notes=''):
         metric70 = np.mean(dice_metric70)
         metric90 = np.mean(dice_metric90)
         metric_recall = np.mean(sensitivities)
+        metric_specificity = np.mean(specificities)
+        metric_auc = np.mean(auc_score)
         # reset the status for next validation round
     print(f"Mean dice on test set: {metric:.4f}")
     results['mean_dice'] = metric
     results['mean_dice_70'] = metric70
     results['mean_dice_90'] = metric90
     results['mean_sensitvity'] = metric_recall
+    results['mean_specificity'] = metric_specificity
+    results['mean_auc'] = metric_auc
     results_join = results.join(
         ctp_dl_df[~ctp_dl_df.index.duplicated(keep='first')],
         on='id',
