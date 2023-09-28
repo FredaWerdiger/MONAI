@@ -40,6 +40,11 @@ def get_subject_results(subject, dl_id, gt_folder, mediaflux, directory):
     gt_flat = gt_array.ravel()
     core_flat = core.ravel()
     dice_mistar = f1_score(gt_flat, core_flat)
+    tn, fp, fn, tp = confusion_matrix(gt_flat, core_flat).ravel()
+    specificity = tn / (tn + fp)
+    sensitivity = tp / (tp + fn)
+    fpr, tpr, threshold = roc_curve(gt_flat, core_flat)
+    old_roc_auc = auc(fpr, tpr)
 
     # get volumes
     num_core_pixels = core.sum()
@@ -51,8 +56,7 @@ def get_subject_results(subject, dl_id, gt_folder, mediaflux, directory):
     core_volume = num_core_pixels * volume
     penumbra_volume = num_penumbra_pixels * volume
 
-    fpr, tpr, threshold = roc_curve(gt_flat, core_flat)
-    old_roc_auc = auc(fpr, tpr)
+
     gt_flat = np.where((hemisphere_mask==0), np.nan, gt_flat)
     core_flat = np.where(hemisphere_mask==0, np.nan, core_flat)
     tp = len(np.where((gt_flat==1) &(core_flat==1))[0])
@@ -96,7 +100,9 @@ def main(out_tag):
     print(f"out_tag = {out_tag}")
 
     results_folder = os.path.join(directory, 'out_' + out_tag)
-    results_csv = glob.glob(results_folder + '/results*.csv')[-1]
+    results_csv = glob.glob(results_folder + '/results*.csv')
+    results_csv.sort()
+    results_csv = results_csv[0]
     results_df = pd.read_csv(results_csv)
     results_df['mistar_core'] = ''
     results_df['mistar_penumbra'] = ''
