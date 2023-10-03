@@ -57,16 +57,16 @@ from collections import OrderedDict
 #     dist.destroy_process_group()
 #
 #
-# def ddp_state_dict(model_path):
-#     # original saved file with DataParallel
-#     state_dict = torch.load(model_path)
-#     # create new OrderedDict that does not contain `module.`
-#     new_state_dict = OrderedDict()
-#     for k, v in state_dict.items():
-#         name = k[7:]  # remove `module.`
-#         new_state_dict[name] = v
-#     # load params
-#     return(new_state_dict)
+def ddp_state_dict(model_path):
+    # original saved file with DataParallel
+    state_dict = torch.load(model_path)
+    # create new OrderedDict that does not contain `module.`
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:]  # remove `module.`
+        new_state_dict[name] = v
+    # load params
+    return(new_state_dict)
 #
 #
 # class DDPSetUp():
