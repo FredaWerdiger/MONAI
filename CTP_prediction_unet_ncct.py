@@ -106,9 +106,16 @@ def create_dwi_ctp_proba_map(dwi_ct_img,
                             proba_90,
                             savefile,
                             z,
+                            numbers,
                             ext='png',
                             save=False,
-                            dpi=250):
+                            dpi=250
+                            ):
+    numbers = [str(num) for num in numbers]
+    num_positive, num_positive_predicted, num_negative, num_negative_predicted, tp, tn, fp, fn, sens = numbers
+    text_string = '90% probability band: pos=' + num_positive + ' neg=' + num_negative + ' pos pred=' + num_positive_predicted + \
+           ' neg pred=' + num_negative_predicted + ' tp=' + tp +' tn=' + tn + ' fp=' + fp + ' fn=' + fn + ' sens=' + sens
+
     dwi_ct_img, gt, proba_50, proba_70, proba_90 = [np.rot90(im) for im in [dwi_ct_img, gt, proba_50, proba_70, proba_90]]
     dwi_ct_img, gt, proba_50, proba_70, proba_90 = [np.fliplr(im) for im in [dwi_ct_img, gt, proba_50, proba_70, proba_90]]
     proba_50_mask = proba_50 == 0
@@ -179,6 +186,9 @@ def create_dwi_ctp_proba_map(dwi_ct_img,
             axs[i + 18].imshow(proba_90[:, :, z[i]], cmap='bwr',
                                interpolation='hanning', alpha=1, vmin=0, vmax=1)
 
+    text = fig.text(0.50, 0.02,
+                    text_string,
+                    horizontalalignment = 'center', wrap=True )
     if savefile:
         plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
         plt.close()
@@ -320,7 +330,7 @@ def main(notes=''):
     max_epochs = 400
     image_size = [128]
     # feature order = ['DT', 'CBF', 'CBV', 'MTT', 'ncct', 'ncct_atrophy']
-    features = ['CBF']
+    features = ['DT', 'CBF', 'CBV', 'ncct']
     features_transform = ['image_' + string for string in [feature for feature in features
                                                            if "ncct" not in feature and "atrophy" not in feature]]
     if 'ncct' in features:
@@ -337,7 +347,7 @@ def main(notes=''):
     patch_size = None
     batch_size = 2
     val_interval = 2
-    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/more_data_with_exclusions602020split/densenet'
+    out_tag = 'best_model/stratify_size/att_unet_3_layers/without_atrophy/complete_occlusions/more_data_with_exclusions602020split/hemisphere'
 
     print(f"out_tag = {out_tag}")
 
@@ -864,6 +874,11 @@ def main(notes=''):
             auc_score70 = auc(fpr, tpr)
             # 90
             core_flat = np.where(hemisphere_mask == 0, np.nan, pred90_flat)
+            num_positive = len(np.where((gt_flat == 1))[0])
+            num_positive_predicted = len(np.where((core_flat == 1))[0])
+            num_negative = len(np.where((gt_flat == 0))[0])
+            num_negative_predicted = len(np.where((core_flat == 0))[0])
+
             tp = len(np.where((gt_flat == 1) & (core_flat == 1))[0])
             fp = len(np.where((gt_flat == 0) & (core_flat == 1))[0])
             fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
@@ -893,8 +908,9 @@ def main(notes=''):
                 dwi_img = dwi_img.detach().numpy()
 
                 save_loc = png_dir + '/' + subject + '_proba.png'
+                numbers = [num_positive, num_positive_predicted, num_negative, num_negative_predicted, tp, tn, fp, fn, sensitivity90]
                 create_dwi_ctp_proba_map(dwi_img, ground_truth, prediction, prediction_70, prediction_90, save_loc,
-                                         define_zvalues(dwi_img), ext='png', save=True)
+                                         define_zvalues(dwi_img), numbers=numbers, ext='png', save=True)
             except IndexError:
                 print("no_dwi_image")
 
