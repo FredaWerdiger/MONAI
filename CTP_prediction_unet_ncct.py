@@ -186,9 +186,9 @@ def create_dwi_ctp_proba_map(dwi_ct_img,
             axs[i + 18].imshow(proba_90[:, :, z[i]], cmap='bwr',
                                interpolation='hanning', alpha=1, vmin=0, vmax=1)
 
-    text = fig.text(0.50, 0.02,
-                    text_string,
-                    horizontalalignment = 'center', wrap=True )
+    # text = fig.text(0.50, 0.02,
+    #                 text_string,
+    #                 horizontalalignment = 'center', wrap=True, color="w")
     if savefile:
         plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
         plt.close()
@@ -753,14 +753,22 @@ def main(notes=''):
                                     'dice70',
                                     'dice90',
                                     'auc',
+                                    'auc70',
+                                    'auc90',
                                     'sensitivity',
+                                    'sensitivity70',
+                                    'sensitivity90',
                                     'specificity',
-                                    'precision',
+                                    'specificity70',
+                                    'specificity90',
+                                    'ppv',
+                                    'ppv70',
+                                    'ppv90',
+                                    'npv',
+                                    'npv70',
+                                    'npv90',
                                     'size',
                                     'size_pred',
-                                    'px_x',
-                                    'px_y',
-                                    'px_z',
                                     'size_ml',
                                     'size_pred_ml'])
     results['id'] = [str(item).zfill(3) for item in test_id]
@@ -849,6 +857,9 @@ def main(notes=''):
             else:
                 sensitivity = tp / (tp + fn)
             specificity = tn / (tn + fp)
+
+            ppv = tp / (tp + fp)
+            npv = tn / (tn + fn)
             # mask out nans and recalculate AUC
             fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
                                             core_flat[np.where((core_flat == 1) | (core_flat == 0))])
@@ -863,11 +874,16 @@ def main(notes=''):
             fp = len(np.where((gt_flat == 0) & (core_flat == 1))[0])
             fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
             tn = len(np.where((gt_flat == 0) & (core_flat == 0))[0])
+
+            # ppv and false emission rates
             if (tp == 0) and (fn == 0):
                 sensitivity70 = 0
             else:
                 sensitivity70 = tp / (tp + fn)
             specificity70 = tn / (tn + fp)
+
+            ppv70 = tp / (tp + fp)
+            npv70 = tn / (tn + fn)
             # mask out nans and recalculate AUC
             fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
                                             core_flat[np.where((core_flat == 1) | (core_flat == 0))])
@@ -888,6 +904,8 @@ def main(notes=''):
             else:
                 sensitivity90 = tp / (tp + fn)
             specificity90 = tn / (tn + fp)
+            ppv90 = tp / (tp + fp)
+            npv90 = tn / (tn + fn)
             # mask out nans and recalculate AUC
             fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
                                             core_flat[np.where((core_flat == 1) | (core_flat == 0))])
@@ -918,9 +936,9 @@ def main(notes=''):
             results.loc[results.id == name, 'size_ml'] = size_ml
             results.loc[results.id == name, 'size_pred'] = size_pred
             results.loc[results.id == name, 'size_pred_ml'] = size_pred_ml
-            results.loc[results.id == name, 'px_x'] = volx
-            results.loc[results.id == name, 'px_y'] = voly
-            results.loc[results.id == name, 'px_z'] = volz
+            # results.loc[results.id == name, 'px_x'] = volx
+            # results.loc[results.id == name, 'px_y'] = voly
+            # results.loc[results.id == name, 'px_z'] = volz
             results.loc[results.id == name, 'dice'] = dice_score
             results.loc[results.id == name, 'dice70'] = dice70
             results.loc[results.id == name, 'dice90'] = dice90
@@ -933,6 +951,12 @@ def main(notes=''):
             results.loc[results.id == name, 'specificity'] = specificity
             results.loc[results.id == name, 'specificity70'] = specificity70
             results.loc[results.id == name, 'specificity90'] = specificity90
+            results.loc[results.id == name, 'ppv'] = ppv
+            results.loc[results.id == name, 'ppv70'] = ppv70
+            results.loc[results.id == name, 'ppv90'] = ppv90
+            results.loc[results.id == name, 'npv'] = npv
+            results.loc[results.id == name, 'npv70'] = npv70
+            results.loc[results.id == name, 'npv90'] = npv90
 
 
         # aggregate the final mean dice result
