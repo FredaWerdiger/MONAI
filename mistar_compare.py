@@ -64,14 +64,22 @@ def get_subject_results(subject, dl_id, gt_folder, atlas, directory):
     fn = len(np.where((gt_flat==1) &(core_flat==0))[0])
     tn = len(np.where((gt_flat==0) &(core_flat==0))[0])
     if (tp == 0) and (fn == 0):
-        sensitivity = 0
+        sensitivity = 1
     else:
         sensitivity = tp / (tp + fn)
     specificity = tn / (tn + fp)
+    if (tp == 0) and (fp == 0):
+        if fn == 0:
+            ppv = 1
+        else:
+            ppv = 0
+    else:
+        ppv = tp / (tp + fp)
+    npv = tn / (tn + fn)
     # mask out nans and recalculate AUC
     fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1)|(gt_flat == 0))], core_flat[np.where((core_flat == 1)| (core_flat == 0))])
     roc_auc = auc(fpr, tpr)
-    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_roc_auc
+    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_roc_auc, ppv, npv
 
 
 def main(out_tag):
@@ -121,13 +129,15 @@ def main(out_tag):
         print("Running for {}".format(subject))
         dl_id = str(results_df.loc[results_df.subject == subject, 'id'].values[0]).zfill(3)
         results = get_subject_results(subject, dl_id, gt_folder, atlas, directory)
-        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_auc = results
+        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_auc, ppv, npv = results
 
         results_df.loc[results_df.subject == subject, 'mistar_core'] = core_volume
         results_df.loc[results_df.subject == subject, 'mistar_penumbra'] = penumbra_volume
         results_df.loc[results_df.subject == subject, 'mistar_dice'] = dice_mistar
         results_df.loc[results_df.subject == subject, 'mistar_sensitivity'] = sensitivity
         results_df.loc[results_df.subject == subject, 'mistar_specificity'] = specificity
+        results_df.loc[results_df.subject == subject, 'mistar_ppv'] = specificity
+        results_df.loc[results_df.subject == subject, 'mistar_npv'] = specificity
         results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
         results_df.loc[results_df.subject == subject, 'old_auc'] = old_auc
 
