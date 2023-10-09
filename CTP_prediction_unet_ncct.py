@@ -853,12 +853,17 @@ def main(notes=''):
             fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
             tn = len(np.where((gt_flat == 0) & (core_flat == 0))[0])
             if (tp == 0) and (fn == 0):
-                sensitivity = 0
+                sensitivity = 1
             else:
                 sensitivity = tp / (tp + fn)
             specificity = tn / (tn + fp)
-
-            ppv = tp / (tp + fp)
+            if (tp == 0) and (fp == 0):
+               if fn == 0:
+                   ppv = 1
+               else:
+                   ppv = 0
+            else:
+                ppv = tp / (tp + fp)
             npv = tn / (tn + fn)
             # mask out nans and recalculate AUC
             fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
@@ -877,12 +882,17 @@ def main(notes=''):
 
             # ppv and false emission rates
             if (tp == 0) and (fn == 0):
-                sensitivity70 = 0
+                sensitivity70 = 1
             else:
                 sensitivity70 = tp / (tp + fn)
             specificity70 = tn / (tn + fp)
-
-            ppv70 = tp / (tp + fp)
+            if (tp == 0) and (fp == 0):
+               if fn == 0:
+                   ppv70 = 1
+               else:
+                   ppv70 = 0
+            else:
+                ppv70 = tp / (tp + fp)
             npv70 = tn / (tn + fn)
             # mask out nans and recalculate AUC
             fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
@@ -900,11 +910,17 @@ def main(notes=''):
             fn = len(np.where((gt_flat == 1) & (core_flat == 0))[0])
             tn = len(np.where((gt_flat == 0) & (core_flat == 0))[0])
             if (tp == 0) and (fn == 0):
-                sensitivity90 = 0
+                sensitivity90 = 1
             else:
                 sensitivity90 = tp / (tp + fn)
             specificity90 = tn / (tn + fp)
-            ppv90 = tp / (tp + fp)
+            if (tp == 0) and (fp == 0):
+               if fn == 0:
+                   ppv90 = 1
+               else:
+                   ppv90 = 0
+            else:
+                ppv90 = tp / (tp + fp)
             npv90 = tn / (tn + fn)
             # mask out nans and recalculate AUC
             fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1) | (gt_flat == 0))],
