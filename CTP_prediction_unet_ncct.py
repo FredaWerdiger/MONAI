@@ -750,6 +750,7 @@ def main(notes=''):
 
     results = pd.DataFrame(columns=['id',
                                     'dice',
+                                    'hemisphere',
                                     'dice70',
                                     'dice90',
                                     'auc',
@@ -829,8 +830,11 @@ def main(notes=''):
             hemisphere_mask = ''
             if np.count_nonzero(right_masked) > 0:
                 hemisphere_mask = right_np.flatten()
+                results.loc[results.id == name, 'hemisphere'] = 'right'
             elif np.count_nonzero(left_masked) > 0:
                 hemisphere_mask = left_np.flatten()
+                results.loc[results.id == name, 'hemisphere'] = 'left'
+
 
             gt_flat = ground_truth.flatten()
             # gts_flat.extend(gt_flat.astype(int))
