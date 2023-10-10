@@ -24,13 +24,14 @@ def get_subject_results(subject, dl_id, gt_folder, atlas, directory):
     # find which hemisphere
     right_masked = right_im * mistar_array
     left_masked = left_im * mistar_array
-
-    # see if there are any pixels in each corner
     hemisphere_mask = ''
-    if np.count_nonzero(right_masked) > 0:
+    counts_right = np.count_nonzero(right_masked)
+    counts_left = np.count_nonzero(left_masked)
+    if counts_right > counts_left:
         hemisphere_mask = right_im.ravel()
-    elif np.count_nonzero(left_masked) > 0:
+    elif counts_right < counts_left:
         hemisphere_mask = left_im.ravel()
+
     # get core and penumbra
     core = (mistar_array == 220) * 1
     core = np.asarray(core)
@@ -88,6 +89,7 @@ def main(out_tag):
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         mediaflux = HOMEDIR + 'mediaflux/'
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/CTP_DL_Data/'
+        atlas = HOMEDIR + 'atlas/'
 
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
@@ -136,8 +138,8 @@ def main(out_tag):
         results_df.loc[results_df.subject == subject, 'mistar_dice'] = dice_mistar
         results_df.loc[results_df.subject == subject, 'mistar_sensitivity'] = sensitivity
         results_df.loc[results_df.subject == subject, 'mistar_specificity'] = specificity
-        results_df.loc[results_df.subject == subject, 'mistar_ppv'] = specificity
-        results_df.loc[results_df.subject == subject, 'mistar_npv'] = specificity
+        results_df.loc[results_df.subject == subject, 'mistar_ppv'] = ppv
+        results_df.loc[results_df.subject == subject, 'mistar_npv'] = npv
         results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
         results_df.loc[results_df.subject == subject, 'old_auc'] = old_auc
 
