@@ -828,10 +828,12 @@ def main(notes=''):
 
             # see if there are any pixels in each corner
             hemisphere_mask = ''
-            if np.count_nonzero(right_masked) > 0:
+            counts_right = np.count_nonzero(right_masked)
+            counts_left = np.count_nonzero(left_masked)
+            if counts_right > counts_left:
                 hemisphere_mask = right_np.flatten()
                 results.loc[results.id == name, 'hemisphere'] = 'right'
-            elif np.count_nonzero(left_masked) > 0:
+            elif counts_right < counts_left:
                 hemisphere_mask = left_np.flatten()
                 results.loc[results.id == name, 'hemisphere'] = 'left'
             else:
