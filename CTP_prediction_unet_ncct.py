@@ -823,8 +823,8 @@ def main(notes=''):
             left_np, right_np = [im.detach().numpy() for im in [left_im, right_im]]
 
             # find which hemisphere
-            right_masked = right_np * prediction
-            left_masked = left_np * prediction
+            right_masked = right_np * ground_truth
+            left_masked = left_np * ground_truth
 
             # see if there are any pixels in each corner
             hemisphere_mask = ''
@@ -834,7 +834,18 @@ def main(notes=''):
             elif np.count_nonzero(left_masked) > 0:
                 hemisphere_mask = left_np.flatten()
                 results.loc[results.id == name, 'hemisphere'] = 'left'
-
+            else:
+                # is this case there is no lesion, but still a prediction?
+                right_masked = right_np * prediction
+                left_masked = left_np * prediction
+                counts_right = np.count_nonzero(right_masked)
+                counts_left = np.count_nonzero(left_masked)
+                if counts_right > counts_left:
+                    hemisphere_mask = right_np.flatten()
+                    results.loc[results.id == name, 'hemisphere'] = 'right'
+                else:
+                    hemisphere_mask = left_np.flatten()
+                    results.loc[results.id == name, 'hemisphere'] = 'left'
 
             gt_flat = ground_truth.flatten()
             # gts_flat.extend(gt_flat.astype(int))
