@@ -80,7 +80,8 @@ def get_subject_results(subject, dl_id, gt_folder, atlas, directory):
     # mask out nans and recalculate AUC
     fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1)|(gt_flat == 0))], core_flat[np.where((core_flat == 1)| (core_flat == 0))])
     roc_auc = auc(fpr, tpr)
-    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_roc_auc, ppv, npv
+    # gt_flat, core_flat = [int(arr) for arr in [gt_flat, core_flat]]
+    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_roc_auc, ppv, npv, gt_flat, core_flat
 
 
 def main(out_tag):
@@ -124,14 +125,15 @@ def main(out_tag):
     results_df['old_auc'] = ''
 
     gt_folder = os.path.join(directory, 'DATA', 'masks')
-    # gts_flat = []
-    # cores_flat = []
+    gts_flat = []
+    cores_flat = []
+    voxel_ids = []
     # subject = results_df.subject.to_list()[1]
     for subject in results_df.subject.to_list():
         print("Running for {}".format(subject))
         dl_id = str(results_df.loc[results_df.subject == subject, 'id'].values[0]).zfill(3)
         results = get_subject_results(subject, dl_id, gt_folder, atlas, directory)
-        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_auc, ppv, npv = results
+        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_auc, ppv, npv , _, _= results
 
         results_df.loc[results_df.subject == subject, 'mistar_core'] = core_volume
         results_df.loc[results_df.subject == subject, 'mistar_penumbra'] = penumbra_volume
@@ -143,10 +145,10 @@ def main(out_tag):
         results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
         results_df.loc[results_df.subject == subject, 'old_auc'] = old_auc
 
-        # gt_array = results[6].tolist()
-        # core_array = results[7].tolist()
-        # gts_flat.extend(gt_array)
-        # cores_flat.extend(core_array)
+        gt_array = results[-2].tolist()
+        core_array = results[-1].tolist()
+        gts_flat.extend(gt_array)
+        cores_flat.extend(core_array)
 
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
     results_df['mistar_mean_auc'] = results_df.mistar_auc.mean()
