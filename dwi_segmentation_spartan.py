@@ -71,24 +71,26 @@ def make_dict(root, string):
 def main():
 
     directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
-    existing_model = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
+    # existing_model = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
     # create outdir
-    out_tag = "out_unet_recursive_from_scratch_round_2"
+    out_tag = "densenetFCN_batch1/learning_rate_1e4/with_isles"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
     train_files, val_files, test_files = [
         make_dict(root_dir, string) for string in ['train', 'validation', 'test']]
     semi_files = get_semi_dataset()
-    # train_files = semi_files + train_files
+    train_files = semi_files + train_files
 
     corrections = get_corrections()
+    isles = BuildDataset(root_dir, 'ISLES22').images_dict
     print(f"Number of corrections added: {len(corrections)}")
-    train_files = train_files + corrections
+    train_files = train_files + semi_files + corrections + isles
+
     set_determinism(seed=42)
 
     max_epochs = 600
@@ -173,24 +175,24 @@ def main():
     plt.show()
     plt.close()
 
-    model = UNet(
-        spatial_dims=3,
-        in_channels=2,
-        out_channels=2,
-        channels=(32, 64, 128, 256),
-        strides=(2, 2, 2),
-        num_res_units=2,
-        norm=Norm.BATCH,
+    # model = UNet(
+    #     spatial_dims=3,
+    #     in_channels=2,
+    #     out_channels=2,
+    #     channels=(32, 64, 128, 256),
+    #     strides=(2, 2, 2),
+    #     num_res_units=2,
+    #     norm=Norm.BATCH,
+    # ).to(rank)
+    model = DenseNetFCN(
+        ch_in=2,
+        ch_out_init=48,
+        num_classes=2,
+        growth_rate=16,
+        layers=(4, 5, 7, 10, 12),
+        bottleneck=True,
+        bottleneck_layer=15
     ).to(rank)
-    # model = DenseNetFCN(
-    #     ch_in=2,
-    #     ch_out_init=48,
-    #     num_classes=2,
-    #     growth_rate=16,
-    #     layers=(4, 5, 7, 10, 12),
-    #     bottleneck=True,
-    #     bottleneck_layer=15
-    # )
     # model = AttentionUnet(
     #     spatial_dims=3,
     #     in_channels=2,
@@ -226,13 +228,14 @@ def main():
         softmax=True,
         include_background=False)
     learning_rate = 1e-4
+    weight_decay = 1e-4
     optimizer = torch.optim.Adam(
         model.parameters(),
         learning_rate,
-        weight_decay=1e-4)
+        weight_decay=weight_decay)
 
-    # weight decay = 1e-4
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+    #
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
     dice_metric = DiceMetric(include_background=False, reduction="mean")
 
@@ -271,7 +274,7 @@ def main():
             # print(
             #     f"{step}/{len(train_ds) // train_loader.batch_size}, "
             #     f"train_loss: {loss.item():.4f}")
-        lr_scheduler.step()
+        # lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
         print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
@@ -285,11 +288,12 @@ def main():
                         val_data["image"].to(rank),
                         val_data["label"].to(rank),
                     )
-                    # unsure how to optimize this
-                    roi_size = (64, 64, 64)
-                    sw_batch_size = 2
-                    val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model)
+                    # # unsure how to optimize this
+                    # roi_size = (64, 64, 64)
+                    # sw_batch_size = 2
+                    # val_outputs = sliding_window_inference(
+                    #     val_inputs, roi_size, sw_batch_size, model)
+                    val_outputs = model(val_inputs)
                     val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
@@ -366,11 +370,13 @@ def main():
         myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
         myfile.write(f'corrected segmentations: {len(corrections)}\n')
+        myfile.write(f'isles datya: {len(isles)}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
         myfile.write(f'Initial learning rate: {learning_rate}\n')
+        myfile.write(f'Weight decay: {weight_decay}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
         myfile.write(f'Validation interval: {val_interval}\n')
@@ -378,12 +384,12 @@ def main():
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
         myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
 
-    dice_values_df.to_csv(root_dir + 'out_' + out_tag + '/dice_values_' + str(
-        max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.csv',
-                          index=False)
-    loss_values_df.to_csv(root_dir + 'out_' + out_tag + '/loss_values_' + str(
-        max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.csv',
-                          index=False)
+    # dice_values_df.to_csv(root_dir + 'out_' + out_tag + '/dice_values_' + str(
+    #     max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.csv',
+    #                       index=False)
+    # loss_values_df.to_csv(root_dir + 'out_' + out_tag + '/loss_values_' + str(
+    #     max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.csv',
+    #                       index=False)
     # evaluate during training process
     # model.load_state_dict(torch.load(
     #     os.path.join(root_dir, model_name)))
