@@ -725,20 +725,20 @@ def main(notes=''):
         ),
         AsDiscreted(keys="label", to_onehot=2),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-        SaveImaged(
-            keys="proba",
-            meta_keys="pred_meta_dict",
-            output_dir=os.path.join(pred_dir, 'prob'),
-            output_postfix="proba",
-            resample=False,
-            separate_folder=False),
-        SaveImaged(
-            keys="pred",
-            meta_keys="pred_meta_dict",
-            output_dir=pred_dir,
-            output_postfix="seg",
-            resample=False,
-            separate_folder=False)
+        # SaveImaged(
+        #     keys="proba",
+        #     meta_keys="pred_meta_dict",
+        #     output_dir=os.path.join(pred_dir, 'prob'),
+        #     output_postfix="proba",
+        #     resample=False,
+        #     separate_folder=False),
+        # SaveImaged(
+        #     keys="pred",
+        #     meta_keys="pred_meta_dict",
+        #     output_dir=pred_dir,
+        #     output_postfix="seg",
+        #     resample=False,
+        #     separate_folder=False)
     ])
 
     loader = LoadImage(image_only=True)
@@ -965,8 +965,8 @@ def main(notes=''):
 
                 save_loc = png_dir + '/' + subject + '_proba.png'
                 numbers = [num_positive, num_positive_predicted, num_negative, num_negative_predicted, tp, tn, fp, fn, sensitivity90]
-                create_dwi_ctp_proba_map(dwi_img, ground_truth, prediction, prediction_70, prediction_90, save_loc,
-                                         define_zvalues(dwi_img), numbers=numbers, ext='png', save=True)
+                # create_dwi_ctp_proba_map(dwi_img, ground_truth, prediction, prediction_70, prediction_90, save_loc,
+                #                          define_zvalues(dwi_img), numbers=numbers, ext='png', save=True)
             except IndexError:
                 print("no_dwi_image")
 
