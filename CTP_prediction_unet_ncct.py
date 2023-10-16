@@ -783,8 +783,9 @@ def main(notes=''):
     dice_metric90 = []
     sensitivities = []
     specificities = []
-    # gts_flat = []
-    # preds_flat = []
+    gts_flat = []
+    preds_flat = []
+    pixel_ids = []
 
     # get hemisphere masks for each patients
     left_hemisphere_masks = glob.glob(directory + 'DATA/left_hemisphere_mask/*')
@@ -810,6 +811,7 @@ def main(notes=''):
             pixel_vol = volx * voly * volz
 
             ground_truth = test_label[0][1].detach().numpy()
+            proba = test_proba[0][1].detach().numpy()
             prediction = (test_proba[0][1].detach().numpy() >= 0.5) * 1
             prediction_70 = (test_proba[0][1].detach().numpy() >= 0.7) * 1
             prediction_90 = (test_proba[0][1].detach().numpy() >= 0.9) * 1
@@ -850,9 +852,8 @@ def main(notes=''):
                     results.loc[results.id == name, 'hemisphere'] = 'left'
 
             gt_flat = ground_truth.flatten()
-            # gts_flat.extend(gt_flat.astype(int))
+            # proba_flat = proba.flatten()
             pred_flat = prediction.flatten()
-            # preds_flat.extend(pred_flat.astype(int))
             pred70_flat = prediction_70.flatten()
             pred90_flat = prediction_90.flatten()
             dice_score = f1_score(gt_flat, pred_flat)
@@ -862,8 +863,12 @@ def main(notes=''):
             dice90 = f1_score(gt_flat, pred90_flat)
             dice_metric90.append(dice90)
             print(f"Dice score for image: {dice_score:.4f}")
-
+            pred_flat = np.where((hemisphere_mask == 0), np.nan, pred_flat)
+            preds_flat.extend(pred_flat)
+            pixel_id = [str(i) + str(name).zfill(3) for name in np.arange(len(pred_flat))] # 0000, 0001 and so on
+            pixel_ids.extend(pixel_id)
             gt_flat = np.where((hemisphere_mask == 0), np.nan, gt_flat)
+            gts_flat.extend(gt_flat.astype(int))
             core_flat = np.where(hemisphere_mask == 0, np.nan, pred_flat)
             tp = len(np.where((gt_flat == 1) & (core_flat == 1))[0])
             fp = len(np.where((gt_flat == 0) & (core_flat == 1))[0])
@@ -1013,23 +1018,23 @@ def main(notes=''):
         how='left')
     results_join.to_csv(directory + 'out_' + out_tag + '/results_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
 
-    # fpr, tpr, threshold = roc_curve(gts_flat, preds_flat)
-    # roc_df = pd.DataFrame(np.asarray([gts_flat, preds_flat]).transpose(), columns=['ground_truth', 'prediction'])
-    # roc_df.to_csv(directory + 'out_' + out_tag + '/roc_data_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
+    fpr, tpr, threshold = roc_curve(gts_flat, preds_flat)
+    roc_df = pd.DataFrame(np.asarray([gts_flat, preds_flat]).transpose(), columns=['ground_truth', 'prediction'], index=pixel_ids)
+    roc_df.to_csv(directory + 'out_' + out_tag + '/roc_data_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string + '.csv', index=False)
     #
-    # roc_auc = auc(fpr, tpr)
-    # plt.title('Receiver Operating Characteristic')
-    # plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
-    # plt.legend(loc='lower right')
-    # plt.plot([0, 1], [0, 1], 'r--')
-    # plt.xlim([0, 1])
-    # plt.ylim([0, 1])
-    # plt.ylabel('Sensitivity')
-    # plt.xlabel('1 - Specificity')
-    # plt.savefig(os.path.join(directory + 'out_' + out_tag,
-    #                          'roc_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.png'),
-    #             bbox_inches='tight', dpi=300, format='png')
-    # plt.close()
+    roc_auc = auc(fpr, tpr)
+    plt.title('Receiver Operating Characteristic')
+    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
+    plt.legend(loc='lower right')
+    plt.plot([0, 1], [0, 1], 'r--')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.ylabel('Sensitivity')
+    plt.xlabel('1 - Specificity')
+    plt.savefig(os.path.join(directory + 'out_' + out_tag,
+                             'roc_plot_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_' + features_string +'.png'),
+                bbox_inches='tight', dpi=300, format='png')
+    plt.close()
 
 if __name__ == "__main__":
     # Environment variables which need to be
