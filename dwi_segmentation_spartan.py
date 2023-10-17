@@ -87,7 +87,7 @@ def main():
     train_files = semi_files + train_files
 
     corrections = get_corrections()
-    isles = BuildDataset(root_dir, 'ISLES22').images_dict
+    isles = BuildDataset(root_dir, 'ISLES22').images_dict[:100]
     print(f"Number of corrections added: {len(corrections)}")
     train_files = train_files + semi_files + corrections + isles
 
