@@ -498,5 +498,5 @@ if __name__ == '__main__':
             index_col='dl_id')
 
     model_path = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
-    out_tag = 'out_densenetFCN_batch1/learning_rate_1e4/isles_test_set'
-    main(directory, ctp_df, model_path, out_tag, acute=False, follow_up=False, isles=True, ddp=False)
+    out_tag = 'out_densenetFCN_batch1/learning_rate_1e4/'
+    main(directory, ctp_df, model_path, out_tag, acute=True, follow_up=False, isles=False, ddp=False)
