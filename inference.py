@@ -340,15 +340,15 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
         norm=Norm.BATCH,
     ).to(device)
 
-    # model = DenseNetFCN(
-    #   ch_in=2,
-    #    ch_out_init=48,
-    #    num_classes=2,
-    #    growth_rate=16,
-    #    layers=(4, 5, 7, 10, 12),
-    #    bottleneck=True,
-    #    bottleneck_layer=15
-    # ).to(device)
+    model = DenseNetFCN(
+      ch_in=2,
+       ch_out_init=48,
+       num_classes=2,
+       growth_rate=16,
+       layers=(4, 5, 7, 10, 12),
+       bottleneck=True,
+       bottleneck_layer=15
+    ).to(device)
 
     if ddp:
         model.load_state_dict(ddp_state_dict(model_path))
@@ -366,10 +366,10 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
-            # test_data["pred"] = model(test_inputs)
-            roi_size = (64, 64, 64)
-            sw_batch_size = 4
-            test_data["pred"] = sliding_window_inference(test_inputs, roi_size, sw_batch_size, model)
+            test_data["pred"] = model(test_inputs)
+            # roi_size = (64, 64, 64)
+            # sw_batch_size = 4
+            # test_data["pred"] = sliding_window_inference(test_inputs, roi_size, sw_batch_size, model)
 
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
@@ -529,6 +529,6 @@ if __name__ == '__main__':
             '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_final_no_cropping/best_metric_model600.pth'
-    out_tag = 'out_final_no_cropping/isles_test_set'
+    model_path = directory + 'out_densenetFCN_batch1/learning_rate_1e4/isles_test_set/best_metric_model600.pth'
+    out_tag = 'densenetFCN_batch1/learning_rate_1e4/isles_test_set '
     main(directory, ctp_df, model_path, out_tag, acute=False, follow_up=False, isles=True, ddp=False)
