@@ -31,7 +31,6 @@ from monai.transforms import (
 )
 # from torchmetrics import Dice
 import torch
-import time
 import torch.nn.functional as f
 from monai_fns import *
 from densenet import *
@@ -42,13 +41,17 @@ def define_dvalues(dwi_img):
     steps = int(dwi_img.shape[2]/18)
     rem = int(dwi_img.shape[2]/steps)-18
 
-    if rem % 2 == 0:
+    if rem == 0:
+        d_min = 0
+        d_max = dwi_img.shape[2]
+    elif rem % 2 == 0:
         d_min = 0 + int(rem/2*steps) + 1
         d_max = dwi_img.shape[2] - int(rem/2*steps) + 1
 
     elif rem % 2 != 0:
         d_min = 0 + math.ceil(rem*steps/2)
         d_max = dwi_img.shape[2] - math.ceil(rem/2*steps) + 1
+
 
     d = range(d_min, d_max, steps)
 
@@ -229,7 +232,7 @@ def make_dict(root, string):
         for image_name, label_name in zip(images, labels)
     ]
 
-def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
+def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=False):
 
 
     # test on external data
@@ -247,10 +250,14 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         ]
     )
 
-    test_files = make_dict(root_dir, 'test')
+    if follow_up:
+        test_files = BuildDataset(directory, 'no_seg/test_cases').images_dict
+    if acute:
+        test_files = BuildDataset(directory, 'test').images_dict
+    if isles:
+        test_files = BuildDataset(directory, 'ISLES22').images_dict
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
-
     test_loader = DataLoader(test_ds, batch_size=1, num_workers=1)
 
     post_transforms = Compose([
@@ -268,15 +275,15 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         ),
         AsDiscreted(keys="pred", argmax=True, to_onehot=2),
         AsDiscreted(keys="label", to_onehot=2),
-        SaveImaged(keys="pred",
-                   meta_keys="pred_meta_dict",
-                   output_dir=root_dir + "out_" + out_tag + '/pred',
-                   output_postfix="pred", resample=False,
-                   separate_folder=False),
+        # SaveImaged(keys="pred",
+        #            meta_keys="pred_meta_dict",
+        #            output_dir=root_dir + "out_" + out_tag + '/pred',
+        #            output_postfix="pred", resample=False,
+        #            separate_folder=False),
     ])
 
-    if not os.path.exists(root_dir + "out_" + out_tag + '/pred'):
-        os.makedirs(root_dir + "out_" + out_tag + '/pred')
+    if not os.path.exists(directory + "out_" + out_tag + '/pred'):
+        os.makedirs(directory + "out_" + out_tag + '/pred')
 
     # removing sync on step as we are running on master node
     # dice_metric = Dice(ignore_index=0)
@@ -301,15 +308,15 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         norm=Norm.BATCH,
     ).to(device)
 
-    # model = DenseNetFCN(
-    #     ch_in=2,
-    #     ch_out_init=48,
-    #     num_classes=2,
-    #     growth_rate=16,
-    #     layers=(4, 5, 7, 10, 12),
-    #     bottleneck=True,
-    #     bottleneck_layer=15
-    # ).to(device)
+    #model = DenseNetFCN(
+    #   ch_in=2,
+    #    ch_out_init=48,
+    #    num_classes=2,
+    #    growth_rate=16,
+    #    layers=(4, 5, 7, 10, 12),
+    #    bottleneck=True,
+    #    bottleneck_layer=15
+    #).to(device)
 
 
     if ddp:
@@ -318,19 +325,20 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
         model.load_state_dict(torch.load(model_path))
     model.eval()
 
-    results = pd.DataFrame(columns=['id', 'dice', 'size', 'time','px_x', 'px_y', 'px_z', 'size_ml'])
-    results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
-
+    results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'px_z', 'size_ml'])
+    if acute:
+        results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
+    if follow_up:
+        results['id'] = ['no_seg_' + file['image'].split('.nii.gz')[0].split('_')[-1] for file in test_files]
+    if isles:
+        results['id'] = ['isles_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
-            start = time.time()
             test_inputs = test_data["image"].to(device)
             # test_data["pred"] = model(test_inputs)
             roi_size = (64, 64, 64)
             sw_batch_size = 4
             test_data["pred"] = sliding_window_inference(test_inputs, roi_size, sw_batch_size, model)
-            end = time.time()
-            time_taken = end - start
 
             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
 
@@ -355,12 +363,21 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
             transformed_image = test_inputs[0][0].detach().cpu().numpy()
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
-            name = "test_" + os.path.basename(
-                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
-            save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
+            # for acute test set
+            if acute:
+                name = "test_" + os.path.basename(
+                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[-1]
+            # for follow-up test set
+            if follow_up:
+                name = "no_seg_" + os.path.basename(
+                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[-1]
+            if isles:
+                name = "isles_" + os.path.basename(
+                    test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[-1]
+            save_loc = directory + "out_" + out_tag + "/images/" + name + "_"
 
-            if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
-                os.makedirs(root_dir + "out_" + out_tag + "/images/")
+            if not os.path.exists(directory + "out_" + out_tag + "/images/"):
+                os.makedirs(directory + "out_" + out_tag + "/images/")
 
             create_paper_img(
                 original_image,
@@ -398,7 +415,7 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
                               'png',
                               dpi=300)
 
-            # uncomment below to visualise results.
+            # # uncomment below to visualise results.
             # plt.figure("check", (24, 6))
             # plt.subplot(1, 4, 1)
             # plt.imshow(original_image[:, :, 12], cmap="gray")
@@ -420,7 +437,6 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
             results.loc[results.id == name, 'px_y'] = voly
             results.loc[results.id == name, 'px_z'] = volz
             results.loc[results.id == name, 'dice'] = dice_score
-            results.loc[results.id == name, 'time'] = time_taken
 
         # aggregate the final mean dice result
         metric = dice_metric.aggregate().item()
@@ -431,56 +447,56 @@ def main(root_dir, ctp_df, model_path, out_tag, ddp=False):
 
     results['mean_dice'] = metric
 
-    from sklearn.cluster import k_means
-    kmeans_labels = k_means(
-        np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
-        n_clusters=2,
-        random_state=0)[1]
-    kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
-    results['size_label']=kmeans_labels
+    # from sklearn.cluster import k_means
+    # kmeans_labels = k_means(
+    #     np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
+    #     n_clusters=2,
+    #     random_state=0)[1]
+    # kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
+    # results['size_label']=kmeans_labels
     results_join = results.join(
         ctp_df[~ctp_df.index.duplicated(keep='first')],
         on='id',
         how='left')
     print(results)
-    results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
+    results_join.to_csv(directory + 'out_' + out_tag + '/results.csv', index=False)
 
-    for sub in results_join['id']:
-        create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
+    # for sub in results_join['id']:
+    #     create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
 
 if __name__ == '__main__':
     HOMEDIR = os.path.expanduser("~/")
     if os.path.exists(HOMEDIR + 'mediaflux/'):
         directory = HOMEDIR + 'mediaflux/data_freda/ctp_project/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            '/home/unimelb.edu.au/fwerdiger/PycharmProjects/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id'
         )
         windows = False
     elif os.path.exists('Z:'):
         directory = 'Z:/data_freda/ctp_project/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            HOMEDIR + 'PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            HOMEDIR + 'PycharmProjects/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
         windows = True
     elif os.path.exists('/media/mbcneuro'):
         directory = '/media/mbcneuro/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            '/home/mbcneuro/PycharmProjects/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id'
         )
         windows = False
     elif os.path.exists('D:'):
         directory = 'D:/ctp_project_data/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_inspire_dl.csv',
+            'C:/Users/fwerdiger/PycharmProjects/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
     else:
         directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
         ctp_df = pd.read_csv(
-            '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_inspire_dl.csv',
+            '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
 
     model_path = directory + 'out_final_no_cropping/best_metric_model600.pth'
-    out_tag = 'final_no_cropping/'
-    main(directory, ctp_df, model_path, out_tag, ddp=False)
+    out_tag = 'out_final_no_cropping/isles_test_set'
+    main(directory, ctp_df, model_path, out_tag, acute=False, follow_up=False, isles=True, ddp=False)
