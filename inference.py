@@ -2,6 +2,7 @@ import os
 import math
 import pathlib
 import sys
+
 sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI')
 import numpy as np
 import pandas as pd
@@ -34,45 +35,44 @@ import torch
 import torch.nn.functional as f
 from monai_fns import *
 from densenet import *
-
+import SimpleITK as sitk
+from sklearn.model_selection import train_test_split
 
 
 def define_dvalues(dwi_img):
-    steps = int(dwi_img.shape[2]/18)
-    rem = int(dwi_img.shape[2]/steps)-18
+    steps = int(dwi_img.shape[2] / 18)
+    rem = int(dwi_img.shape[2] / steps) - 18
 
     if rem == 0:
         d_min = 0
         d_max = dwi_img.shape[2]
     elif rem % 2 == 0:
-        d_min = 0 + int(rem/2*steps) + 1
-        d_max = dwi_img.shape[2] - int(rem/2*steps) + 1
+        d_min = 0 + int(rem / 2 * steps) + 1
+        d_max = dwi_img.shape[2] - int(rem / 2 * steps) + 1
 
     elif rem % 2 != 0:
-        d_min = 0 + math.ceil(rem*steps/2)
-        d_max = dwi_img.shape[2] - math.ceil(rem/2*steps) + 1
-
+        d_min = 0 + math.ceil(rem * steps / 2)
+        d_max = dwi_img.shape[2] - math.ceil(rem / 2 * steps) + 1
 
     d = range(d_min, d_max, steps)
 
     if len(d) == 19:
-
         d = d[1:]
     return d
 
 
 def define_dvalues_big(dwi_img):
     dwi_img_small = dwi_img[10:120]
-    steps = int(dwi_img_small.shape[0]/18)
-    rem = int(dwi_img_small.shape[0]/steps)-18
+    steps = int(dwi_img_small.shape[0] / 18)
+    rem = int(dwi_img_small.shape[0] / steps) - 18
 
     if rem % 2 == 0:
-        d_min = 0 + int(rem/2*steps) + 1
-        d_max = dwi_img_small.shape[0] - int(rem/2*steps)
+        d_min = 0 + int(rem / 2 * steps) + 1
+        d_max = dwi_img_small.shape[0] - int(rem / 2 * steps)
 
     elif rem % 2 != 0:
-        d_min = 0 + math.ceil(rem*steps/2)
-        d_max = dwi_img_small.shape[0] - math.ceil(rem/2*steps)
+        d_min = 0 + math.ceil(rem * steps / 2)
+        d_max = dwi_img_small.shape[0] - math.ceil(rem / 2 * steps)
 
     d = range(d_min + 10, d_max + 10, steps)
 
@@ -96,7 +96,7 @@ def create_mrlesion_img(dwi_img, dwi_lesion_img, savefile, d, ext='png', dpi=250
 
     for i in range(len(d)):
         axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
-        axs[i].imshow(dwi_lesion_img[:, :,d[i]],  cmap='Reds', interpolation='hanning', alpha=0.5, vmin=-2, vmax=1)
+        axs[i].imshow(dwi_lesion_img[:, :, d[i]], cmap='Reds', interpolation='hanning', alpha=0.5, vmin=-2, vmax=1)
         axs[i].imshow(masked_im[:, :, d[i]], cmap='gray', interpolation='hanning', alpha=1, vmin=0, vmax=300)
         axs[i].axis('off')
     # plt.show()
@@ -138,7 +138,7 @@ def create_adc_img(dwi_img, savefile, d, ext='png', dpi=250):
     for i in range(len(d)):
         axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=1500)
         axs[i].axis('off')
-    #plt.show()
+    # plt.show()
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
     plt.close()
 
@@ -160,14 +160,15 @@ def create_paper_img(dwi_img, gt, pred, savefile, d, ext='png', dpi=250):
     fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
     axs = axs.ravel()
     for i in range(len(d)):
-        axs[i].imshow(false_neg[:,:,d[i]], cmap='gist_rainbow', vmin=0, vmax=1)
+        axs[i].imshow(false_neg[:, :, d[i]], cmap='gist_rainbow', vmin=0, vmax=1)
         axs[i].imshow(false_pos[:, :, d[i]], cmap='brg', vmin=0, vmax=1)
         # axs[i].imshow(true_pos[:,:,d[i]], cmap='tab10', vmin=0, vmax=1)
-        axs[i].imshow(masked_img[:,:,d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
+        axs[i].imshow(masked_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=300)
         axs[i].axis('off')
     # plt.show()
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
     plt.close()
+
 
 def create_overviewhtml(subject_id, df, outdir):
     '''
@@ -184,7 +185,8 @@ def create_overviewhtml(subject_id, df, outdir):
         os.makedirs(savefolder)
 
     ptData = df.set_index('id').loc[subject_id, :]
-    treat = ptData['Treatment type(0=no treatment,1=iv only, 2=IA only, 3= Both ia +iv, 4=iv only IA planned but not delivery,5=no information)']
+    treat = ptData[
+        'Treatment type(0=no treatment,1=iv only, 2=IA only, 3= Both ia +iv, 4=iv only IA planned but not delivery,5=no information)']
     if treat == 0:
         treat = "No treatment"
     elif treat == 1:
@@ -232,9 +234,8 @@ def make_dict(root, string):
         for image_name, label_name in zip(images, labels)
     ]
 
+
 def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=False):
-
-
     # test on external data
     test_transforms = Compose(
         [
@@ -256,6 +257,37 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
         test_files = BuildDataset(directory, 'test').images_dict
     if isles:
         test_files = BuildDataset(directory, 'ISLES22').images_dict
+        lesion_size = []
+        ids = []
+        for patient in test_files:
+            path = patient['label']
+            id = path.split('.nii.gz')[0].split('_')[-1]
+            ids.append(id)
+            im = sitk.ReadImage(path)
+            x, y, z = im.GetSpacing()
+            voxel_size = (x * y * z) / 1000
+            label = sitk.LabelShapeStatisticsImageFilter()
+            label.Execute(sitk.Cast(im, sitk.sitkUInt8))
+            try:
+                size = label.GetNumberOfPixels(1)
+            except RuntimeError:
+                size = 0
+            lesion_size.append(voxel_size * size)
+
+        # lesions less than 5 mL
+        labels = (np.asarray(lesion_size) < 5) * 1
+        isles_df = pd.DataFrame(labels, columns=['small_lesion'], index=ids)
+        isles_df['id'] = isles_df.index
+        isles_df['big_lesion'] = (np.asarray(lesion_size) > 70) * 1
+        _, test_ids = train_test_split(ids,
+                                      train_size=230,
+                                      test_size=20,
+                                      random_state=371, # three big and three small
+                                      shuffle=True)
+        isles_test = isles_df[isles_df.apply(lambda x: x.id in test_ids, axis=1)]
+
+        test_files = [file for file in test_files if any(id in file['label'] for id in test_ids)]
+
     test_ds = Dataset(
         data=test_files, transform=test_transforms)
     test_loader = DataLoader(test_ds, batch_size=1, num_workers=1)
@@ -308,7 +340,7 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
         norm=Norm.BATCH,
     ).to(device)
 
-    #model = DenseNetFCN(
+    # model = DenseNetFCN(
     #   ch_in=2,
     #    ch_out_init=48,
     #    num_classes=2,
@@ -316,8 +348,7 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
     #    layers=(4, 5, 7, 10, 12),
     #    bottleneck=True,
     #    bottleneck_layer=15
-    #).to(device)
-
+    # ).to(device)
 
     if ddp:
         model.load_state_dict(ddp_state_dict(model_path))
@@ -331,7 +362,7 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
     if follow_up:
         results['id'] = ['no_seg_' + file['image'].split('.nii.gz')[0].split('_')[-1] for file in test_files]
     if isles:
-        results['id'] = ['isles_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
+        results['id'] = ['isles_' + id for id in test_ids] # included isles images
     with torch.no_grad():
         for i, test_data in enumerate(test_loader):
             test_inputs = test_data["image"].to(device)
@@ -352,10 +383,10 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
             # get original image, and normalize it so we can see the normalized image
             # this is both channels
             original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
-            volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
+            volx, voly, volz = original_image[1]['pixdim'][1:4]  # meta data
             pixel_vol = volx * voly * volz
 
-            original_image = original_image[0] # image data
+            original_image = original_image[0]  # image data
             original_adc = original_image[:, :, :, 1]
             original_image = original_image[:, :, :, 0]
             ground_truth = test_label[0][1].detach().numpy()
@@ -463,6 +494,7 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
 
     # for sub in results_join['id']:
     #     create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
+
 
 if __name__ == '__main__':
     HOMEDIR = os.path.expanduser("~/")
