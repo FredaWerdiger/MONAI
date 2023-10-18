@@ -136,7 +136,7 @@ def create_adc_img(dwi_img, savefile, d, ext='png', dpi=250):
     fig.subplots_adjust(hspace=-0.6, wspace=-0.1)
     axs = axs.ravel()
     for i in range(len(d)):
-        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=0, vmax=1500)
+        axs[i].imshow(dwi_img[:, :, d[i]], cmap='gray', interpolation='hanning', vmin=dwi_img.min(), vmax=dwi_img.max())
         axs[i].axis('off')
     # plt.show()
     plt.savefig(savefile, facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=dpi, format=ext)
@@ -356,7 +356,7 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
         model.load_state_dict(torch.load(model_path))
     model.eval()
 
-    results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'px_z', 'size_ml'])
+    results = pd.DataFrame(columns=['id', 'dice', 'size_ml', 'size_pred_ml'])
     if acute:
         results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
     if follow_up:
@@ -394,6 +394,8 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
             transformed_image = test_inputs[0][0].detach().cpu().numpy()
             size = ground_truth.sum()
             size_ml = size * pixel_vol / 1000
+            size_pred = prediction.sum()
+            size_pred_ml = size_pred * pixel_vol / 1000
             # for acute test set
             if acute:
                 name = "test_" + os.path.basename(
@@ -464,6 +466,7 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
 
             results.loc[results.id == name, 'size'] = size
             results.loc[results.id == name, 'size_ml'] = size_ml
+            results.loc[results.id == name, 'size_pred_ml'] = size_pred_ml
             results.loc[results.id == name, 'px_x'] = volx
             results.loc[results.id == name, 'px_y'] = voly
             results.loc[results.id == name, 'px_z'] = volz
@@ -529,6 +532,6 @@ if __name__ == '__main__':
             '/data/gpfs/projects/punim1086/study_design/study_lists/dwi_segmentation_paper_patients.csv',
             index_col='dl_id')
 
-    model_path = directory + 'out_densenetFCN_batch1/learning_rate_1e4/isles_test_set/best_metric_model600.pth'
-    out_tag = 'densenetFCN_batch1/learning_rate_1e4/isles_test_set '
+    model_path = directory + 'out_densenetFCN_batch1/learning_rate_1e4/without_extra_data/best_metric_model600.pth'
+    out_tag = 'densenetFCN_batch1/learning_rate_1e4/without_extra_data/isles_test_set'
     main(directory, ctp_df, model_path, out_tag, acute=False, follow_up=False, isles=True, ddp=False)
