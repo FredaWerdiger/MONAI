@@ -9,6 +9,8 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import sys
+sys.path.append('/data/gpfs/projects/punim1086/ctp_project/MONAI/')
 import glob
 from sklearn.metrics import f1_score
 from monai.config import print_config
