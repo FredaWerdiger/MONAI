@@ -8,6 +8,7 @@ import tempfile
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import glob
 from sklearn.metrics import f1_score
 from monai.config import print_config
@@ -44,11 +45,11 @@ from monai.transforms import (
 
 from monai.utils import first, set_determinism
 from monai_fns import *
-
+from densenet import *
 import torch
 import os
-from recursive_data import get_semi_dataset
 
+from recursive_data import *
 
 def make_dict(root, string):
     images = sorted(
@@ -65,13 +66,13 @@ def make_dict(root, string):
 
 def main():
     directory = '/data/gpfs/projects/punim1086/ctp_project/DWI_Training_Data/'
-    # existing_model = directory + 'out_final_no_cropping/best_metric_model600.pth'
+    # existing_model = directory + 'out_densenetFCN_batch1/learning_rate_1e4/best_metric_model600.pth'
 
     root_dir = tempfile.mkdtemp() if directory is None else directory
     print(root_dir)
 
     # create outdir
-    out_tag = "unet_recursive"
+    out_tag = "densenetFCN_batch1/learning_rate_1e4/with_isles"
     if not os.path.exists(root_dir + 'out_' + out_tag):
         os.makedirs(root_dir + 'out_' + out_tag)
 
@@ -80,10 +81,15 @@ def main():
     semi_files = get_semi_dataset()
     train_files = semi_files + train_files
 
+    corrections = get_corrections()
+    isles = BuildDataset(root_dir, 'ISLES22').images_dict[:80]
+    print(f"Number of corrections added: {len(corrections)}")
+    train_files = train_files + semi_files + corrections + isles
+
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 2
+    batch_size = 1
     image_size = (128, 128, 128)
     train_transforms = Compose(
         [
@@ -130,10 +136,6 @@ def main():
         num_workers=4
     )
 
-    def my_collate(batch):
-        data = [item["image_b1000"] for item in batch]
-        target = [item["label"] for item in batch]
-        return data, target
 
     train_loader = DataLoader(train_ds,
                               batch_size=batch_size,
@@ -152,57 +154,15 @@ def main():
 
     rank = 'cuda'
 
-    # Uncomment to display data
-
-    import random
-    m = random.randint(0, 50)
-    s = random.randint(0, 63)
-    val_data_example = val_ds[m]
-    # print(f"image shape: {val_data_example['image_b1000'].shape}")
-    # plt.figure("image", (18, 6))
-    # for i in range(1):
-    #     plt.subplot(1, 3, i + 1)
-    #     plt.title(f"image channel {i}")
-    #     plt.imshow(val_data_example["image_b1000"][i, :, :, s].detach().cpu(), cmap="gray")
-    # # also visualize the 3 channels label corresponding to this image
-    # print(f"label shape: {val_data_example['label'].shape}")
-    # plt.subplot(1, 3, 3)
-    # plt.title("label")
-    # plt.imshow(val_data_example["label"][0, :, :, s].detach().cpu())
-    # plt.show()
-    # plt.close()
-
-    model = UNet(
-        spatial_dims=3,
-        in_channels=1,
-        out_channels=2,
-        channels=(32, 64, 128, 256),
-        strides=(2, 2, 2),
-        num_res_units=2,
-        norm=Norm.BATCH,
+    model = DenseNetFCN(
+        ch_in=2,
+        ch_out_init=48,
+        num_classes=2,
+        growth_rate=16,
+        layers=(4, 5, 7, 10, 12),
+        bottleneck=True,
+        bottleneck_layer=15
     ).to(rank)
-    # model = AttentionUnet(
-    #     spatial_dims=3,
-    #     in_channels=2,
-    #     out_channels=2,
-    #     channels=(32, 64, 128, 256, 512),
-    #     strides=(2, 2, 2, 2),
-    # ).to(rank)
-
-    # model = DenseNet(
-    #     spatial_dims=3,
-    #     in_channels=2,
-    #     out_channels=2
-    # ).to(rank)
-
-    # model = SegResNet(
-    #     blocks_down=[1, 2, 2, 4],
-    #     blocks_up=[1, 1, 1],
-    #     init_filters=8,
-    #     in_channels=2,
-    #     out_channels=2,
-    #     dropout_prob=0.2,
-    # ).to(device)
 
     loss_function = DiceLoss(
         smooth_nr=0,
@@ -210,11 +170,15 @@ def main():
         to_onehot_y=True,
         softmax=True,
         include_background=False)
+    learning_rate = 1e-4
+    weight_decay = 1e-4
     optimizer = torch.optim.Adam(
         model.parameters(),
-        1e-4,
-        weight_decay=1e-5)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+        learning_rate,
+        weight_decay=weight_decay)
+
+    #
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
 
     dice_metric = DiceMetric(include_background=False, reduction="mean")
 
@@ -253,7 +217,7 @@ def main():
             print(
                 f"{step}/{len(train_ds) // train_loader.batch_size}, "
                 f"train_loss: {loss.item():.4f}")
-        lr_scheduler.step()
+        # lr_scheduler.step()
         epoch_loss /= step
         epoch_loss_values.append(epoch_loss)
         print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
@@ -268,10 +232,7 @@ def main():
                         val_data["label"].to(rank),
                     )
                     # unsure how to optimize this
-                    roi_size = (64, 64, 64)
-                    sw_batch_size = 2
-                    val_outputs = sliding_window_inference(
-                        val_inputs, roi_size, sw_batch_size, model)
+                    val_outputs = model(val_inputs)
                     val_outputs = [post_pred(i) for i in decollate_batch(val_outputs)]
                     val_labels = [post_label(i) for i in decollate_batch(val_labels)]
                     # compute metric for current iteration
@@ -323,29 +284,19 @@ def main():
                              str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '_plot_loss.png'),
                 bbox_inches='tight', dpi=300, format='png')
     plt.close()
-    # compare dice with f1
-    # plt.figure("Compare dice scores", (6, 6))
-    # plt.title("Compare dice scores")
-    # x = [val_interval * (i + 1) for i in range(len(metric_values))]
-    # y = metric_values
-    # plt.plot(x, y, 'b', label="synchronized mean dice")
-    # y = f1_mean_values
-    # plt.plot(x, y, 'k', label="manual mean dice")
-    # plt.legend()
-    # plt.savefig(os.path.join(root_dir + 'out_' + out_tag, model_name.split('.')[0] + 'dice_compare.png'),
-    #             bbox_inches='tight', dpi=300, format='png')
-    # plt.close()
 
     # save model results in a separate file
-    with open(root_dir + 'out_' + out_tag + '/model_info_' + str(
-            max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
-        myfile.write('Train dataset size:\n')
-        myfile.write(f'Manual segmentations: {len(train_files)}\n')
+    with open(root_dir + 'out_' + out_tag + '/model_info_' + str(max_epochs) + '_epoch_' + model_name + '_' + loss_name + '.txt', 'w') as myfile:
+        myfile.write(f'Train dataset size: {len(train_files)}\n')
         myfile.write(f'Semi-automated segmentations: {len(semi_files)}\n')
+        myfile.write(f'corrected segmentations: {len(corrections)}\n')
+        myfile.write(f'isles datya: {len(isles)}\n')
         myfile.write(f'Validation dataset size: {len(val_files)}\n')
         myfile.write(f'Model: {model_name}\n')
         myfile.write(f'Loss function: {loss_name}\n')
         myfile.write(f'Number of epochs: {max_epochs}\n')
+        myfile.write(f'Initial learning rate: {learning_rate}\n')
+        myfile.write(f'Weight decay: {weight_decay}\n')
         myfile.write(f'Batch size: {batch_size}\n')
         myfile.write(f'Image size: {image_size}\n')
         myfile.write(f'Validation interval: {val_interval}\n')
@@ -353,219 +304,159 @@ def main():
         myfile.write(f"Best metric epoch: {best_metric_epoch}\n")
         myfile.write(f"Time taken: {time_taken_hours} hours, {time_taken_mins} mins\n")
 
-    # evaluate during training process
-    # model.load_state_dict(torch.load(
-    #     os.path.join(root_dir, model_name)))
-    # model.eval()
-    # with torch.no_grad():
-    #     for i, val_data in enumerate(val_loader):
-    #         roi_size = (128, 128, 128)
-    #         sw_batch_size = 1
-    #         val_outputs = sliding_window_inference(
-    #             val_data["image"].to(device), roi_size, sw_batch_size, model
-    #         )
-    #         # plot the slice [:, :, 80]
-    #         plt.figure("check", (18, 6))
-    #         plt.subplot(1, 3, 1)
-    #         plt.title(f"image {i}")
-    #         plt.imshow(val_data["image"][0, 0, :, :, 80], cmap="gray")
-    #         plt.subplot(1, 3, 2)
-    #         plt.title(f"label {i}")
-    #         plt.imshow(val_data["label"][0, 0, :, :, 80])
-    #         plt.subplot(1, 3, 3)
-    #         plt.title(f"output {i}")
-    #         plt.imshow(torch.argmax(
-    #             val_outputs, dim=1).detach().cpu()[0, :, :, 80])
-    #         plt.show()
-    #         if i == 2:
-    #             break
+   # test on external data
+    test_transforms = Compose(
+        [
+            LoadImaged(keys=["image", "label"]),
+            EnsureChannelFirstd(keys="image"),
+            SplitDimd(keys="image", dim=0, keepdim=True,
+                      output_postfixes=['b1000', 'adc']),
+            Resized(keys=["image", "image_b1000", "image_adc"],
+                    mode='trilinear',
+                    align_corners=True,
+                    spatial_size=(128, 128, 128)),
+            NormalizeIntensityd(keys="image_b1000", nonzero=True, channel_wise=True),
+            EnsureTyped(keys=["image_b1000", "label"]),
+            # SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
+        ]
+    )
 
-    '''
-    Below will be shifted to another code as this part does not need to be distributed
-    '''
-    # # test on external data
-    # test_transforms = Compose(
-    #     [
-    #         LoadImaged(keys=["image", "label"]),
-    #         EnsureChannelFirstd(keys="image"),
-    #         Resized(keys="image",
-    #                 mode='trilinear',
-    #                 align_corners=True,
-    #                 spatial_size=(128, 128, 128)),
-    #         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-    #         EnsureTyped(keys=["image", "label"]),
-    #         SaveImaged(keys="image", output_dir=root_dir + "out", output_postfix="transform", resample=False)
-    #     ]
-    # )
-    #
-    #
-    # test_ds = Dataset(
-    #     data=test_files, transform=test_transforms)
-    #
-    # test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
-    #
-    # post_transforms = Compose([
-    #     EnsureTyped(keys=["pred", "label"]),
-    #     EnsureChannelFirstd(keys="label"),
-    #     Invertd(
-    #         keys="pred",
-    #         transform=test_transforms,
-    #         orig_keys="image",
-    #         meta_keys="pred_meta_dict",
-    #         orig_meta_keys="image_meta_dict",
-    #         meta_key_postfix="meta_dict",
-    #         nearest_interp=False,
-    #         to_tensor=True,
-    #     ),
-    #     AsDiscreted(keys="pred", argmax=True, to_onehot=2),
-    #     AsDiscreted(keys="label", to_onehot=2),
-    #     SaveImaged(keys="pred",
-    #                meta_keys="pred_meta_dict",
-    #                output_dir=root_dir + "out_" + out_tag,
-    #                output_postfix="seg", resample=False),
-    # ])
-    #
-    # from monai.transforms import LoadImage
-    #
-    # if rank == 0:
-    #     # removing sync on step as we are running on master node
-    #     dice_metric = Dice()
-    #     loader = LoadImage(image_only=False)
-    #     model.load_state_dict(torch.load(
-    #         os.path.join(root_dir, 'out_' + out_tag, model_name)))
-    #
-    #     model.eval()
-    #
-    #     results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'py_z', 'size_ml'])
-    #     results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
-    #
-    #     with torch.no_grad():
-    #         for i, test_data in enumerate(test_loader):
-    #             test_inputs = test_data["image"].to(rank)
-    #
-    #             roi_size = (64, 64, 64)
-    #             sw_batch_size = 2
-    #             test_data["pred"] = sliding_window_inference(
-    #                 test_inputs, roi_size, sw_batch_size, model)
-    #
-    #             test_data = [post_transforms(i) for i in decollate_batch(test_data)]
-    #
-    #             test_output, test_label, test_image = from_engine(["pred", "label", "image"])(test_data)
-    #
-    #             a = dice_metric(test_output[0], test_label[0].long())
-    #
-    #             dice_score = round(a.item(), 4)
-    #
-    #             # get original image, and normalize it so we can see the normalized image
-    #             # this is both channels
-    #             original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
-    #             volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
-    #             pixel_vol = volx * voly * volz
-    #
-    #             original_image = original_image[0] # image data
-    #             original_adc = original_image[:, :, :, 1]
-    #             original_image = original_image[:, :, :, 0]
-    #             ground_truth = test_label[0][1].detach().numpy()
-    #             prediction = test_output[0][1].detach().numpy()
-    #             transformed_image = test_inputs[0][0].detach().cpu().numpy()
-    #             size = prediction.sum()
-    #             size_ml = size * pixel_vol / 1000
-    #             name = "test_" + os.path.basename(
-    #                 test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
-    #             save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
-    #
-    #             if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
-    #                 os.makedirs(root_dir + "out_" + out_tag + "/images/")
-    #
-    #             create_paper_img(
-    #                 original_image,
-    #                 ground_truth,
-    #                 prediction,
-    #                 save_loc + "paper.png",
-    #                 define_dvalues(original_image),
-    #                 'png',
-    #                 dpi=300
-    #             )
-    #             create_mr_img(
-    #                 original_image,
-    #                 save_loc + "dwi.png",
-    #                 define_dvalues(original_image),
-    #                 'png',
-    #                 dpi=300)
-    #             create_adc_img(
-    #                 original_adc,
-    #                 save_loc + "adc.png",
-    #                 define_dvalues(original_image),
-    #                 'png',
-    #                 dpi=300)
-    #
-    #             [create_mrlesion_img(
-    #                 original_image,
-    #                 im,
-    #                 save_loc + name + '.png',
-    #                 define_dvalues(original_image),
-    #                 'png',
-    #                 dpi=300) for im, name in zip([prediction, ground_truth], ["pred", "truth"])]
-    #
-    #             create_mr_big_img(transformed_image,
-    #                               save_loc + "dwi_tran.png",
-    #                               define_dvalues_big(transformed_image),
-    #                               'png',
-    #                               dpi=300)
-    #
-    #             # uncomment below to visualise results.
-    #             # plt.figure("check", (24, 6))
-    #             # plt.subplot(1, 4, 1)
-    #             # plt.imshow(original_image[:, :, 12], cmap="gray")
-    #             # plt.title(f"image {name}")
-    #             # plt.subplot(1, 4, 2)
-    #             # plt.imshow(test_image[0].detach().cpu()[0, :, :, 12], cmap="gray")
-    #             # plt.title(f"transformed image {name}")
-    #             # plt.subplot(1, 4, 3)
-    #             # plt.imshow(test_label[0].detach().cpu()[:, :, 12])
-    #             # plt.title(f"label {name}")
-    #             # plt.subplot(1, 4, 4)
-    #             # plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
-    #             # plt.title(f"Dice score {dice_score}")
-    #             # plt.show()
-    #
-    #             results.loc[results.id == name, 'size'] = size
-    #             results.loc[results.id == name, 'size_ml'] = size_ml
-    #             results.loc[results.id == name, 'px_x'] = volx
-    #             results.loc[results.id == name, 'px_y'] = voly
-    #             results.loc[results.id == name, 'px_z'] = volz
-    #             results.loc[results.id == name, 'dice'] = dice_score
-    #
-    #         # aggregate the final mean dice result
-    #         metric = dice_metric.compute().cpu().detach().numpy()
-    #         # reset the status for next validation round
-    #         dice_metric.reset()
-    #
-    #     print(f"Mean dice on test set: {metric}")
-    #
-    #     results['mean_dice'] = metric
-    #     try:
-    #         results['training_hours'] = time_taken_hours
-    #         results['training_minutes'] = time_taken_mins
-    #     except NameError:
-    #         print('No time taken.')
-    #
-    #     from sklearn.cluster import k_means
-    #     kmeans_labels = k_means(
-    #         np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
-    #         n_clusters=2,
-    #         random_state=0)[1]
-    #     kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
-    #     results['size_label']=kmeans_labels
-    #     results_join = results.join(
-    #         ctp_df[~ctp_df.index.duplicated(keep='first')],
-    #         on='id',
-    #         how='left')
-    #     print(results)
-    #     results_join.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
-    #
-    #     for sub in results_join['id']:
-    #         create_overviewhtml(sub, results_join, root_dir + 'out_' + out_tag + '/')
+    test_files = make_dict(root_dir, 'test')
+    test_ds = Dataset(
+        data=test_files, transform=test_transforms)
+
+    test_loader = DataLoader(test_ds, batch_size=1, num_workers=4)
+
+    post_transforms = Compose([
+        EnsureTyped(keys=["pred", "label"]),
+        EnsureChannelFirstd(keys="label"),
+        Invertd(
+            keys="pred",
+            transform=test_transforms,
+            orig_keys="image",
+            meta_keys="pred_meta_dict",
+            orig_meta_keys="image_meta_dict",
+            meta_key_postfix="meta_dict",
+            nearest_interp=False,
+            to_tensor=True,
+        ),
+        AsDiscreted(keys="pred", argmax=True, to_onehot=2),
+        AsDiscreted(keys="label", to_onehot=2),
+        SaveImaged(keys="pred",
+                   meta_keys="pred_meta_dict",
+                   output_dir=root_dir + "out_" + out_tag + '/pred',
+                   output_postfix="pred", resample=False,
+                   separate_folder=False),
+    ])
+
+    if not os.path.exists(root_dir + "out_" + out_tag + '/pred'):
+        os.makedirs(root_dir + "out_" + out_tag + '/pred')
+
+    # removing sync on step as we are running on master node
+    dice_metric = DiceMetric(include_background=False, reduction="mean")
+    loader = LoadImage(image_only=False)
+
+    model.eval()
+
+    results = pd.DataFrame(columns=['id', 'dice', 'size', 'px_x', 'px_y', 'px_z', 'size_ml'])
+    results['id'] = ['test_' + str(item).zfill(3) for item in range(1, len(test_loader) + 1)]
+
+    with torch.no_grad():
+        for i, test_data in enumerate(test_loader):
+            test_inputs = test_data["image_b1000"].to(rank)
+
+            test_data["pred"] = model(test_inputs)
+
+            test_data = [post_transforms(i) for i in decollate_batch(test_data)]
+
+            test_output, test_label, test_image = from_engine(["pred", "label", "image_b1000"])(test_data)
+
+            a = dice_metric(y_pred=test_output, y=test_label)
+
+            dice_score = round(a.item(), 4)
+            print(f"Dice score for image: {dice_score:.4f}")
+
+            # get original image, and normalize it so we can see the normalized image
+            # this is both channels
+            original_image = loader(test_data[0]["image_meta_dict"]["filename_or_obj"])
+            volx, voly, volz = original_image[1]['pixdim'][1:4] # meta data
+            pixel_vol = volx * voly * volz
+
+            original_image = original_image[0] # image data
+            original_adc = original_image[:, :, :, 1]
+            original_image = original_image[:, :, :, 0]
+            ground_truth = test_label[0][1].detach().numpy()
+            prediction = test_output[0][1].detach().numpy()
+            transformed_image = test_inputs[0][0].detach().cpu().numpy()
+            size = ground_truth.sum()
+            size_ml = size * pixel_vol / 1000
+            size_pred = prediction.sum()
+            size_pred_ml = size_pred * pixel_vol / 1000
+            name = "test_" + os.path.basename(
+                test_data[0]["image_meta_dict"]["filename_or_obj"]).split('.nii.gz')[0].split('_')[1]
+            save_loc = root_dir + "out_" + out_tag + "/images/" + name + "_"
+
+            if not os.path.exists(root_dir + "out_" + out_tag + "/images/"):
+                os.makedirs(root_dir + "out_" + out_tag + "/images/")
+
+            # create_paper_img(
+            #     original_image,
+            #     ground_truth,
+            #     prediction,
+            #     save_loc + "paper.png",
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300
+            # )
+            # create_mr_img(
+            #     original_image,
+            #     save_loc + "dwi.png",
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300)
+            # create_adc_img(
+            #     original_adc,
+            #     save_loc + "adc.png",
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300)
+            #
+            # [create_mrlesion_img(
+            #     original_image,
+            #     im,
+            #     save_loc + name + '.png',
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300) for im, name in zip([prediction, ground_truth], ["pred", "truth"])]
+            #
+            # create_mr_big_img(transformed_image,
+            #                   save_loc + "dwi_tran.png",
+            #                   define_dvalues_big(transformed_image),
+            #                   'png',
+            #                   dpi=300)
+
+
+            results.loc[results.id == name, 'size_ml'] = size_ml
+            results.loc[results.id == name, 'size_pred_ml'] = size_pred_ml
+            results.loc[results.id == name, 'dice'] = dice_score
+
+        # aggregate the final mean dice result
+        metric = dice_metric.aggregate().item()
+        # reset the status for next validation round
+        dice_metric.reset()
+
+    print(f"Mean dice on test set: {metric:.4f}")
+
+    results['mean_dice'] = metric
+
+    # from sklearn.cluster import k_means
+    # kmeans_labels = k_means(
+    #     np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
+    #     n_clusters=2,
+    #     random_state=0)[1]
+
+    print(results)
+    results.to_csv(root_dir + 'out_' + out_tag + '/results.csv', index=False)
 
 
 if __name__ == "__main__":

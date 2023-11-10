@@ -412,64 +412,46 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
             if not os.path.exists(directory + "out_" + out_tag + "/images/"):
                 os.makedirs(directory + "out_" + out_tag + "/images/")
 
-            create_paper_img(
-                original_image,
-                ground_truth,
-                prediction,
-                save_loc + "paper.png",
-                define_dvalues(original_image),
-                'png',
-                dpi=300
-            )
-            create_mr_img(
-                original_image,
-                save_loc + "dwi.png",
-                define_dvalues(original_image),
-                'png',
-                dpi=300)
-            create_adc_img(
-                original_adc,
-                save_loc + "adc.png",
-                define_dvalues(original_image),
-                'png',
-                dpi=300)
+            # create_paper_img(
+            #     original_image,
+            #     ground_truth,
+            #     prediction,
+            #     save_loc + "paper.png",
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300
+            # )
+            # create_mr_img(
+            #     original_image,
+            #     save_loc + "dwi.png",
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300)
+            # create_adc_img(
+            #     original_adc,
+            #     save_loc + "adc.png",
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300)
+            #
+            # [create_mrlesion_img(
+            #     original_image,
+            #     im,
+            #     save_loc + name + '.png',
+            #     define_dvalues(original_image),
+            #     'png',
+            #     dpi=300) for im, name in zip([prediction, ground_truth], ["pred", "truth"])]
+            #
+            # create_mr_big_img(transformed_image,
+            #                   save_loc + "dwi_tran.png",
+            #                   define_dvalues_big(transformed_image),
+            #                   'png',
+            #                   dpi=300)
 
-            [create_mrlesion_img(
-                original_image,
-                im,
-                save_loc + name + '.png',
-                define_dvalues(original_image),
-                'png',
-                dpi=300) for im, name in zip([prediction, ground_truth], ["pred", "truth"])]
-
-            create_mr_big_img(transformed_image,
-                              save_loc + "dwi_tran.png",
-                              define_dvalues_big(transformed_image),
-                              'png',
-                              dpi=300)
-
-            # # uncomment below to visualise results.
-            # plt.figure("check", (24, 6))
-            # plt.subplot(1, 4, 1)
-            # plt.imshow(original_image[:, :, 12], cmap="gray")
-            # plt.title(f"image {name}")
-            # plt.subplot(1, 4, 2)
-            # plt.imshow(test_image[0].detach().cpu()[0, :, :, 12], cmap="gray")
-            # plt.title(f"transformed image {name}")
-            # plt.subplot(1, 4, 3)
-            # plt.imshow(test_label[0].detach().cpu()[:, :, 12])
-            # plt.title(f"label {name}")
-            # plt.subplot(1, 4, 4)
-            # plt.imshow(test_output[0].detach().cpu()[1, :, :, 12])
-            # plt.title(f"Dice score {dice_score}")
-            # plt.show()
 
             results.loc[results.id == name, 'size'] = size
             results.loc[results.id == name, 'size_ml'] = size_ml
             results.loc[results.id == name, 'size_pred_ml'] = size_pred_ml
-            results.loc[results.id == name, 'px_x'] = volx
-            results.loc[results.id == name, 'px_y'] = voly
-            results.loc[results.id == name, 'px_z'] = volz
             results.loc[results.id == name, 'dice'] = dice_score
 
         # aggregate the final mean dice result
@@ -481,13 +463,6 @@ def main(directory, ctp_df, model_path, out_tag, acute, follow_up, isles, ddp=Fa
 
     results['mean_dice'] = metric
 
-    # from sklearn.cluster import k_means
-    # kmeans_labels = k_means(
-    #     np.reshape(np.asarray(results['size'].to_list()), (-1,1)),
-    #     n_clusters=2,
-    #     random_state=0)[1]
-    # kmeans_labels = ["small-medium" if label==0 else "medium-large" for label in kmeans_labels]
-    # results['size_label']=kmeans_labels
     results_join = results.join(
         ctp_df[~ctp_df.index.duplicated(keep='first')],
         on='id',

@@ -87,14 +87,14 @@ def main():
     train_files = semi_files + train_files
 
     corrections = get_corrections()
-    isles = BuildDataset(root_dir, 'ISLES22').images_dict[:100]
+    isles = BuildDataset(root_dir, 'ISLES22').images_dict[:80]
     print(f"Number of corrections added: {len(corrections)}")
     train_files = train_files + semi_files + corrections + isles
 
     set_determinism(seed=42)
 
     max_epochs = 600
-    batch_size = 2
+    batch_size = 1
     image_size = (128, 128, 128)
     train_transforms = Compose(
         [
