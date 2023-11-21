@@ -81,7 +81,7 @@ def get_subject_results(subject, dl_id, gt_folder, atlas, directory):
     fpr, tpr, threshold = roc_curve(gt_flat[np.where((gt_flat == 1)|(gt_flat == 0))], core_flat[np.where((core_flat == 1)| (core_flat == 0))])
     roc_auc = auc(fpr, tpr)
     # gt_flat, core_flat = [int(arr) for arr in [gt_flat, core_flat]]
-    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_roc_auc, ppv, npv, gt_flat, core_flat
+    return core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_roc_auc, ppv, npv#, gt_flat, core_flat
 
 
 def main(out_tag):
@@ -94,17 +94,17 @@ def main(out_tag):
 
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-06-09T0451.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-09-25T0635.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
-    elif os.path.exists('Z:/data_freda'):
-        mediaflux = 'Z:'
+    elif os.path.exists('X:/data_freda'):
+        mediaflux = 'X:'
         atlas = 'Y:'
-        directory = 'Z:/data_freda/ctp_project/CTP_DL_Data/'
+        directory = 'X:/data_freda/ctp_project/CTP_DL_Data/'
         ctp_dl_df = pd.read_csv(HOMEDIR + 'PycharmProjects/study_design/study_lists/data_for_ctp_dl.csv',
                                 usecols=['subject', 'segmentation_type', 'dl_id'])
-        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-06-09T0451.xlsx',
+        atlas_df = pd.read_excel(HOMEDIR + 'PycharmProjects/study_design/ATLAS_clinical_2023-09-25T0635.xlsx',
                                  sheet_name='Sheet1',
                                  header=[0],
                                  usecols=['INSPIRE ID', 'Occlusion severity (TIMI:0=complete occlusion, 3=normal)'])
@@ -133,7 +133,7 @@ def main(out_tag):
         print("Running for {}".format(subject))
         dl_id = str(results_df.loc[results_df.subject == subject, 'id'].values[0]).zfill(3)
         results = get_subject_results(subject, dl_id, gt_folder, atlas, directory)
-        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_auc, ppv, npv , _, _= results
+        core_volume, penumbra_volume, dice_mistar, sensitivity, specificity, roc_auc, old_auc, ppv, npv= results
 
         results_df.loc[results_df.subject == subject, 'mistar_core'] = core_volume
         results_df.loc[results_df.subject == subject, 'mistar_penumbra'] = penumbra_volume
@@ -145,10 +145,10 @@ def main(out_tag):
         results_df.loc[results_df.subject == subject, 'mistar_auc'] = roc_auc
         results_df.loc[results_df.subject == subject, 'old_auc'] = old_auc
 
-        gt_array = results[-2].tolist()
-        core_array = results[-1].tolist()
-        gts_flat.extend(gt_array)
-        cores_flat.extend(core_array)
+        # gt_array = results[-2].tolist()
+        # core_array = results[-1].tolist()
+        # gts_flat.extend(gt_array)
+        # cores_flat.extend(core_array)
 
     results_df['mistar_mean_dice'] = results_df.mistar_dice.mean()
     results_df['mistar_mean_auc'] = results_df.mistar_auc.mean()
