@@ -53,7 +53,7 @@ def get_subject_results(subject, dl_id, gt_folder, atlas, directory):
     num_penumbra_pixels = penumbra.sum()
     # get spacing and calculate volumes in mL
     x, y, z = mistar_img.GetSpacing()
-    volume = (x * y * x) / 1000
+    volume = (x * y * z) / 1000
     core_volume = num_core_pixels * volume
     penumbra_volume = num_penumbra_pixels * volume
 
