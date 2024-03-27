@@ -82,7 +82,7 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
                                dpi=250):
     dwi_ct_img, gt, proba = [np.rot90(im) for im in [dwi_ct_img, gt, proba]]
     dwi_ct_img, gt, proba = [np.fliplr(im) for im in [dwi_ct_img, gt, proba]]
-    proba_mask = proba == 0
+    proba_mask = proba < 0.05
     masked_dwi = np.ma.array(dwi_ct_img, mask=~proba_mask)
     gt_mask = gt == 0
     masked_dwi_gt = np.ma.array(dwi_ct_img, mask=~gt_mask)
@@ -95,16 +95,16 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
     for i in range(6):
         print(i)
 
+        # axs[i].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+        #               interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+        # axs[i].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
+        # axs[i].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
+        #               interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
         axs[i].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                       interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
-        axs[i].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
-        axs[i].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
-                      interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
-        axs[i+6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
-                      interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
-        axs[i+6].imshow(proba[:, :, z[i]], cmap='YlOrRd',
+        axs[i].imshow(proba[:, :, z[i]], cmap='YlOrRd',
                       interpolation='hanning', alpha=0.6, vmin=-0.3, vmax=1.2)
-        axs[i+6].imshow(masked_dwi[:, :, z[i]],
+        axs[i].imshow(masked_dwi[:, :, z[i]],
                       cmap='gray', interpolation='hanning',
                       alpha=1, vmin=10, vmax=dwi_ct_img.max())
     if 12 > len(z):
@@ -113,16 +113,16 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
         max2 = 12
     for i in range(6, max2):
         print(i)
+        # axs[i + 6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+        #               interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+        # axs[i + 6].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
+        # axs[i + 6].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
+        #               interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
         axs[i + 6].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
-                      interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
-        axs[i + 6].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
-        axs[i + 6].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
-                      interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
-        axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                           interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
-        im = axs[i + 12].imshow(proba[:, :, z[i]], cmap='YlOrRd',
+        im = axs[i + 6].imshow(proba[:, :, z[i]], cmap='YlOrRd',
                           interpolation='hanning', alpha=0.6, vmin=-0.3, vmax=1.2)
-        axs[i + 12].imshow(masked_dwi[:, :, z[i]],
+        axs[i + 6].imshow(masked_dwi[:, :, z[i]],
                           cmap='gray', interpolation='hanning',
                           alpha=1, vmin=10, vmax=dwi_ct_img.max())
     if not 12 > len(z):
@@ -132,16 +132,16 @@ def create_dwi_ctp_proba_image(dwi_ct_img,
             max3 = len(z)
         for i in range(12, max3):
             print(i)
+            # axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
+            #               interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
+            # axs[i + 12].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
+            # axs[i + 12].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
+            #        interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
             axs[i + 12].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
-                          interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
-            axs[i + 12].imshow(gt[:, :, z[i]], cmap='Reds', interpolation='hanning', alpha=0.2)
-            axs[i + 12].imshow(masked_dwi_gt[:, :, z[i]], cmap='gray',
-                   interpolation='hanning', alpha=1, vmin=10, vmax=dwi_ct_img.max())
-            axs[i + 18].imshow(dwi_ct_img[:, :, z[i]], cmap='gray',
                               interpolation='hanning', vmin=10, vmax=dwi_ct_img.max())
-            axs[i + 18].imshow(proba[:, :, z[i]], cmap='YlOrRd',
+            axs[i + 12].imshow(proba[:, :, z[i]], cmap='YlOrRd',
                               interpolation='hanning', alpha=0.6, vmin=-0.3, vmax=1.2)
-            axs[i + 18].imshow(masked_dwi[:, :, z[i]],
+            axs[i + 12].imshow(masked_dwi[:, :, z[i]],
                               cmap='gray', interpolation='hanning',
                               alpha=1, vmin=10, vmax=dwi_ct_img.max())
     cbar = plt.colorbar(im, ax=axs.ravel().tolist(), shrink=0.6, boundaries=[0,0.5, 1])
